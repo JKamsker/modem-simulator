@@ -4,12 +4,14 @@ import com.alegs3.modemsim.commands.CommandResult;
 import com.alegs3.modemsim.commands.DefaultCommandRouter;
 import com.alegs3.modemsim.commands.ResponseFormatter;
 import com.alegs3.modemsim.commands.ResponseFrame;
+import com.alegs3.modemsim.macros.FaultService;
+import com.alegs3.modemsim.macros.MacroDecision;
+import com.alegs3.modemsim.macros.MacroEngine;
 import com.alegs3.modemsim.monitor.Direction;
 import com.alegs3.modemsim.monitor.EventSink;
 import com.alegs3.modemsim.monitor.EventType;
 import com.alegs3.modemsim.monitor.InMemoryEventSink;
 import com.alegs3.modemsim.monitor.ModemEvent;
-import com.alegs3.modemsim.monitor.RedactionInfo;
 import com.alegs3.modemsim.parser.AtCommandParser;
 import com.alegs3.modemsim.parser.EntryMode;
 import com.alegs3.modemsim.parser.ParsedCommand;
@@ -17,47 +19,54 @@ import com.alegs3.modemsim.parser.RawBytes;
 import com.alegs3.modemsim.profiles.Profile;
 import com.alegs3.modemsim.scheduler.DeterministicScheduler;
 import com.alegs3.modemsim.scheduler.ScheduledEmission;
+import com.alegs3.modemsim.scheduler.SourcePriority;
 import com.alegs3.modemsim.scheduler.VirtualClock;
 import com.alegs3.modemsim.state.CallMode;
+import com.alegs3.modemsim.state.CallRuntime;
 import com.alegs3.modemsim.state.ModemState;
+import com.alegs3.modemsim.state.NetworkDelay;
 
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public final class HeadlessSession implements SessionActor {
     private final String sessionId;
     private final Profile profile;
-    private final long sessionSeed;
-    private final EventSink eventSink;
-    private final InMemoryEventSink memorySink;
     private final DefaultCommandRouter router = new DefaultCommandRouter();
+    private final MacroEngine macroEngine;
+    private final FaultService faultService = new FaultService();
     private final VirtualClock clock = new VirtualClock();
     private final DeterministicScheduler scheduler;
+    private final SmsSubmitProcessor smsSubmitProcessor = new SmsSubmitProcessor();
+    private final SessionEventPublisher events;
 
-    private long eventSequence;
     private ModemState state;
     private RawBytes lastCommandLine = RawBytes.empty();
+    private PendingSms pendingSms;
 
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed) {
-        this(sessionId, profile, sessionSeed, new InMemoryEventSink());
+        this(sessionId, profile, sessionSeed, new InMemoryEventSink(), MacroEngine.empty());
     }
 
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink) {
+        this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty());
+    }
+
+    public HeadlessSession(
+            String sessionId, Profile profile, long sessionSeed, EventSink eventSink, MacroEngine macroEngine) {
         this.sessionId = sessionId;
         this.profile = profile;
-        this.sessionSeed = sessionSeed;
-        this.eventSink = eventSink;
-        this.memorySink = eventSink instanceof InMemoryEventSink sink ? sink : null;
+        this.macroEngine = macroEngine;
         this.scheduler = new DeterministicScheduler(sessionSeed);
+        this.events = new SessionEventPublisher(sessionId, profile.id(), clock, eventSink);
         this.state = profile.initialState();
         publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
     }
 
     @Override
     public SessionResponse receive(RawBytes bytes) {
+        if (pendingSms != null) {
+            return receiveSmsEntry(bytes);
+        }
         int start = eventCount();
         RawBytes output = RawBytes.empty();
         publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
@@ -71,11 +80,15 @@ public final class HeadlessSession implements SessionActor {
         }
         CommandResult finalResult = null;
         for (ParsedCommand command : commands) {
-            publishParsed(command);
+            events.publishParsed(command, state);
             ModemState before = state;
-            CommandResult result = router.route(profile, state, command);
+            MacroDecision decision = macroEngine.evaluateCommand(command, state, profile);
+            CommandResult result = decision.matched() ? executeMacro(decision) : router.route(profile, state, command);
             state = result.state();
             output = output.append(renderFrames(result.frames()));
+            if (command.normalizedName().equals("+CMGS") && result.finalResult() == null) {
+                pendingSms = PendingSms.from(command, state.sms().textMode());
+            }
             publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), command, before, state, result);
             finalResult = result;
             if (result.stopLine()) {
@@ -91,6 +104,42 @@ public final class HeadlessSession implements SessionActor {
         return response(output, start);
     }
 
+    private SessionResponse receiveSmsEntry(RawBytes bytes) {
+        int start = eventCount();
+        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        byte[] raw = bytes.toByteArray();
+        SmsSubmitResult result;
+        Integer macroDelayMs = null;
+        String macroOperation = null;
+        String body = entryPayload(raw);
+        MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
+        if (contains(raw, 27)) {
+            result = smsSubmitProcessor.abort(state);
+        } else if (decision.matched()) {
+            ModemState macroState = applyFaults(state.withCall(CallRuntime.command()), decision);
+            RawBytes macroOutput = renderFrames(decision.frames());
+            macroDelayMs = decision.delayMs();
+            macroOperation = "macro-" + decision.macroId();
+            result = new SmsSubmitResult(macroState, macroOutput, "MACRO");
+        } else if (contains(raw, 26)) {
+            result = smsSubmitProcessor.submit(pendingSms, body, clock.nowNanos(), state);
+        } else {
+            return response(RawBytes.empty(), start);
+        }
+        ModemState before = state;
+        state = result.state();
+        pendingSms = null;
+        RawBytes output = macroDelayMs == null
+                ? scheduleOrReturn("sms-submit", result.response())
+                : scheduleOrReturn(macroOperation, result.response(), macroDelayMs);
+        publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
+                new CommandResult(state, List.of(), null, "SmsSubmitProcessor", false));
+        if (!output.isEmpty()) {
+            publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
+        }
+        return response(output, start);
+    }
+
     @Override
     public SessionResponse advanceTime(long millis) {
         int start = eventCount();
@@ -98,7 +147,7 @@ public final class HeadlessSession implements SessionActor {
         RawBytes output = RawBytes.empty();
         for (ScheduledEmission emission : scheduler.due(clock.nowNanos(), state.version())) {
             output = output.append(emission.payload());
-            publishScheduler(EventType.SCHEDULER_EMIT, emission);
+            events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state);
         }
         if (!output.isEmpty()) {
             publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
@@ -111,7 +160,7 @@ public final class HeadlessSession implements SessionActor {
         RawBytes output = RawBytes.empty();
         for (ScheduledEmission emission : scheduler.drainAll(clock, state.version())) {
             output = output.append(emission.payload());
-            publishScheduler(EventType.SCHEDULER_EMIT, emission);
+            events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state);
         }
         if (!output.isEmpty()) {
             publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
@@ -133,6 +182,42 @@ public final class HeadlessSession implements SessionActor {
         return output;
     }
 
+    private RawBytes scheduleOrReturn(String operation, RawBytes payload) {
+        NetworkDelay delay = state.network() == null ? null : state.network().delays().get(operation);
+        return scheduleOrReturn(operation, payload, delay);
+    }
+
+    private RawBytes scheduleOrReturn(String operation, RawBytes payload, int delayMs) {
+        NetworkDelay delay = delayMs <= 0 ? null : new NetworkDelay(operation, delayMs, delayMs);
+        return scheduleOrReturn(operation, payload, delay);
+    }
+
+    private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay) {
+        if (delay == null || delay.maxMs() == 0) {
+            return payload;
+        }
+        ScheduledEmission emission = scheduler.enqueue(
+                clock.nowNanos(), events.nextSequence(), SourcePriority.RX, payload, state.version(), operation, delay);
+        events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, state);
+        return RawBytes.empty();
+    }
+
+    private CommandResult executeMacro(MacroDecision decision) {
+        ModemState next = applyFaults(state, decision);
+        RawBytes output = renderFrames(decision.frames());
+        RawBytes effective = scheduleOrReturn("macro-" + decision.macroId(), output, decision.delayMs());
+        return new CommandResult(next, List.of(new com.alegs3.modemsim.commands.RawFrame(effective)),
+                null, "Macro:" + decision.macroId(), true);
+    }
+
+    private ModemState applyFaults(ModemState source, MacroDecision decision) {
+        ModemState next = source;
+        for (var fault : decision.faults()) {
+            next = faultService.apply(next, fault);
+        }
+        return next;
+    }
+
     private EntryMode entryMode() {
         return switch (state.call().mode()) {
             case ONLINE_DATA -> EntryMode.ONLINE_DATA;
@@ -144,11 +229,7 @@ public final class HeadlessSession implements SessionActor {
     }
 
     private SessionResponse response(RawBytes output, int start) {
-        return new SessionResponse(output, eventsSince(start));
-    }
-
-    private void publishParsed(ParsedCommand command) {
-        publish(EventType.PARSED_COMMAND, Direction.INTERNAL, command.sourceLine(), command, null, state, null);
+        return new SessionResponse(output, events.eventsSince(start));
     }
 
     private void publish(
@@ -159,62 +240,27 @@ public final class HeadlessSession implements SessionActor {
             ModemState before,
             ModemState after,
             CommandResult result) {
-        eventSink.publish(new ModemEvent(
-                OffsetDateTime.now(),
-                clock.nowNanos(),
-                ++eventSequence,
-                sessionId,
-                type,
-                direction,
-                raw.toHex(),
-                escape(raw.ascii()),
-                parsed(command),
-                profile.id(),
-                result == null ? null : result.handler(),
-                result == null || result.finalResult() == null ? null : result.finalResult().name(),
-                null,
-                before,
-                after,
-                RedactionInfo.none()));
+        events.publish(type, direction, raw, command, before, after, result);
     }
 
-    private void publishScheduler(EventType type, ScheduledEmission emission) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("dueMonotonicNanos", emission.dueMonotonicNanos());
-        data.put("sourceSequence", emission.sequence());
-        data.put("sourcePriority", emission.sourcePriority().name().toLowerCase());
-        data.put("sampledDelayMs", emission.sampledDelayMs());
-        data.put("cancelled", false);
-        eventSink.publish(new ModemEvent(
-                OffsetDateTime.now(), clock.nowNanos(), ++eventSequence, sessionId,
-                type, Direction.INTERNAL, "", null, null, profile.id(), null,
-                null, data, null, state, RedactionInfo.none()));
-    }
-
-    private Map<String, Object> parsed(ParsedCommand command) {
-        if (command == null) {
-            return null;
+    private boolean contains(byte[] bytes, int expected) {
+        for (byte value : bytes) {
+            if ((value & 0xFF) == expected) {
+                return true;
+            }
         }
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("name", command.normalizedName());
-        data.put("kind", command.kind().name());
-        data.put("arguments", command.arguments());
-        return data;
+        return false;
     }
 
-    private String escape(String text) {
-        return text.replace("\r", "\\r").replace("\n", "\\n");
+    private String entryPayload(byte[] raw) {
+        int end = 0;
+        while (end < raw.length && raw[end] != 26) {
+            end++;
+        }
+        return new String(raw, 0, end, java.nio.charset.StandardCharsets.US_ASCII);
     }
 
     private int eventCount() {
-        return memorySink == null ? 0 : memorySink.events().size();
-    }
-
-    private List<ModemEvent> eventsSince(int start) {
-        if (memorySink == null) {
-            return List.of();
-        }
-        List<ModemEvent> events = memorySink.events();
-        return new ArrayList<>(events.subList(Math.min(start, events.size()), events.size()));
+        return events.eventCount();
     }
 }

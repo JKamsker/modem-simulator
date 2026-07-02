@@ -9,7 +9,7 @@ import com.alegs3.modemsim.state.ModemState;
 import java.util.List;
 
 public final class DefaultCommandRouter {
-    private final List<CommandHandler> handlers = List.of(new HayesHandler(), new CellularHandler());
+    private final List<CommandHandler> handlers = List.of(new HayesHandler(), new CellularHandler(), new SmsHandler());
 
     public CommandResult route(Profile profile, ModemState state, ParsedCommand command) {
         if (state.modem().lifecycle() == ModemLifecycle.FROZEN) {

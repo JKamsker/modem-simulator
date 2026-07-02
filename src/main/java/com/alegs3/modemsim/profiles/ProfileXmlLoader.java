@@ -203,7 +203,8 @@ public final class ProfileXmlLoader {
                 Dom.boolAttr(sms, "textMode", true),
                 Dom.attr(sms, "smsc", fallback.smsc()),
                 SmsStorage.valueOf(Dom.attr(sms, "storage", fallback.storage().name())),
-                fallback.nextMessageReference());
+                fallback.nextMessageReference(),
+                fallback.messages());
     }
 
     private CallRuntime parseCall(Element call, CallRuntime fallback) {

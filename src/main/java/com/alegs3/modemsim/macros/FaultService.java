@@ -1,0 +1,43 @@
+package com.alegs3.modemsim.macros;
+
+import com.alegs3.modemsim.state.FreezeMode;
+import com.alegs3.modemsim.state.ModemLifecycle;
+import com.alegs3.modemsim.state.ModemRuntimeInfo;
+import com.alegs3.modemsim.state.ModemState;
+import com.alegs3.modemsim.state.NetworkRuntime;
+import com.alegs3.modemsim.state.SignalRuntime;
+
+public final class FaultService {
+    public ModemState apply(ModemState state, FaultAction action) {
+        return switch (action.type()) {
+            case "network-outage" -> networkOutage(state);
+            case "network-restore" -> networkRestore(state, action);
+            case "modem-reboot" -> state.withModem(new ModemRuntimeInfo(
+                    ModemLifecycle.REBOOTING, FreezeMode.NONE, value(action.durationMs(), 0)));
+            case "modem-freeze" -> state.withModem(state.modem().frozen(
+                    action.freezeMode() == null ? FreezeMode.NO_RESPONSE : action.freezeMode()));
+            case "modem-unfreeze" -> state.withModem(state.modem().withLifecycle(ModemLifecycle.READY));
+            default -> state;
+        };
+    }
+
+    private ModemState networkOutage(ModemState state) {
+        if (state.network() == null) {
+            return state;
+        }
+        return state.withNetwork(state.network().withRegistration(4)).withSignal(SignalRuntime.unknown());
+    }
+
+    private ModemState networkRestore(ModemState state, FaultAction action) {
+        if (state.network() == null) {
+            return state;
+        }
+        NetworkRuntime network = state.network().withRegistration(value(action.stat(), 1));
+        SignalRuntime signal = new SignalRuntime(value(action.rssi(), 18), value(action.ber(), 0));
+        return state.withNetwork(network).withSignal(signal);
+    }
+
+    private int value(Integer value, int fallback) {
+        return value == null ? fallback : value;
+    }
+}
