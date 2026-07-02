@@ -12,7 +12,7 @@
 
 ## v0.3 - 2026-07-02
 
-- Alegs3-Spec als Source of Record markiert.
+- JKamsker-Spec als Source of Record markiert.
 - XSD als autoritatives Runtime-Profilformat festgelegt; JSON-Profil-Schema zu Catalog/Coverage-Helper demotiert.
 - SessionActor, deterministischen Scheduler, `sessionSeed`, virtuelle Clock und Replay-Modi spezifiziert.
 - v1-Zielprofile, JavaFX-GUI, Ziel-OS, Virtual-COM-Tools und TCP-Bridge-Out-of-Scope festgelegt.

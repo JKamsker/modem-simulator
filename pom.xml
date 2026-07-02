@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.alegs3</groupId>
+  <groupId>com.jkamsker</groupId>
   <artifactId>modem-simulator</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <name>Modem Simulator</name>
@@ -144,7 +144,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.5.1</version>
         <configuration>
-          <mainClass>com.alegs3.modemsim.app.ModemSimCli</mainClass>
+          <mainClass>com.jkamsker.modemsim.app.ModemSimCli</mainClass>
         </configuration>
       </plugin>
       <plugin>

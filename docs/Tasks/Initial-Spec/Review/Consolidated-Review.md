@@ -1,15 +1,15 @@
 # Consolidated Adversarial Review — Initial-Spec (v0.2)
 
-**Target of record:** `C:\Users\Jonas\repos\private\Alegs3\modem-simulator\docs\Tasks\Initial-Spec` (Alegs3 copy — GUI, Java 24).
+**Target of record:** `C:\Users\Jonas\repos\private\JKamsker\modem-simulator\docs\Tasks\Initial-Spec` (JKamsker copy — GUI, Java 24).
 **Method:** Two independent adversarial reviews were reconciled:
 
-- **[WF]** A Claude multi-agent workflow: 8 dimensional finders → 68 findings → 68 independent refutation passes (adversarial verify). 65 survived, 3 refuted. *(Ran against a divergent worktree copy; all findings re-mapped to Alegs3 line numbers below. Schemas, ch.04–09, and the example/scenario XML are byte-identical between the two copies, so protocol/schema findings port over verbatim.)*
+- **[WF]** A Claude multi-agent workflow: 8 dimensional finders → 68 findings → 68 independent refutation passes (adversarial verify). 65 survived, 3 refuted. *(Ran against a divergent worktree copy; all findings re-mapped to JKamsker line numbers below. Schemas, ch.04–09, and the example/scenario XML are byte-identical between the two copies, so protocol/schema findings port over verbatim.)*
 - **[CX]** Codex review — `Review/Codex-Findings.md` (10 lenses + local consistency pass, 24 findings).
 - **[+]** Direct re-reading/verification by the consolidating reviewer.
 
 Provenance tags: **[WF]** workflow-verified · **[CX]** Codex · **[WF+CX]** both independently · **[+]** verified here.
 
-> **Note on divergence:** A second copy of this spec exists at `D:\…\objective-bell-68588e\…\Initial-Spec` (Java 21, REST/WebSocket API, no GUI). The two have diverged on nearly every file. This report treats the Alegs3 copy as authoritative. See **D0** below — the divergence itself is a finding.
+> **Note on divergence:** A second copy of this spec exists at `D:\…\objective-bell-68588e\…\Initial-Spec` (Java 21, REST/WebSocket API, no GUI). The two have diverged on nearly every file. This report treats the JKamsker copy as authoritative. See **D0** below — the divergence itself is a finding.
 
 ---
 
@@ -152,13 +152,13 @@ GUI is now v1-mandatory (`spec/01_…:17,25`, `spec/08_…:7-21`, acceptance #13
 
 - **"XSD has no home for vendor/status/commands/registers/coverage/deviations."** *Partly* refuted as stated — narrowed and kept as **C1** (vendor/status/extends are the real, verifiable gaps; the broad claim overreached).
 - **"The multi-threaded Response-Scheduler makes RNG draw-order non-deterministic, so seeding is unachievable."** Refuted: draws can be taken deterministically at enqueue time on the single executor. The real, kept issue is that the seed/ordering is simply *undefined* (**C2**), not unachievable.
-- **"Remote-injection guardrails (mTLS/token/localhost/rate-limit) are missing."** Refuted for Alegs3: v1 has **no HTTP/WebSocket API** (`spec/01_…:34`, `spec/08_…:82`), so the remote threat model doesn't apply. (It *did* apply to the worktree copy — see D0.)
+- **"Remote-injection guardrails (mTLS/token/localhost/rate-limit) are missing."** Refuted for JKamsker: v1 has **no HTTP/WebSocket API** (`spec/01_…:34`, `spec/08_…:82`), so the remote threat model doesn't apply. (It *did* apply to the worktree copy — see D0.)
 
 ---
 
 ## Worktree-divergence note
 
-- **D0 — Two divergent spec copies, no source-of-record statement.** The worktree copy (`D:\…\objective-bell-68588e`) is Java 21 with a REST/WebSocket control API and no GUI; this Alegs3 copy is Java 24, GUI-mandatory, REST/WS removed. Nearly every file differs. Codex's own #21 flags "package-of-record is unclear." **Action:** retire one copy or record which is canonical. *(The workflow's single CRITICAL — invalid JSON with literal newlines in `examples/injection-api.examples.http` and `spec/08` — applies only to the worktree copy, which still ships the REST examples; it does not exist in Alegs3.)*
+- **D0 — Two divergent spec copies, no source-of-record statement.** The worktree copy (`D:\…\objective-bell-68588e`) is Java 21 with a REST/WebSocket control API and no GUI; this JKamsker copy is Java 24, GUI-mandatory, REST/WS removed. Nearly every file differs. Codex's own #21 flags "package-of-record is unclear." **Action:** retire one copy or record which is canonical. *(The workflow's single CRITICAL — invalid JSON with literal newlines in `examples/injection-api.examples.http` and `spec/08` — applies only to the worktree copy, which still ships the REST examples; it does not exist in JKamsker.)*
 
 ---
 

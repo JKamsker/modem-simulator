@@ -8,7 +8,7 @@ Dieses Paket enthält eine modularisierte Markdown-Spezifikation für ein Java-P
 
 ## Source of Record
 
-Diese Alegs3-Kopie unter `docs/Tasks/Initial-Spec` ist der Source of Record fuer v1. Abweichende Arbeitskopien duerfen nicht als normative Quelle verwendet werden, solange diese README keinen neuen Source-of-Record-Eintrag nennt.
+Diese JKamsker-Kopie unter `docs/Tasks/Initial-Spec` ist der Source of Record fuer v1. Abweichende Arbeitskopien duerfen nicht als normative Quelle verwendet werden, solange diese README keinen neuen Source-of-Record-Eintrag nennt.
 
 ## Inhalt
 

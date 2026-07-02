@@ -3,7 +3,7 @@
 ## Paketstruktur
 
 ```text
-com.alegs3.modemsim
+com.jkamsker.modemsim
   app
   transport
   parser
