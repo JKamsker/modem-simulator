@@ -2,6 +2,7 @@ package com.jkamsker.modemsim.monitor;
 
 public enum EventType {
     SESSION_START,
+    SESSION_STOP,
     RX_BYTES,
     TX_BYTES,
     PARSED_COMMAND,
@@ -9,7 +10,10 @@ public enum EventType {
     SCHEDULER_ENQUEUE,
     SCHEDULER_EMIT,
     STATE_CHANGE,
+    MACRO_DECISION,
     FAULT_TRIGGERED,
     INJECTION,
-    AUDIT_FAILURE
+    AUDIT_FAILURE,
+    REPLAY_MARKER,
+    PORT_LOST
 }

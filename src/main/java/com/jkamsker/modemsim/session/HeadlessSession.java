@@ -57,8 +57,8 @@ public final class HeadlessSession implements SessionActor {
         this.profile = profile;
         this.macroEngine = macroEngine;
         this.scheduler = new DeterministicScheduler(sessionSeed);
-        this.events = new SessionEventPublisher(sessionId, profile.id(), clock, eventSink);
         this.state = profile.initialState();
+        this.events = new SessionEventPublisher(sessionId, profile.id(), sessionSeed, state, clock, eventSink);
         publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
     }
 
@@ -106,7 +106,7 @@ public final class HeadlessSession implements SessionActor {
 
     private SessionResponse receiveSmsEntry(RawBytes bytes) {
         int start = eventCount();
-        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null, true);
         byte[] raw = bytes.toByteArray();
         SmsSubmitResult result;
         Integer macroDelayMs = null;
@@ -133,7 +133,7 @@ public final class HeadlessSession implements SessionActor {
                 ? scheduleOrReturn("sms-submit", result.response())
                 : scheduleOrReturn(macroOperation, result.response(), macroDelayMs);
         publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
-                new CommandResult(state, List.of(), null, "SmsSubmitProcessor", false));
+                new CommandResult(state, List.of(), null, "SmsSubmitProcessor", false), true);
         if (!output.isEmpty()) {
             publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
@@ -241,6 +241,18 @@ public final class HeadlessSession implements SessionActor {
             ModemState after,
             CommandResult result) {
         events.publish(type, direction, raw, command, before, after, result);
+    }
+
+    private void publish(
+            EventType type,
+            Direction direction,
+            RawBytes raw,
+            ParsedCommand command,
+            ModemState before,
+            ModemState after,
+            CommandResult result,
+            boolean smsBodyEntry) {
+        events.publish(type, direction, raw, command, before, after, result, smsBodyEntry);
     }
 
     private boolean contains(byte[] bytes, int expected) {
