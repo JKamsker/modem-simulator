@@ -58,3 +58,29 @@ Diese Dateien stammen nicht von der offiziellen Sierra-Quelle und muessen entspr
 | `thirdparty-mikroe-hl781x-datasheet.pdf` | <https://download.mikroe.com/documents/datasheets/HL781x_datasheet.pdf> | Verwandtes HL781x-Datenblatt, keine AT-Commands-Referenz. |
 
 Keine Zugangsdaten wurden gelesen oder verwendet.
+
+## Markdown-Extraktion
+
+Alle PDF-Dateien in diesem Ordner wurden zusaetzlich als gleichnamige `.md`-Datei neben dem PDF abgelegt. Die Konvertierung erfolgte mit `pypdf 6.14.2` am 2026-07-02.
+
+Hinweis: Die Markdown-Dateien sind Such- und Review-Hilfen. Massgeblich bleibt das jeweilige PDF. Die Extraktion macht kein OCR und kann Tabellen, Spalten, Bilder sowie rotierte Texte unvollstaendig wiedergeben. `pypdf` hat bei einigen Seiten rotierte Texte gemeldet.
+
+| PDF | Markdown | Seiten | Seiten ohne extrahierbaren Text |
+|---|---|---:|---:|
+| `3gpp-27005.pdf` | `3gpp-27005.md` | 70 | 0 |
+| `3gpp-27007.pdf` | `3gpp-27007.md` | 465 | 0 |
+| `itu-v250.pdf` | `itu-v250.md` | 106 | 2 |
+| `sierra-mc-sl-umts-lte-v8.pdf` | `sierra-mc-sl-umts-lte-v8.md` | 296 | 3 |
+| `silabs-usb-cdc.pdf` | `silabs-usb-cdc.md` | 30 | 0 |
+| `thirdparty-bipom-sierra-em75xx-at-command-reference-rev2.pdf` | `thirdparty-bipom-sierra-em75xx-at-command-reference-rev2.md` | 140 | 2 |
+| `thirdparty-bipom-sierra-hl78xx-at-commands-rev11.pdf` | `thirdparty-bipom-sierra-hl78xx-at-commands-rev11.md` | 245 | 0 |
+| `thirdparty-digikey-airprime-hl78xx-devkit.pdf` | `thirdparty-digikey-airprime-hl78xx-devkit.md` | 68 | 0 |
+| `thirdparty-infopulsas-sierra-hl6-hl8-at-commands-rev16.pdf` | `thirdparty-infopulsas-sierra-hl6-hl8-at-commands-rev16.md` | 815 | 1 |
+| `thirdparty-mikroe-hl781x-datasheet.pdf` | `thirdparty-mikroe-hl781x-datasheet.md` | 85 | 0 |
+| `westermo-gd01.pdf` | `westermo-gd01.md` | 206 | 0 |
+| `westermo-gdw11.pdf` | `westermo-gdw11.md` | 380 | 1 |
+| `westermo-idw90.pdf` | `westermo-idw90.md` | 97 | 0 |
+| `westermo-td22.pdf` | `westermo-td22.md` | 51 | 0 |
+| `westermo-td32.pdf` | `westermo-td32.md` | 56 | 2 |
+| `westermo-td33.pdf` | `westermo-td33.md` | 36 | 0 |
+| `westermo-td36.pdf` | `westermo-td36.md` | 44 | 0 |
