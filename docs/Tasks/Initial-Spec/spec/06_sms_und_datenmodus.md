@@ -43,6 +43,48 @@ DCE -> +CMS ERROR: 123
 
 ```
 
+## Netzseitige SMS-Rate-Limits
+
+Das Profil kann definieren, wie viele SMS das simulierte Netz pro Zeitfenster akzeptiert. Das Limit liegt unter `initial-state/network`, weil es eine Eigenschaft des aktuell simulierten Netzes bzw. Netzbetreibers ist.
+
+```xml
+<network cregN="2" stat="1">
+  <sms-rate-limit maxMessages="5"
+                  windowSeconds="60"
+                  scope="session"
+                  rejectCmsError="310"/>
+</network>
+```
+
+Semantik:
+
+- `maxMessages` ist die Anzahl akzeptierter SMS innerhalb des Fensters.
+- `windowSeconds` ist die Laenge des Zeitfensters in Sekunden; die Implementierung verwendet ein Sliding Window pro Scope.
+- `scope=session` zaehlt alle SMS einer Session gemeinsam. Weitere zulaessige Scopes sind `recipient` und `operator`.
+- Wird das Limit ueberschritten, wird die SMS nicht gespeichert und nicht als versendet gezaehlt; der Handler liefert `+CMS ERROR: <rejectCmsError>`.
+- Fehlt `sms-rate-limit`, ist kein netzseitiges SMS-Rate-Limit aktiv.
+
+## Netzseitige Delays
+
+Das Profil kann fuer SMS-Versand, Einwahl und weitere netznahe Operationen Antwortverzoegerungen als Bereich definieren.
+
+```xml
+<network cregN="2" stat="1">
+  <delays>
+    <delay operation="sms-submit" minMs="500" maxMs="2500"/>
+    <delay operation="dial" minMs="1000" maxMs="5000"/>
+  </delays>
+</network>
+```
+
+Semantik:
+
+- `operation=sms-submit` gilt fuer die Zeit zwischen Ctrl-Z/PDU-Ende und finaler `+CMGS`-/`+CMS ERROR`-Antwort.
+- `operation=dial` gilt fuer die Zeit zwischen `ATD...` und `CONNECT`, `BUSY`, `NO CARRIER` oder Fehler.
+- Pro Ausfuehrung wird ein Wert im Bereich `minMs..maxMs` gezogen. Die Ziehung muss ueber den Session-Seed reproduzierbar sein.
+- Makro-Delays haben Vorrang, wenn ein Makro den Handler ersetzt; bei `before`/`after`-Makros werden Makro- und Profil-Delays additiv geplant.
+- Fehlt ein Delay fuer eine Operation, antwortet der Handler ohne zusaetzliche netzseitige Profilverzoegerung.
+
 ## SMS-Makro-Fall aus Anforderung
 
 Ziel: Input `smscommand dst` soll eine definierte Fehlerantwort erzeugen.
@@ -101,7 +143,7 @@ Das System muss Datenmodus mindestens syntaktisch abbilden:
 - `ATD<number>` -> `CONNECT` oder Fehler.
 - Nach `CONNECT`: Bytes werden transparent geloggt und nicht als AT interpretiert.
 - `+++` mit Guard-Time -> Online Command Mode.
-- `ATH` -> Hangup, `NO CARRIER`, DCD aus.
+- `ATH` -> Hangup, `NO CARRIER`; physisches DCD-Schalten ist in v1 nicht relevant.
 - `ATO` -> zurück in Online Data Mode.
 
 Die echte Modulation oder PSTN-Verbindung wird nicht simuliert; es geht um die Schnittstellenwirkung gegenüber dem DTE.

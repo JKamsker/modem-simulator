@@ -8,7 +8,7 @@
 | TD20-Referenz unklar | Falsche Westermo-Emulation | Candidate-Profil klar markieren, offizielles Manual beschaffen. |
 | Proprietäre Sierra-Befehle sind lizenz-/passwortgeschützt | Unvollständige Emulation | Nur Coverage/Stub, Implementierung nur mit erlaubter Referenz. |
 | SMS-PDU-Modus komplex | Fehler bei Binär-/Unicode-SMS | Textmodus in v1 priorisieren, PDU-Modus schrittweise. |
-| COM-Control-Lines werden vom externen Gerät streng geprüft | Byte-Emulation reicht nicht | DTR/DSR/DCD/RI/RTS/CTS vollständig eventen und testbar machen. |
+| COM-Control-Lines werden vom externen Gerät streng geprüft | Byte-Emulation reicht nicht | Post-v1: DTR/DSR/DCD/RI/RTS/CTS vollständig eventen und testbar machen. |
 | Timing ist kritisch | Gerät interpretiert Simulator falsch | Response Scheduler mit Profil-Timings, Jitter und Golden Tests. |
 
 ## Offene Entscheidungen

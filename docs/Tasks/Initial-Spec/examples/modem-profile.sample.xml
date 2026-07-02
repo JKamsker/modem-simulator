@@ -13,12 +13,34 @@
              defaultVerbose="true"/>
 
     <initial-state>
-      <sim state="READY"/>
+      <sim state="SIM_PIN_REQUIRED"
+           pinQueryEnabled="true"
+           pin="1234"
+           pinRetries="3"
+           pukRetries="10"
+           imsi="262010123456789"
+           iccid="8949020000000000000"/>
       <network cregN="2"
                stat="1"
                lac="00C3"
                ci="00001234"
-               act="7"/>
+               act="7">
+        <operator selectionMode="automatic"
+                  format="long"
+                  longName="Telekom.de"
+                  shortName="TDG"
+                  numeric="26201"
+                  mcc="262"
+                  mnc="01"/>
+        <sms-rate-limit maxMessages="5"
+                        windowSeconds="60"
+                        scope="session"
+                        rejectCmsError="310"/>
+        <delays>
+          <delay operation="sms-submit" minMs="500" maxMs="2500"/>
+          <delay operation="dial" minMs="1000" maxMs="5000"/>
+        </delays>
+      </network>
       <signal rssi="18" ber="0"/>
       <sms textMode="true" smsc="+491710760000"/>
     </initial-state>

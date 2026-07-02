@@ -23,7 +23,7 @@ ports:
     dataBits: 8
     stopBits: 1
     parity: NONE
-    flowControl: RTS_CTS
+    flowControl: NONE
     profile: sierra-hl78xx-v29
     lineEndingRx: CR
     lineEndingTx: CRLF
@@ -32,7 +32,9 @@ ports:
 
 ## Modem-Control-Lines
 
-Folgende Signale müssen modelliert und im Eventlog sichtbar sein:
+Modem-Control-Lines sind fuer die erste Version nicht relevant. v1 behandelt serielle Ports als Byte-Stream; DTR, DSR, DCD, RI sowie RTS/CTS muessen nicht simuliert, geschaltet oder im Eventlog sichtbar gemacht werden.
+
+Nicht Bestandteil von v1:
 
 - DTR: DTE ready.
 - DSR: Modem ready.
@@ -40,12 +42,14 @@ Folgende Signale müssen modelliert und im Eventlog sichtbar sein:
 - RI: Ring indicator.
 - RTS/CTS: Hardware-Flow-Control.
 
-Profilabhängige Regeln:
+Ebenfalls nicht Bestandteil von v1:
 
 - `AT&D0..3` beeinflusst Verhalten bei DTR-Abfall.
 - `AT&C0..1` beeinflusst DCD-Verhalten.
 - `RING` oder eingehende SMS/Call-URCs können RI setzen.
 - Connect/Disconnect kann DCD schalten.
+
+Die Architektur darf spaeter ein `ModemLines`-Interface nachruesten, aber v1-Handler und Abnahmetests duerfen nicht davon abhaengen.
 
 ## Java-Bibliotheken
 
@@ -58,8 +62,6 @@ interface SerialEndpoint extends AutoCloseable {
     void open(SerialConfig config) throws SerialException;
     int read(byte[] buffer, int offset, int length) throws IOException;
     void write(byte[] buffer, int offset, int length) throws IOException;
-    ModemLines getLines();
-    void setLines(ModemLines lines);
 }
 ```
 

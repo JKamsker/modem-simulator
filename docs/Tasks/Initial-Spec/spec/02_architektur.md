@@ -11,7 +11,7 @@ Externes Gerät / Testsoftware
 | Serial Endpoint Layer                            |
 | - Port öffnen/schließen                          |
 | - Baudrate, Parität, Stopbits, Datenbits         |
-| - RTS/CTS, DTR/DSR/DCD/RI                        |
+| - Byte-Stream ohne Modem-Control-Line-Semantik   |
 +--------------------------------------------------+
         |
         v

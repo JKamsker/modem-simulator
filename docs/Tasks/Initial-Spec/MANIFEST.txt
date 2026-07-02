@@ -47,6 +47,7 @@ references/url/westermo-td33.url
 references/url/westermo-td36.url
 schemas/event-log.schema.json
 schemas/macro-schema-draft.xsd
+schemas/modem-profile.schema.xsd
 schemas/profile.schema.json
 spec/00_glossar_und_annahmen.md
 spec/01_zielbild_scope.md

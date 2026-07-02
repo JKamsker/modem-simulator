@@ -11,7 +11,7 @@ Dieses Paket enthält eine modularisierte Markdown-Spezifikation für ein Java-P
 - `spec/` - fachliche und technische Spezifikation, kapitelweise als Markdown.
 - `profiles/` - Profilstrategie und Profilbasis für Generic Hayes, 3GPP, Sierra Wireless/Semtech und Westermo.
 - `examples/` - XML-Makros, Szenarien, HTTP-Beispiele und Transkripte.
-- `schemas/` - erste Draft-Schemas für Profile, Makros und Event-Logs.
+- `schemas/` - erste Draft-Schemas für XML-Profile, Makros und Event-Logs.
 - `references/` - Referenzindex, Link-Dateien und kurze Quellen-Notizen.
 
 ## Wichtiger Hinweis zu Referenz-PDFs
@@ -23,7 +23,8 @@ Die ZIP enthält bewusst keine Vollkopien der Hersteller- und Norm-PDFs. Viele d
 1. `spec/01_zielbild_scope.md` lesen.
 2. Danach `spec/02_architektur.md` und `spec/04_at_parser_und_command_engine.md`.
 3. Für konkrete Geräteprofile: `profiles/profile_catalog.md`, `profiles/sierra-wireless-family.md` und `profiles/westermo-family.md`.
-4. Für Makros: `spec/07_macro_engine_xml.md` und `examples/macros.sms-error-123.xml`.
+4. Für XML-Profile: `examples/modem-profile.sample.xml` und `schemas/modem-profile.schema.xsd`.
+5. Für Makros: `spec/07_macro_engine_xml.md` und `examples/macros.sms-error-123.xml`.
 
 ## Leitentscheidung
 
