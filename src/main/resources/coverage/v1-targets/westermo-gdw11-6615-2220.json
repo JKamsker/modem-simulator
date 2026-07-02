@@ -1,0 +1,20 @@
+{
+  "profile": "westermo-gdw11-6615-2220",
+  "source": "references/snapshots/westermo-gdw11.md",
+  "commands_total": 8,
+  "implemented_full": 7,
+  "implemented_stub": 1,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "AT", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATD", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "+CREG", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CGREG", "status": "implemented_stub", "handler": "CellularHandler"},
+    {"command": "+CSQ", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CPIN", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CMGF", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGS", "status": "implemented_full", "handler": "SmsHandler"}
+  ]
+}

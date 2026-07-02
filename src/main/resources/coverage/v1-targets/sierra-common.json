@@ -1,0 +1,17 @@
+{
+  "profile": "sierra-common",
+  "source": "references/snapshots/sierra-hl6-hl8-v20.md",
+  "commands_total": 5,
+  "implemented_full": 5,
+  "implemented_stub": 0,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "ATI", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "+CGMI", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CGMM", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CGMR", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CGSN", "status": "implemented_full", "handler": "CellularHandler"}
+  ]
+}

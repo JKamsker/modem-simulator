@@ -1,0 +1,271 @@
+package com.alegs3.modemsim.profiles;
+
+import com.alegs3.modemsim.state.CallMode;
+import com.alegs3.modemsim.state.CallRuntime;
+import com.alegs3.modemsim.state.FreezeMode;
+import com.alegs3.modemsim.state.ModemLifecycle;
+import com.alegs3.modemsim.state.ModemLines;
+import com.alegs3.modemsim.state.ModemRuntimeInfo;
+import com.alegs3.modemsim.state.ModemState;
+import com.alegs3.modemsim.state.NetworkDelay;
+import com.alegs3.modemsim.state.NetworkRuntime;
+import com.alegs3.modemsim.state.OperatorInfo;
+import com.alegs3.modemsim.state.SessionSettings;
+import com.alegs3.modemsim.state.SignalRuntime;
+import com.alegs3.modemsim.state.SimRuntime;
+import com.alegs3.modemsim.state.SimState;
+import com.alegs3.modemsim.state.SmsRateLimit;
+import com.alegs3.modemsim.state.SmsRuntime;
+import com.alegs3.modemsim.state.SmsStorage;
+import com.alegs3.modemsim.validation.Dom;
+import com.alegs3.modemsim.validation.SchemaLocator;
+import com.alegs3.modemsim.validation.ValidationReport;
+import com.alegs3.modemsim.validation.XmlSecurity;
+import org.w3c.dom.Element;
+
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class ProfileXmlLoader {
+    private final ProfileSemanticValidator semanticValidator = new ProfileSemanticValidator();
+
+    public Profile load(Path xmlPath) {
+        ValidationReport report = validate(xmlPath);
+        report.throwIfInvalid();
+        Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+        return parseProfile(Dom.children(root, "profile").getFirst());
+    }
+
+    public ValidationReport validate(Path xmlPath) {
+        ValidationReport report = ValidationReport.ok();
+        try {
+            XmlSecurity.validate(xmlPath, SchemaLocator.schemaPath("modem-profile.schema.xsd"));
+            Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+            for (Element profile : Dom.children(root, "profile")) {
+                report.merge(semanticValidator.validate(parseProfile(profile)));
+            }
+        } catch (Exception e) {
+            report.error(e.getMessage());
+        }
+        return report;
+    }
+
+    private Profile parseProfile(Element profile) {
+        Dialect dialect = parseDialect(Dom.child(profile, "dialect"));
+        ModemState state = parseState(profile, dialect);
+        return new Profile(
+                profile.getAttribute("id"),
+                parents(profile.getAttribute("extends")),
+                profile.getAttribute("vendor"),
+                profile.getAttribute("status"),
+                Dom.attr(profile, "profileKind", "cellular"),
+                dialect,
+                parseIdentity(Dom.child(profile, "identity")),
+                state);
+    }
+
+    private Dialect parseDialect(Element dialect) {
+        if (dialect == null) {
+            return Dialect.v250();
+        }
+        return new Dialect(
+                Dom.boolAttr(dialect, "defaultEcho", false),
+                Dom.boolAttr(dialect, "defaultQuiet", false),
+                Dom.boolAttr(dialect, "defaultVerbose", true),
+                resetPolicy(Dom.attr(dialect, "resetPolicy", "nvram-on-atz")),
+                lineModel(Dom.attr(dialect, "lineModel", "minimal-v250")),
+                unknownPolicy(Dom.attr(dialect, "unknownAtCommand", "ERROR")),
+                com.alegs3.modemsim.parser.RawBytes.hex(Dom.attr(dialect, "smsPromptBytes", "0D0A3E20")));
+    }
+
+    private Identity parseIdentity(Element identity) {
+        if (identity == null) {
+            return new Identity("unknown", "unknown", null, null);
+        }
+        return new Identity(
+                identity.getAttribute("manufacturer"),
+                identity.getAttribute("model"),
+                Dom.attr(identity, "revision", null),
+                Dom.attr(identity, "imei", null));
+    }
+
+    private ModemState parseState(Element profile, Dialect dialect) {
+        Element initial = Dom.child(profile, "initial-state");
+        ModemState base = "pstn".equals(Dom.attr(profile, "profileKind", "cellular"))
+                ? ModemState.pstnReady()
+                : ModemState.cellularReady();
+        if (initial == null) {
+            return applyDialect(base, dialect);
+        }
+        return applyDialect(new ModemState(
+                parseSim(Dom.child(initial, "sim"), base.sim()),
+                parseNetwork(Dom.child(initial, "network")),
+                parseSignal(Dom.child(initial, "signal"), base.signal()),
+                parseSms(Dom.child(initial, "sms"), base.sms()),
+                parseCall(Dom.child(initial, "call"), base.call()),
+                parseModem(Dom.child(initial, "modem"), base.modem()),
+                parseLines(Dom.child(initial, "modem-lines"), base.lines()),
+                base.settings(),
+                0), dialect);
+    }
+
+    private ModemState applyDialect(ModemState state, Dialect dialect) {
+        SessionSettings settings = state.settings()
+                .withEcho(dialect.defaultEcho())
+                .withQuiet(dialect.defaultQuiet())
+                .withVerbose(dialect.defaultVerbose());
+        return state.withSettings(settings);
+    }
+
+    private SimRuntime parseSim(Element sim, SimRuntime fallback) {
+        if (sim == null) {
+            return fallback;
+        }
+        return new SimRuntime(
+                SimState.valueOf(Dom.attr(sim, "state", "READY")),
+                Dom.boolAttr(sim, "pinQueryEnabled", false),
+                Dom.attr(sim, "pinRef", null),
+                Dom.attr(sim, "pin", null),
+                Dom.intAttr(sim, "pinRetries", 3),
+                Dom.intAttr(sim, "pukRetries", 10),
+                Dom.attr(sim, "imsi", null),
+                Dom.attr(sim, "iccid", null));
+    }
+
+    private NetworkRuntime parseNetwork(Element network) {
+        if (network == null) {
+            return null;
+        }
+        Element operator = Dom.child(network, "operator");
+        return new NetworkRuntime(
+                Dom.intAttr(network, "cregN", 2),
+                Dom.intAttr(network, "stat", 0),
+                Dom.attr(network, "lac", null),
+                Dom.attr(network, "ci", null),
+                intObject(network, "act"),
+                intObject(network, "rejectCauseType"),
+                intObject(network, "rejectCause"),
+                parseOperator(operator),
+                parseRateLimit(Dom.child(network, "sms-rate-limit")),
+                parseDelays(Dom.child(network, "delays")));
+    }
+
+    private OperatorInfo parseOperator(Element operator) {
+        if (operator == null) {
+            return OperatorInfo.telekom();
+        }
+        return new OperatorInfo(
+                operator.getAttribute("selectionMode"),
+                operator.getAttribute("format"),
+                Dom.attr(operator, "longName", ""),
+                Dom.attr(operator, "shortName", ""),
+                operator.getAttribute("numeric"),
+                operator.getAttribute("mcc"),
+                operator.getAttribute("mnc"));
+    }
+
+    private SmsRateLimit parseRateLimit(Element rate) {
+        if (rate == null) {
+            return SmsRateLimit.none();
+        }
+        return new SmsRateLimit(
+                Dom.intAttr(rate, "maxMessages", 0),
+                Dom.intAttr(rate, "windowSeconds", 0),
+                rate.getAttribute("scope"),
+                Dom.intAttr(rate, "rejectCmsError", 500));
+    }
+
+    private Map<String, NetworkDelay> parseDelays(Element delays) {
+        Map<String, NetworkDelay> result = new LinkedHashMap<>();
+        if (delays == null) {
+            return result;
+        }
+        for (Element delay : Dom.children(delays, "delay")) {
+            String operation = delay.getAttribute("operation");
+            result.put(operation, new NetworkDelay(
+                    operation,
+                    Dom.intAttr(delay, "minMs", 0),
+                    Dom.intAttr(delay, "maxMs", 0)));
+        }
+        return result;
+    }
+
+    private SignalRuntime parseSignal(Element signal, SignalRuntime fallback) {
+        return signal == null ? fallback : new SignalRuntime(
+                Dom.intAttr(signal, "rssi", 99), Dom.intAttr(signal, "ber", 99));
+    }
+
+    private SmsRuntime parseSms(Element sms, SmsRuntime fallback) {
+        return sms == null ? fallback : new SmsRuntime(
+                Dom.boolAttr(sms, "textMode", true),
+                Dom.attr(sms, "smsc", fallback.smsc()),
+                SmsStorage.valueOf(Dom.attr(sms, "storage", fallback.storage().name())),
+                fallback.nextMessageReference());
+    }
+
+    private CallRuntime parseCall(Element call, CallRuntime fallback) {
+        return call == null ? fallback : new CallRuntime(
+                callMode(Dom.attr(call, "mode", "command")),
+                Dom.boolAttr(call, "carrier", false),
+                Dom.attr(call, "dialedNumber", null));
+    }
+
+    private ModemRuntimeInfo parseModem(Element modem, ModemRuntimeInfo fallback) {
+        return modem == null ? fallback : new ModemRuntimeInfo(
+                ModemLifecycle.valueOf(Dom.attr(modem, "lifecycle", "READY")),
+                FreezeMode.valueOf(Dom.attr(modem, "freezeMode", "NONE")),
+                Dom.intAttr(modem, "bootDelayMs", 0));
+    }
+
+    private ModemLines parseLines(Element lines, ModemLines fallback) {
+        return lines == null ? fallback : new ModemLines(
+                Dom.boolAttr(lines, "dtr", true),
+                Dom.boolAttr(lines, "dsr", true),
+                Dom.boolAttr(lines, "dcd", false),
+                Dom.boolAttr(lines, "ri", false),
+                Dom.boolAttr(lines, "rts", true),
+                Dom.boolAttr(lines, "cts", true));
+    }
+
+    private List<String> parents(String value) {
+        return value == null || value.isBlank() ? List.of() : Arrays.asList(value.trim().split("\\s+"));
+    }
+
+    private Integer intObject(Element element, String name) {
+        String value = Dom.attr(element, name, null);
+        return value == null ? null : Integer.valueOf(value);
+    }
+
+    private ResetPolicy resetPolicy(String value) {
+        return switch (value) {
+            case "factory-on-atz" -> ResetPolicy.FACTORY_ON_ATZ;
+            case "profile-default-on-atz" -> ResetPolicy.PROFILE_DEFAULT_ON_ATZ;
+            default -> ResetPolicy.NVRAM_ON_ATZ;
+        };
+    }
+
+    private LineModel lineModel(String value) {
+        return switch (value) {
+            case "byte-only" -> LineModel.BYTE_ONLY;
+            case "profile-specific" -> LineModel.PROFILE_SPECIFIC;
+            default -> LineModel.MINIMAL_V250;
+        };
+    }
+
+    private UnknownAtCommandPolicy unknownPolicy(String value) {
+        return value.equals("restart") ? UnknownAtCommandPolicy.RESTART
+                : UnknownAtCommandPolicy.valueOf(value.toUpperCase());
+    }
+
+    private CallMode callMode(String value) {
+        return switch (value) {
+            case "online-data" -> CallMode.ONLINE_DATA;
+            case "online-command" -> CallMode.ONLINE_COMMAND;
+            case "dialing" -> CallMode.DIALING;
+            default -> CallMode.COMMAND;
+        };
+    }
+}

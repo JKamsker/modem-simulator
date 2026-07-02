@@ -1,0 +1,26 @@
+{
+  "profile": "generic-hayes-v250",
+  "source": "references/snapshots/itu-v250.md",
+  "commands_total": 14,
+  "implemented_full": 14,
+  "implemented_stub": 0,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "AT", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "A/", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "+++", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATE", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATQ", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATV", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATZ", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "AT&F", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "AT&W", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "AT&V", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATD", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATS", "status": "implemented_full", "handler": "HayesHandler"}
+  ]
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modem-simulator version="1.0">
+  <profile id="locked-registered"
+           vendor="Test"
+           status="device-target"
+           profileKind="cellular">
+    <identity manufacturer="Test" model="Cell"/>
+    <dialect commandTerminator="CR"
+             responseTerminator="CRLF"
+             defaultEcho="false"
+             defaultVerbose="true"
+             defaultQuiet="false"
+             resetPolicy="nvram-on-atz"
+             lineModel="minimal-v250"
+             unknownAtCommand="ERROR"/>
+    <initial-state>
+      <sim state="SIM_PIN_REQUIRED"
+           pinQueryEnabled="true"
+           pinRef="TEST_SIM_PIN"
+           pinRetries="3"
+           pukRetries="10"/>
+      <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
+        <operator selectionMode="automatic"
+                  format="long"
+                  longName="Telekom.de"
+                  shortName="TDG"
+                  numeric="26201"
+                  mcc="262"
+                  mnc="01"/>
+      </network>
+      <signal rssi="18" ber="0"/>
+    </initial-state>
+  </profile>
+</modem-simulator>

@@ -1,0 +1,19 @@
+{
+  "profile": "westermo-common",
+  "source": "references/snapshots/westermo-td22.md",
+  "commands_total": 7,
+  "implemented_full": 7,
+  "implemented_stub": 0,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "AT", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "A/", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "+++", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATD", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATS", "status": "implemented_full", "handler": "HayesHandler"}
+  ]
+}

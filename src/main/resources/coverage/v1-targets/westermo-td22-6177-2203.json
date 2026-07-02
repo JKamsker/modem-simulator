@@ -1,0 +1,18 @@
+{
+  "profile": "westermo-td22-6177-2203",
+  "source": "references/snapshots/westermo-td22.md",
+  "commands_total": 6,
+  "implemented_full": 6,
+  "implemented_stub": 0,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "AT", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATD", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "AT&V", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATS", "status": "implemented_full", "handler": "HayesHandler"}
+  ]
+}

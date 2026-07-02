@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE modem-simulator [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<modem-simulator version="1.0">
+  <profile id="xxe" vendor="&xxe;" status="device-target" profileKind="cellular">
+    <identity manufacturer="Test" model="Cell"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+    <initial-state>
+      <sim state="READY" pinQueryEnabled="false"/>
+      <network cregN="2" stat="1">
+        <operator selectionMode="automatic" format="long" numeric="26201" mcc="262" mnc="01"/>
+      </network>
+      <signal rssi="18" ber="0"/>
+    </initial-state>
+  </profile>
+</modem-simulator>

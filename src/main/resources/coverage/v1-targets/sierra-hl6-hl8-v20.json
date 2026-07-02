@@ -1,0 +1,22 @@
+{
+  "profile": "sierra-hl6-hl8-v20",
+  "source": "references/snapshots/sierra-hl6-hl8-v20.md",
+  "commands_total": 10,
+  "implemented_full": 8,
+  "implemented_stub": 2,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "ATI", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "+CREG", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CGREG", "status": "implemented_stub", "handler": "CellularHandler"},
+    {"command": "+CEREG", "status": "implemented_stub", "handler": "CellularHandler"},
+    {"command": "+CSQ", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CPIN", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+COPS", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CMEE", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CMGF", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGS", "status": "implemented_full", "handler": "SmsHandler"}
+  ]
+}

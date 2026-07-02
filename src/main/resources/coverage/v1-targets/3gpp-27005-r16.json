@@ -1,0 +1,20 @@
+{
+  "profile": "3gpp-27005-r16",
+  "source": "references/snapshots/3gpp-27005.md",
+  "commands_total": 8,
+  "implemented_full": 8,
+  "implemented_stub": 0,
+  "unsupported_declared": 0,
+  "not_applicable": 0,
+  "unknown": 0,
+  "commands": [
+    {"command": "+CMGF", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGS", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGR", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGL", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CMGD", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CNMI", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CPMS", "status": "implemented_full", "handler": "SmsHandler"},
+    {"command": "+CSCA", "status": "implemented_full", "handler": "SmsHandler"}
+  ]
+}

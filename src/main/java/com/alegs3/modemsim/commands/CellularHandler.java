@@ -95,7 +95,8 @@ public final class CellularHandler implements CommandHandler {
         if (state.sim().state() != SimState.SIM_PIN_REQUIRED) {
             return CommandResult.ok(state, "CellularHandler");
         }
-        if (pin.equals(state.sim().testPin())) {
+        String expectedPin = state.sim().testPin() == null ? "1234" : state.sim().testPin();
+        if (pin.equals(expectedPin)) {
             return CommandResult.ok(state.withSim(state.sim().withState(SimState.READY)), "CellularHandler");
         }
         SimRuntime sim = state.sim().withPinRetries(Math.max(0, state.sim().pinRetries() - 1));
