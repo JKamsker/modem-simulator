@@ -35,12 +35,12 @@ redaction:
   maskSmsBody: configurable
 ```
 
-## API-Sicherheit
+## GUI-Sicherheit
 
-- Default bindet nur lokal.
-- Remote-Zugriff nur mit Token oder mTLS.
-- WebSocket hat Backpressure und Drop-Policy.
 - Injection ist in Audit-Logs markiert.
+- v1 bietet keine HTTP- oder WebSocket-Control-API.
+- GUI-Aktionen werden ueber eine nicht-blockierende Event-Queue an Session-Komponenten uebergeben.
+- Read-only-Modus verhindert Injection, State-Aenderungen und Macro-Control.
 - Keine automatische Ausführung externer Befehle durch Makros.
 
 ## Betrieb in CI

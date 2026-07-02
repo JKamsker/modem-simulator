@@ -118,5 +118,5 @@ Ladeanforderungen:
 - `network/operator` wird in den Session-State uebernommen und von Operator-Commands wie `AT+COPS?` verwendet.
 - `network/sms-rate-limit` wird in den Session-State uebernommen und begrenzt akzeptierte SMS-Submits pro Zeitfenster.
 - `network/delays` wird in den Session-State uebernommen und durch den Response-Scheduler pro Operation angewendet.
-- PIN-Werte gelten als Testdaten und werden in Event-Logs und Monitor-APIs redigiert.
+- PIN-Werte gelten als Testdaten und werden in Event-Logs, GUI-Anzeigen und Exporten redigiert.
 - Inkonsistente Kombinationen muessen abgelehnt werden, z. B. `pinQueryEnabled=true` ohne `pin`, `network/operator/@numeric` ohne gueltige MCC/MNC-Struktur, `delay/@minMs > delay/@maxMs` oder doppelte Delay-Operationen.

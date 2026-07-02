@@ -24,9 +24,10 @@
 10. Netzseitige SMS-Rate-Limits akzeptieren nur die konfigurierte Anzahl SMS pro Zeitfenster und liefern danach den konfigurierten `+CMS ERROR`.
 11. Netzseitige Delays fuer `sms-submit` und `dial` liegen innerhalb des konfigurierten Min-/Max-Bereichs und sind mit Session-Seed reproduzierbar.
 12. XML-Makro erkennt SMS an Zielnummer und Body `smscommand dst` und liefert `+CMS ERROR: 123` oder eine definierte Rohantwort.
-13. Monitoring loggt raw bytes, Text, Parser-Ergebnis, Handler/Makro, Result Code und State Before/After.
-14. Injection kann URCs senden, Befehle einspeisen und State ändern.
-15. Profil-Coverage-Report enthält keine unbekannten Befehle (`unknown = 0`) für aktivierte Zielprofile.
+13. GUI zeigt raw bytes, Text, Parser-Ergebnis, Handler/Makro, Result Code, Latenzen und State Before/After im Live-Log.
+14. GUI-Injection kann URCs senden, Befehle einspeisen und State ändern.
+15. v1 startet keine HTTP- oder WebSocket-Control-API.
+16. Profil-Coverage-Report enthält keine unbekannten Befehle (`unknown = 0`) für aktivierte Zielprofile.
 
 ## Golden Transcript Beispiel
 

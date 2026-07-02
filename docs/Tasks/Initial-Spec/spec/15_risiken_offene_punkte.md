@@ -15,7 +15,7 @@
 
 - Exakte Sierra-UMTS-Zielmodule auswählen.
 - Klären, ob Westermo TD20 existiert oder TD-22/TD-23/TD-32/TD-33/TD-36 gemeint ist.
-- Entscheiden, ob REST/WebSocket genügt oder eine Desktop-UI benötigt wird.
+- GUI-Toolkit verbindlich festlegen: JavaFX oder Swing.
 - Entscheiden, ob TCP-Serial-Bridge in v1 enthalten sein soll.
 - PDU-SMS-Umfang definieren: nur Pass-through, Decoding oder vollständiges Encoding/Decoding?
 - Zielbetriebssysteme und Virtual-COM-Tools verbindlich festlegen.

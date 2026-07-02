@@ -2,16 +2,23 @@
 
 ## Ziel
 
-Die Zusatzschnittstelle soll den Simulator beobachtbar und steuerbar machen. Sie darf den seriellen Datenpfad nicht blockieren.
+Die lokale GUI soll den Simulator beobachtbar und steuerbar machen. Sie darf den seriellen Datenpfad nicht blockieren.
 
-## APIs
+## GUI
 
-Empfohlen:
+v1 stellt keine HTTP- oder WebSocket-Control-API bereit. Monitoring, Injection und Logs laufen ueber eine lokale Desktop-GUI. Headless-Funktionen bleiben fuer automatisierte Tests moeglich, sind aber nicht die Bedienoberflaeche fuer Integrationsanwender.
 
-- REST für punktuelle Aktionen und State-Abfragen.
-- WebSocket für Live-Events und Mitschnitt.
-- CLI für lokale Tests und CI.
-- JSONL-Datei für reproduzierbare Logs.
+Pflichtbereiche der GUI:
+
+| Bereich | Zweck |
+|---|---|
+| Session/Port Control | Profil, Port, Baudrate und Session-Lifecycle steuern. |
+| Live Log | Raw Bytes, Text, Parser-Ergebnis, Handler/Makro, Result Code und Latenzen anzeigen. |
+| State Editor | SIM, Netz, Signal, SMS und Profil-Timing zur Laufzeit aendern. |
+| Injection | Rohbytes, URCs, interne AT-Befehle und State-Patches einspeisen. |
+| Macro Control | Makros aktivieren, deaktivieren und Reload-Fehler anzeigen. |
+| Replay | Mitschnitte mit Timing wiedergeben. |
+| Export | JSONL und Texttranskript speichern. |
 
 ## Eventmodell
 
@@ -34,68 +41,43 @@ Empfohlen:
 }
 ```
 
-## REST-Beispiele
+## GUI-Workflows
 
-State abfragen:
+State aendern:
 
-```http
-GET /api/v1/sessions/main/state
-```
+1. Tab `State` oeffnen.
+2. SIM-Zustand, Netzstatus oder Signalwerte setzen.
+3. Aenderung anwenden.
+4. Eventlog zeigt alten und neuen State.
 
-URC an Gerät senden:
+URC an Geraet senden:
 
-```http
-POST /api/v1/sessions/main/inject
-Content-Type: application/json
-
-{
-  "direction": "MODEM_TO_DTE",
-  "data": "
-+CREG: 4
-"
-}
-```
+1. Tab `Injection` oeffnen.
+2. Richtung `Modem -> Device` waehlen.
+3. Payload `+CREG: 4` eingeben.
+4. Senden.
 
 Befehl intern einspeisen:
 
-```http
-POST /api/v1/sessions/main/inject
-Content-Type: application/json
-
-{
-  "direction": "DTE_TO_MODEM",
-  "data": "AT+CSQ"
-}
-```
-
-State ändern:
-
-```http
-POST /api/v1/sessions/main/state
-Content-Type: application/json
-
-{
-  "sim": {"state": "SIM_FAILURE"},
-  "network": {"stat": 4},
-  "signal": {"rssi": 99, "ber": 99}
-}
-```
+1. Tab `Injection` oeffnen.
+2. Richtung `Device -> Modem` waehlen.
+3. Payload `AT+CSQ` eingeben.
+4. Response im Live-Log pruefen.
 
 ## Injection-Arten
 
 | Typ | Zweck |
 |---|---|
-| `raw-modem-to-device` | Bytes direkt an das externe Gerät senden. |
+| `raw-modem-to-device` | Bytes direkt an das externe Geraet senden. |
 | `raw-device-to-modem` | Bytes in den Parser einspeisen. |
-| `parsed-command` | AT-Befehl ohne serielle Rohbytes ausführen. |
-| `state-change` | SIM/Netz/Signal/SMS/Lines ändern. |
+| `parsed-command` | AT-Befehl ohne serielle Rohbytes ausfuehren. |
+| `state-change` | SIM/Netz/Signal/SMS aendern. |
 | `macro-control` | Makros aktivieren/deaktivieren. |
 | `replay` | Vorherigen Mitschnitt mit Timings abspielen. |
 
 ## Sicherheit
 
-- Default: API bindet nur an `127.0.0.1`.
-- Remote-Bind nur mit Authentifizierung.
 - Alle Injections werden auditierbar geloggt.
-- Kein unauthentifiziertes WebSocket auf externen Interfaces.
-- Optionaler Read-only-Modus für Monitoring ohne Injection.
+- Optionaler Read-only-Modus fuer Monitoring ohne Injection.
+- Keine HTTP- oder WebSocket-Listener in v1.
+- GUI-Aktionen duerfen den seriellen RX-Pfad nicht blockieren.

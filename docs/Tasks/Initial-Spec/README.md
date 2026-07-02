@@ -10,7 +10,7 @@ Dieses Paket enthält eine modularisierte Markdown-Spezifikation für ein Java-P
 
 - `spec/` - fachliche und technische Spezifikation, kapitelweise als Markdown.
 - `profiles/` - Profilstrategie und Profilbasis für Generic Hayes, 3GPP, Sierra Wireless/Semtech und Westermo.
-- `examples/` - XML-Makros, Szenarien, HTTP-Beispiele und Transkripte.
+- `examples/` - XML-Makros, Szenarien, GUI-Workflows und Transkripte.
 - `schemas/` - erste Draft-Schemas für XML-Profile, Makros und Event-Logs.
 - `references/` - Referenzindex, Link-Dateien und kurze Quellen-Notizen.
 

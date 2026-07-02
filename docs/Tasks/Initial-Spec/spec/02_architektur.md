@@ -51,9 +51,9 @@ Externes Gerät / Testsoftware
         |
         v
 +--------------------------------------------------+
-| Monitor / Injection API                          |
+| Local GUI / Monitor / Injection                  |
 | - JSONL Event Log                                |
-| - REST / WebSocket / CLI                         |
+| - Control Pane, State Editor, Live Log           |
 | - State Injection / Raw Injection / Replay       |
 +--------------------------------------------------+
 ```
@@ -82,4 +82,4 @@ Der Parser darf keine Herstellerlogik enthalten. Er muss nur Frames, AT-Syntaxfo
 | `StateProvider` | Liefert und verändert SIM-/Netz-/SMS-/Call-State. |
 | `MacroProvider` | Lädt XML-Makros, priorisiert und matched sie. |
 | `TransportEndpoint` | Serielle Ports, virtuelle Ports, TCP-Bridge oder Headless-Test. |
-| `EventSink` | JSONL, WebSocket, Console, Datei oder Test-Harness. |
+| `EventSink` | JSONL, GUI-Modell, Console, Datei oder Test-Harness. |

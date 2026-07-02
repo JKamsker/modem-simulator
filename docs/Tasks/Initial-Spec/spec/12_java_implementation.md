@@ -12,6 +12,7 @@ com.example.modemsim
   state
   macros
   scheduler
+  gui
   monitor
   replay
   testkit
@@ -87,9 +88,9 @@ Pro Session:
 - Ein RX-Thread liest seriell.
 - Ein Parser-/Command-Executor verarbeitet Frames sequentiell.
 - Ein Response-Scheduler sendet Antworten mit Delays.
-- Ein Event-Publisher entkoppelt Logging und WebSocket.
+- Ein Event-Publisher entkoppelt Logging und GUI-Updates.
 
-Regel: Der serielle RX-Pfad darf nie durch langsame WebSocket-Clients blockiert werden.
+Regel: Der serielle RX-Pfad darf nie durch langsame GUI-Rendering-, Filter- oder Export-Aktionen blockiert werden.
 
 ## Persistenz
 
@@ -109,13 +110,13 @@ runtime/
 Empfohlen:
 
 ```text
-Java 21 LTS
+Java 24
 Maven oder Gradle
 JUnit 5
 AssertJ
 Jackson XML/JSON
 jSerialComm
-Jetty/Undertow/Netty für REST/WebSocket
+JavaFX oder Swing fuer lokale Desktop-GUI
 ```
 
 ## XML-Profilladen
@@ -143,3 +144,5 @@ modemsim validate-profile examples/modem-profile.sample.xml
 modemsim validate-macros examples/macros.sms-error-123.xml
 modemsim replay logs/session.jsonl --profile westermo-td22-6177-2203
 ```
+
+Die CLI dient v1 fuer Start, Validierung, Headless-Tests und Replay-Automatisierung. Interaktive Control-Pane-Funktionen wie State-Editor, Injection, Live-Logs und Macro-Control sind GUI-Funktionen.
