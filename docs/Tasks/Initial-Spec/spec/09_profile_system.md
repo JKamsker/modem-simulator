@@ -13,11 +13,11 @@ Das geladene Profilformat fuer v1 ist XML und wird gegen `schemas/modem-profile.
 Ein Profil beschreibt, wie ein konkretes Modemmodell in einer konkreten Firmware-/Manual-Version reagiert. Profile koennen voneinander erben.
 
 ```yaml
-id: sierra-hl78xx-v29
+id: sierra-hl6-hl8-v20
 vendor: Sierra Wireless / Semtech
-modelFamily: HL78xx
-manualVersion: 29
-manualDate: 2026-05-19
+modelFamily: HL6/HL8
+manualVersion: 20
+manualDate: 2024-02-01
 status: device-target
 profileKind: cellular
 extends:
@@ -53,7 +53,7 @@ Ein Profil darf keine zyklische Vererbung erzeugen. Fehlende Eltern sind Validie
 | Bestandteil | Beschreibung |
 |---|---|
 | Metadata | Hersteller, Modell, Firmware, Dokumentstand, Status, Profilart. |
-| Dialect | Default-Line-Endings, Prefixe, Echo/Quiet/Verbose, Prompt-Bytes, Fehlerpolicy, Reset-Policy. |
+| Dialect | Default-Line-Endings, Prefixe, Echo/Quiet/Verbose, Prompt-Bytes, Unknown-Command-Policy, Reset-Policy. |
 | Identity | Antworten fuer `ATI`, `+CGMI`, `+CGMM`, `+CGMR`, `+CGSN`. |
 | Commands | Liste unterstuetzter Commands mit Handler-Zuordnung und Status. |
 | Registers | S-Register inklusive Default, Min/Max, Persistenz. |
@@ -71,6 +71,7 @@ Ein Profil darf keine zyklische Vererbung erzeugen. Fehlende Eltern sind Validie
 | `device-family` | Modell-/Firmware-Familie, aus der konkrete Targets abgeleitet werden. |
 | `device-target` | Konkretes Modell/Firmware als Zielprofil. |
 | `candidate` | Gewuenscht, aber Referenzlage noch unsicher. |
+| `out-of-scope` | Bewusst nicht Bestandteil der aktuellen Implementierung oder Abnahme. |
 | `stub` | Syntaktisch vorhanden, noch nicht verifiziert. |
 | `verified` | Gegen Manual und/oder echtes Geraet getestet. |
 
@@ -89,8 +90,8 @@ Die XSD erlaubt optionale State-Bloecke, damit PSTN/ISDN-Profile modellierbar si
 ## Coverage-Datei
 
 ```yaml
-profile: sierra-hl78xx-v29
-source: references/snapshots/sierra-hl78xx-v29.md
+profile: sierra-hl6-hl8-v20
+source: references/snapshots/sierra-hl6-hl8-v20.md
 commands_total: 123
 implemented_full: 40
 implemented_stub: 50
@@ -122,15 +123,18 @@ all status in {implemented_full, implemented_stub, unsupported_declared, not_app
 
 ## Unsupported-Strategie
 
-Unbekannte Befehle duerfen nicht willkuerlich beantwortet werden. Profilabhaengige Policies:
+Unbekannte AT-Kommandos duerfen nicht willkuerlich beantwortet werden. Jedes Runtime-Profil definiert `dialect/@unknownAtCommand` mit genau einem dieser Werte:
 
-- `ERROR`
-- `+CME ERROR: operation not supported`
-- Herstellerfehlercode
-- Keine Antwort / Timeout
-- Macro-only
+| Wert | Verhalten |
+|---|---|
+| `OK` | Der Simulator beantwortet das unbekannte AT-Kommando mit finalem Result Code `OK`. |
+| `ERR` | Der Simulator sendet die Kurzform `ERR` als Response. |
+| `ERROR` | Der Simulator sendet den Standard-Result-Code `ERROR`. |
+| `restart` | Der Simulator triggert den Fault `modem-reboot`; der unbekannte Befehl erhaelt keine normale Handler-Antwort, ausser das Profil definiert Boot-Ausgaben. |
 
-Fuer Abnahmetests ist jede Unsupported-Antwort im Coverage-Report zu dokumentieren.
+`ERR` und `ERROR` sind unterschiedliche Ausgabeformen, aber beide bedeuten Command Failure. `restart` ist kein Prozessneustart der Anwendung, sondern ein simulierter Neustart des Modem-State gemaess Kapitel 05.
+
+Coverage bleibt davon unberuehrt: Unknown-Command-Policy ist eine Laufzeitreaktion fuer nicht abgedeckte Eingaben, keine Erlaubnis fuer `unknown > 0` in Coverage-Reports. Fuer Abnahmetests ist jede Unsupported-Antwort im Coverage-Report zu dokumentieren.
 
 ## XML-Profilkonfiguration
 
@@ -138,17 +142,18 @@ Profile werden als XML-Datei geladen. Reine Basisprofile duerfen `initial-state`
 
 ```xml
 <modem-simulator version="1.0">
-  <profile id="sierra-hl78xx-test"
+  <profile id="sierra-hl6-hl8-test"
            vendor="Sierra Wireless / Semtech"
            status="device-target"
            profileKind="cellular"
-           extends="sierra-hl78xx-v29">
-    <identity manufacturer="Sierra Wireless" model="HL7812"/>
+           extends="sierra-hl6-hl8-v20">
+    <identity manufacturer="Sierra Wireless" model="HL8548"/>
     <dialect commandTerminator="CR"
              responseTerminator="CRLF"
              smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz"
-             lineModel="minimal-v250"/>
+             lineModel="minimal-v250"
+             unknownAtCommand="ERROR"/>
     <initial-state>
       <sim state="READY"
            pinQueryEnabled="true"
@@ -204,6 +209,7 @@ Nach XSD-Validierung ist ein Semantic-Validation-Pass verpflichtend. Er lehnt mi
 - `sms-rate-limit/@rejectCmsError=310`,
 - `lac`/`ci`/`act` fuer nicht registrierte `+CREG`-Zustaende ohne dokumentierte Deviation,
 - unbekannte Command-/Coverage-Statuswerte,
+- `dialect/@unknownAtCommand` ausserhalb von `OK`, `ERR`, `ERROR`, `restart`,
 - Profilvererbungszyklen,
 - Konflikte, die nicht durch Linearisierung oder Deviation erklaert sind.
 

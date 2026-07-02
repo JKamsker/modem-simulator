@@ -2,9 +2,10 @@
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:element name="macros">
     <xs:complexType>
-      <xs:sequence>
-        <xs:element name="macro" type="MacroType" maxOccurs="unbounded"/>
-      </xs:sequence>
+      <xs:choice maxOccurs="unbounded">
+        <xs:element name="macro" type="MacroType"/>
+        <xs:element name="custom-response" type="CustomResponseType"/>
+      </xs:choice>
       <xs:attribute name="version" type="xs:string" use="required"/>
       <xs:attribute name="randomSeed" type="xs:long" use="optional"/>
     </xs:complexType>
@@ -22,6 +23,29 @@
     <xs:attribute name="enabled" type="xs:boolean" use="optional" default="true"/>
   </xs:complexType>
 
+  <xs:complexType name="CustomResponseType">
+    <xs:sequence>
+      <xs:element name="if" type="CustomResponseIfType"/>
+      <xs:element name="send" type="CustomResponseSendType"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="priority" type="xs:int" use="optional" default="0"/>
+    <xs:attribute name="enabled" type="xs:boolean" use="optional" default="true"/>
+  </xs:complexType>
+
+  <xs:complexType name="CustomResponseIfType">
+    <xs:attribute name="rawGlob" type="xs:string" use="optional"/>
+    <xs:attribute name="rawRegex" type="xs:string" use="optional"/>
+    <xs:attribute name="command" type="xs:string" use="optional"/>
+    <xs:attribute name="mode" type="CommandModeType" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="CustomResponseSendType">
+    <xs:attribute name="text" type="xs:string" use="optional"/>
+    <xs:attribute name="rawHex" type="HexBytesType" use="optional"/>
+    <xs:attribute name="line" type="xs:string" use="optional"/>
+  </xs:complexType>
+
   <xs:complexType name="MatchType">
     <xs:sequence>
       <xs:element name="destination" type="StringPredicateType" minOccurs="0"/>
@@ -29,6 +53,7 @@
     </xs:sequence>
     <xs:attribute name="command" type="xs:string" use="optional"/>
     <xs:attribute name="mode" type="CommandModeType" use="optional"/>
+    <xs:attribute name="rawGlob" type="xs:string" use="optional"/>
     <xs:attribute name="rawRegex" type="xs:string" use="optional"/>
     <xs:attribute name="type" type="MatchInputType" use="optional"/>
   </xs:complexType>
@@ -63,6 +88,7 @@
       <xs:element name="delay" type="DelayActionType"/>
       <xs:element name="emit" type="EmitActionType"/>
       <xs:element name="set" type="SetActionType"/>
+      <xs:element name="fault" type="FaultActionType"/>
       <xs:element name="event" type="EventActionType"/>
     </xs:choice>
   </xs:complexType>
@@ -81,6 +107,15 @@
   <xs:complexType name="SetActionType">
     <xs:attribute name="path" type="StatePathType" use="required"/>
     <xs:attribute name="value" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="FaultActionType">
+    <xs:attribute name="type" type="FaultType" use="required"/>
+    <xs:attribute name="durationMs" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="stat" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="rssi" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="ber" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="freezeMode" type="FreezeModeType" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="EventActionType">
@@ -117,6 +152,24 @@
       <xs:enumeration value="raw-bytes"/>
       <xs:enumeration value="state-change"/>
       <xs:enumeration value="timer"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FaultType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="network-outage"/>
+      <xs:enumeration value="network-restore"/>
+      <xs:enumeration value="modem-reboot"/>
+      <xs:enumeration value="modem-freeze"/>
+      <xs:enumeration value="modem-unfreeze"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FreezeModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="NO_RESPONSE"/>
+      <xs:enumeration value="HOLD_TX"/>
+      <xs:enumeration value="HOLD_RX_TX"/>
     </xs:restriction>
   </xs:simpleType>
 

@@ -37,7 +37,6 @@ public interface Profile {
     Dialect dialect();
     InitialState initialState();
     Optional<CommandHandler> resolve(ParsedCommand command);
-    UnsupportedPolicy unsupportedPolicy();
 }
 
 public interface MacroEngine {
@@ -135,6 +134,73 @@ record ScheduledEmission(
 ```
 
 Ordering und Cancellation entsprechen Kapitel 02. Headless-Tests muessen eine virtuelle Clock injizieren koennen.
+
+## Portgruppen
+
+Die Runtime-Konfiguration trennt gemeinsame serielle Parameter von Portrollen:
+
+```java
+record SerialLineConfig(
+    int baudRate,
+    int dataBits,
+    int stopBits,
+    Parity parity,
+    FlowControl flowControl
+) {}
+
+record PortBinding(
+    String id,
+    EndpointType type,
+    PortRole role,
+    String name,
+    boolean enabled
+) {}
+
+enum PortRole {
+    MODEM_SIMULATION,
+    SNIFFER,
+    MANUAL_DCE_INJECTION
+}
+```
+
+`SerialLineConfig` wird auf alle aktivierten seriellen Ports derselben Session angewendet. `PortBinding` darf keine eigenen Baudrate-/Parity-/DataBits-/StopBits-Werte tragen. Der `MODEM_SIMULATION`-Port ist immer aktiv; `SNIFFER` und `MANUAL_DCE_INJECTION` sind optionale Sidecar-Ports.
+
+Bytes vom `MANUAL_DCE_INJECTION`-Port werden als `raw-dce-to-dte` Injection an den Hauptport gesendet. Der `SNIFFER`-Port ist read-only gegenueber der Session: Eingaben werden ignoriert und als Diagnose geloggt, aber nicht an Parser, State oder Hauptport weitergegeben.
+
+## Faults und Custom Responses
+
+Makros und Szenarien koennen Faults als `SessionCommand` erzeugen:
+
+```java
+record FaultCommand(FaultType type, FaultParameters parameters) implements SessionCommand {}
+
+enum FaultType {
+    NETWORK_OUTAGE,
+    NETWORK_RESTORE,
+    MODEM_REBOOT,
+    MODEM_FREEZE,
+    MODEM_UNFREEZE
+}
+```
+
+Der `SessionActor` uebersetzt Faults in State-Patches, Scheduler-Cancellations und optionale URCs. Reboot und Freeze duerfen keine Threads blockieren; sie sind normale State-Zustaende.
+
+`custom-response`-Eintraege aus XML werden beim Laden zu `replace`-Makros kompiliert. `send/@text` mit Tokens wie `<CR>` wird vor der Ausfuehrung in `RawBytes` uebersetzt.
+
+## Unknown AT Command Policy
+
+Die Reaktion auf unbekannte AT-Kommandos ist Teil von `Dialect`:
+
+```java
+enum UnknownAtCommandPolicy {
+    OK,
+    ERR,
+    ERROR,
+    RESTART
+}
+```
+
+`OK`, `ERR` und `ERROR` erzeugen die entsprechende Profilantwort. `RESTART` erzeugt intern einen `FaultCommand(MODEM_REBOOT, ...)`; die Anwendung selbst wird dabei nicht neu gestartet.
 
 ## Persistenz
 

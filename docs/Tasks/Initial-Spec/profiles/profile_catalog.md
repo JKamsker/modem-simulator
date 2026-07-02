@@ -14,12 +14,12 @@
 |---|---|---|
 | `sierra-common` | manufacturer-base | Identität, Fehlerpolicy, Sierra-Grundverhalten. |
 | `sierra-umts-airprime-standard-2130617-r7` | candidate | Ältere/klassische UMTS AirCard/AirPrime-Basis, post-v1. |
-| `sierra-mc-sl-umts-lte-v8` | candidate | MC/SL UMTS/LTE Extended Commands, post-v1. |
+| `sierra-mc-sl-umts-lte-v8` | out-of-scope | Sierra-LTE-Anteile sind nicht Bestandteil der aktuellen Implementierung. |
 | `sierra-hl6-hl8-v20` | device-family | HL6528x / HL85xxx Embedded 2G/3G. |
-| `sierra-hl78xx-v29` | device-target | HL78xx aktueller Dokumentstand. |
-| `sierra-em74xx-mc74xx-r3` | candidate | EM/MC74xx LTE Embedded, post-v1. |
-| `sierra-em75xx-emmc74x1-v8` | candidate | EM75xx und EM/MC74x1, post-v1. |
-| `sierra-em9-v14` | candidate | EM919X/EM7690/EM929X, post-v1. |
+| `sierra-hl78xx-v29` | out-of-scope | HL78xx LPWA/LTE-M/NB-IoT ist out-of-scope. |
+| `sierra-em74xx-mc74xx-r3` | out-of-scope | EM/MC74xx LTE Embedded ist out-of-scope. |
+| `sierra-em75xx-emmc74x1-v8` | out-of-scope | EM75xx und EM/MC74x1 LTE/9x50 sind out-of-scope. |
+| `sierra-em9-v14` | out-of-scope | EM919X/EM7690/EM929X LTE/5G-orientiert ist out-of-scope. |
 
 ## Westermo
 

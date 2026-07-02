@@ -33,6 +33,14 @@
     "port": {
       "type": "string"
     },
+    "portRole": {
+      "enum": [
+        "modem-simulation",
+        "sniffer",
+        "manual-dce-injection",
+        "none"
+      ]
+    },
     "eventType": {
       "enum": [
         "SESSION_START",
@@ -44,6 +52,7 @@
         "SCHEDULER_ENQUEUE",
         "SCHEDULER_EMIT",
         "STATE_CHANGE",
+        "FAULT_TRIGGERED",
         "INJECTION",
         "MACRO_DECISION",
         "REPLAY_MARKER",

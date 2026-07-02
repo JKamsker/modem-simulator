@@ -7,6 +7,7 @@
 | Herstellerverhalten weicht vom Manual ab | Tests gegen echte Geraete schlagen fehl | Record-Replay und Profil-Deviations pflegen. |
 | TD20-Referenz unklar | Falsche Westermo-Emulation | Candidate-Profil klar markieren, offizielles Manual beschaffen; keine v1-Abnahme. |
 | Proprietaere Sierra-Befehle sind lizenz-/passwortgeschuetzt | Unvollstaendige Emulation | Nur Coverage/Stub, Implementierung nur mit erlaubter Referenz. |
+| Sierra-LTE wird versehentlich wieder als Ziel aufgenommen | Scope creep und falsche Abnahme | Sierra-LTE-Profile als `out-of-scope` markieren und nicht in v1/post-v1-Candidate-Listen aufnehmen. |
 | SMS-PDU-Modus komplex | Fehler bei Binaer-/Unicode-SMS | v1 speichert PDU opaque; Encoding/Decoding post-v1. |
 | COM-Control-Lines werden vom externen Geraet streng geprueft | Byte-Emulation reicht nicht | v1 implementiert `lineModel=minimal-v250`; vollstaendige Profile-Details als Deviation/Coverage. |
 | Timing ist kritisch | Geraet interpretiert Simulator falsch | Deterministischer Scheduler mit Seed, virtueller Clock und Timing-Akzeptanzmatrix. |
@@ -23,13 +24,14 @@
 | PDU-SMS | Opaque submit/store, kein Encoding/Decoding |
 | Profile-Schema | `schemas/modem-profile.schema.xsd` ist autoritativ |
 | Redaction | Default-on und fuer persistente Artefakte verpflichtend |
+| Sierra Wireless/Semtech LTE | Out-of-scope |
 
 ## Offene Entscheidungen
 
 - Ob `westermo-td20-candidate` jemals durch ein offizielles Zielprofil ersetzt wird.
 - Welche echten Geraetetranskripte fuer Sierra- und Westermo-Abweichungen priorisiert werden.
 - Ob post-v1 TCP-Serial-Bridge nur loopback, token-authentifiziert oder gar nicht geliefert wird.
-- Welche zusaetzlichen Sierra-Profile nach v1 in die Zielprofil-Liste aufgenommen werden.
+- Welche zusaetzlichen nicht-LTE-Sierra-Profile nach v1 in die Zielprofil-Liste aufgenommen werden.
 
 ## Naechste Spezifikationsschritte
 

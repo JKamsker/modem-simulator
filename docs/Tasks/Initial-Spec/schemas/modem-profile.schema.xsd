@@ -45,6 +45,7 @@
     <xs:attribute name="defaultQuiet" type="xs:boolean" use="optional"/>
     <xs:attribute name="resetPolicy" type="ResetPolicyType" use="optional"/>
     <xs:attribute name="lineModel" type="LineModelType" use="optional"/>
+    <xs:attribute name="unknownAtCommand" type="UnknownAtCommandPolicyType" use="optional" default="ERROR"/>
   </xs:complexType>
 
   <xs:complexType name="InitialStateType">
@@ -54,6 +55,7 @@
       <xs:element name="signal" type="SignalType" minOccurs="0"/>
       <xs:element name="sms" type="SmsType" minOccurs="0"/>
       <xs:element name="call" type="CallType" minOccurs="0"/>
+      <xs:element name="modem" type="ModemRuntimeType" minOccurs="0"/>
       <xs:element name="modem-lines" type="ModemLinesType" minOccurs="0"/>
     </xs:sequence>
   </xs:complexType>
@@ -128,6 +130,12 @@
     <xs:attribute name="mode" type="CallModeType" use="optional" default="command"/>
     <xs:attribute name="carrier" type="xs:boolean" use="optional" default="false"/>
     <xs:attribute name="dialedNumber" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ModemRuntimeType">
+    <xs:attribute name="lifecycle" type="ModemLifecycleType" use="optional" default="READY"/>
+    <xs:attribute name="freezeMode" type="FreezeModeType" use="optional" default="NONE"/>
+    <xs:attribute name="bootDelayMs" type="xs:nonNegativeInteger" use="optional" default="0"/>
   </xs:complexType>
 
   <xs:complexType name="ModemLinesType">
@@ -209,6 +217,7 @@
       <xs:enumeration value="device-family"/>
       <xs:enumeration value="device-target"/>
       <xs:enumeration value="candidate"/>
+      <xs:enumeration value="out-of-scope"/>
       <xs:enumeration value="stub"/>
       <xs:enumeration value="verified"/>
     </xs:restriction>
@@ -251,6 +260,15 @@
       <xs:enumeration value="byte-only"/>
       <xs:enumeration value="minimal-v250"/>
       <xs:enumeration value="profile-specific"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="UnknownAtCommandPolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="OK"/>
+      <xs:enumeration value="ERR"/>
+      <xs:enumeration value="ERROR"/>
+      <xs:enumeration value="restart"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -423,6 +441,23 @@
       <xs:enumeration value="dialing"/>
       <xs:enumeration value="online-data"/>
       <xs:enumeration value="online-command"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ModemLifecycleType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="READY"/>
+      <xs:enumeration value="REBOOTING"/>
+      <xs:enumeration value="FROZEN"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FreezeModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="NONE"/>
+      <xs:enumeration value="NO_RESPONSE"/>
+      <xs:enumeration value="HOLD_TX"/>
+      <xs:enumeration value="HOLD_RX_TX"/>
     </xs:restriction>
   </xs:simpleType>
 

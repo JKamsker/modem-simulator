@@ -30,10 +30,11 @@
   </xs:complexType>
 
   <xs:complexType name="ScenarioStepType">
-    <xs:sequence>
-      <xs:element name="set" type="SetType" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="advance" type="AdvanceType" minOccurs="0" maxOccurs="1"/>
-    </xs:sequence>
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element name="set" type="SetType"/>
+      <xs:element name="fault" type="FaultType"/>
+      <xs:element name="advance" type="AdvanceType"/>
+    </xs:choice>
     <xs:attribute name="atMs" type="xs:nonNegativeInteger" use="required"/>
   </xs:complexType>
 
@@ -53,6 +54,15 @@
 
   <xs:complexType name="AdvanceType">
     <xs:attribute name="ms" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="FaultType">
+    <xs:attribute name="type" type="FaultNameType" use="required"/>
+    <xs:attribute name="durationMs" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="stat" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="rssi" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="ber" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="freezeMode" type="FreezeModeType" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="SimType">
@@ -85,6 +95,24 @@
   <xs:simpleType name="HexBytesType">
     <xs:restriction base="xs:string">
       <xs:pattern value="([0-9A-Fa-f]{2})*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FaultNameType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="network-outage"/>
+      <xs:enumeration value="network-restore"/>
+      <xs:enumeration value="modem-reboot"/>
+      <xs:enumeration value="modem-freeze"/>
+      <xs:enumeration value="modem-unfreeze"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="FreezeModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="NO_RESPONSE"/>
+      <xs:enumeration value="HOLD_TX"/>
+      <xs:enumeration value="HOLD_RX_TX"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>

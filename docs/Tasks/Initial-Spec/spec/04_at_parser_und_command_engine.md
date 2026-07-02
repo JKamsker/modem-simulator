@@ -107,7 +107,7 @@ Der `SessionActor` ruft den Router in dieser Reihenfolge auf:
 3. Geerbte Profil-Handler nach linearisierter Profilreihenfolge.
 4. Standard-Handler.
 5. Macro Hooks `after`.
-6. Unsupported-Policy.
+6. Unknown-AT-Command-Policy.
 
 Macro `replace` hat Vorrang vor dem normalen Handler.
 
@@ -140,13 +140,16 @@ Uebergaenge:
 Jedes Profil definiert:
 
 ```yaml
+dialect:
+  unknownAtCommand: ERROR
 errorPolicy:
-  unknownCommand: ERROR
   invalidParameter: CME_OR_ERROR
   stateFailure: CME
   smsFailure: CMS
   timeout: NO_RESPONSE
 ```
+
+`unknownAtCommand` kommt aus dem aktiven Profil-Dialect und erlaubt nur `OK`, `ERR`, `ERROR` oder `restart`. Bei `restart` erzeugt der Router einen `modem-reboot` Fault statt einer normalen Unsupported-Antwort.
 
 `AT+CMEE` steuert bei Mobilfunkfehlern:
 

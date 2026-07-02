@@ -6,8 +6,73 @@
   "additionalProperties": false,
   "required": [
     "ports",
+    "serialLine",
     "sessionSeed",
     "redaction"
+  ],
+  "allOf": [
+    {
+      "properties": {
+        "ports": {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role",
+              "enabled",
+              "profile"
+            ],
+            "properties": {
+              "role": {
+                "const": "modem-simulation"
+              },
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "ports": {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "sniffer"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "properties": {
+        "ports": {
+          "contains": {
+            "type": "object",
+            "required": [
+              "role"
+            ],
+            "properties": {
+              "role": {
+                "const": "manual-dce-injection"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      }
+    }
   ],
   "properties": {
     "sessionSeed": {
@@ -20,6 +85,57 @@
       ],
       "default": "monotonic"
     },
+    "strictOptionalPorts": {
+      "type": "boolean",
+      "default": false
+    },
+    "serialLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "baudRate",
+        "dataBits",
+        "stopBits",
+        "parity",
+        "flowControl"
+      ],
+      "properties": {
+        "baudRate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dataBits": {
+          "enum": [
+            5,
+            6,
+            7,
+            8
+          ]
+        },
+        "stopBits": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "parity": {
+          "enum": [
+            "NONE",
+            "EVEN",
+            "ODD",
+            "MARK",
+            "SPACE"
+          ]
+        },
+        "flowControl": {
+          "enum": [
+            "NONE",
+            "RTS_CTS",
+            "XON_XOFF"
+          ]
+        }
+      }
+    },
     "ports": {
       "type": "array",
       "minItems": 1,
@@ -29,7 +145,32 @@
         "required": [
           "id",
           "type",
-          "profile"
+          "role",
+          "enabled"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "modem-simulation"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "required": [
+                "profile"
+              ],
+              "properties": {
+                "enabled": {
+                  "const": true
+                }
+              }
+            }
+          }
         ],
         "properties": {
           "id": {
@@ -41,48 +182,34 @@
               "headless"
             ]
           },
+          "role": {
+            "enum": [
+              "modem-simulation",
+              "sniffer",
+              "manual-dce-injection"
+            ]
+          },
           "name": {
             "type": "string"
           },
-          "baudRate": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "dataBits": {
-            "enum": [
-              5,
-              6,
-              7,
-              8
-            ]
-          },
-          "stopBits": {
-            "enum": [
-              1,
-              2
-            ]
-          },
-          "parity": {
-            "enum": [
-              "NONE",
-              "EVEN",
-              "ODD",
-              "MARK",
-              "SPACE"
-            ]
-          },
-          "flowControl": {
-            "enum": [
-              "NONE",
-              "RTS_CTS",
-              "XON_XOFF"
-            ]
+          "enabled": {
+            "type": "boolean"
           },
           "profile": {
             "type": "string"
           },
           "initialScenario": {
             "type": "string"
+          },
+          "snifferFormat": {
+            "enum": [
+              "tagged-text",
+              "jsonl-events",
+              "raw-dte",
+              "raw-dce",
+              "raw-both"
+            ],
+            "default": "tagged-text"
           },
           "virtualComTool": {
             "enum": [

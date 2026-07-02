@@ -48,12 +48,13 @@ Nur diese Profile sind v1-Abnahmeziele:
 | `3gpp-27005-r16` | SMS-Basis |
 | `sierra-common` | Sierra-Herstellerbasis |
 | `sierra-hl6-hl8-v20` | Sierra device-family |
-| `sierra-hl78xx-v29` | Sierra device-target |
 | `westermo-common` | Westermo-Herstellerbasis |
 | `westermo-td22-6177-2203` | Westermo PSTN target |
 | `westermo-td36-6618-2202` | Westermo PSTN target |
 | `westermo-gd01-6196-2220` | Westermo GSM/SMS target |
 | `westermo-gdw11-6615-2220` | Westermo GSM/GPRS target |
+
+Sierra-Wireless/Semtech-LTE-Profile sind bewusst out-of-scope und duerfen nicht durch Coverage oder Smoke-Tests implizit in diese Liste aufgenommen werden.
 
 Alle anderen Katalogeintraege sind candidate/post-v1, bis Coverage und Smoke-Tests sie ausdruecklich in diese Liste aufnehmen.
 
@@ -62,8 +63,8 @@ Alle anderen Katalogeintraege sind candidate/post-v1, bis Coverage und Smoke-Tes
 Ein Profil gilt als vollständig spezifiziert, wenn es einen Coverage-Report besitzt:
 
 ```text
-profile: sierra-hl78xx-v29
-source: references/snapshots/sierra-hl78xx-v29.md
+profile: sierra-hl6-hl8-v20
+source: references/snapshots/sierra-hl6-hl8-v20.md
 commands_total: <Anzahl Eintraege in commands>
 implemented_full: <vollständig implementiert>
 implemented_stub: <syntaktisch vorhanden, semantisch begrenzt>

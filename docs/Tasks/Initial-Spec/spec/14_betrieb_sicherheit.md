@@ -6,7 +6,7 @@ Typische Modi:
 
 ```bash
 # Ein Port, ein Profil
-modemsim run --port COM7 --baud 115200 --profile sierra-hl78xx-v29
+modemsim run --port COM7 --baud 115200 --profile sierra-hl6-hl8-v20
 
 # Konfigurationsdatei
 modemsim run --config config.yaml
@@ -78,6 +78,7 @@ CI muss negative Fixtures fuer XXE, externe Schema-URLs, XInclude, Entity Expans
 - GUI-Aktionen werden ueber eine nicht-blockierende Queue als `SessionCommand` an den `SessionActor` uebergeben.
 - Read-only-Modus verhindert Injection, State-Aenderungen, Macro-Control, Replay-to-DTE und Reconnect.
 - `raw-dce-to-dte` braucht eine gesonderte Berechtigung (`allowUnsafeDceTransmit=true`) und sichtbare Bestaetigung.
+- Der optionale Port mit Rolle `manual-dce-injection` gilt als externe Quelle fuer `raw-dce-to-dte`; er darf nur geoeffnet werden, wenn diese Berechtigung aktiv ist.
 - Keine automatische Ausfuehrung externer Befehle durch Makros.
 
 ## Event-Queue und Audit-Vollstaendigkeit
@@ -86,6 +87,7 @@ Der Event-Publisher darf normale Telemetrie bei Backpressure gemaess Policy drop
 
 - Injection,
 - State-Change,
+- Fault-Trigger,
 - Macro-Control,
 - Replay-Start/Stop,
 - Redaction-Fehler,

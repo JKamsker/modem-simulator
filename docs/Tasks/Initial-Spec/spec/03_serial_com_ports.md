@@ -21,24 +21,48 @@ v1-Zielplattformen fuer CI und Support:
 
 macOS ist zulaessig, aber kein v1-Abnahmekriterium.
 
-## Konfiguration pro Port
+## Portrollen und gemeinsame serielle Parameter
 
 `config.yaml` wird nach YAML-Parsing gegen `schemas/config.schema.json` validiert.
+
+Eine Runtime-Session besteht aus einer Portgruppe mit bis zu drei logischen Ports:
+
+| Rolle | Pflicht | Aktivierung | Zweck |
+|---|---|---|---|
+| `modem-simulation` | Ja | Immer aktiv | Hauptport fuer das externe Geraet. Der Simulator verarbeitet hier AT-Kommandos und sendet Modemantworten. |
+| `sniffer` | Nein | Optional aktivierbar | Read-only Monitor-Port fuer externe Sniffer/Terminal-Tools. Er spiegelt den Datenverkehr der Hauptsession in einem konfigurierten Sniffer-Format. |
+| `manual-dce-injection` | Nein | Optional aktivierbar | Manueller Eingangsport, z. B. fuer PuTTY. Bytes von diesem Port werden als DCE-Ausgabe an das am Hauptport angeschlossene Geraet gesendet. |
+
+Baudrate, Paritaet, Datenbits und Stopbits sind fuer alle Ports der Portgruppe einheitlich. Sie stehen genau einmal unter `serialLine`. Port-spezifische Werte fuer `baudRate`, `parity`, `dataBits` oder `stopBits` sind ungueltig und muessen durch Config-Validation abgelehnt werden. `flowControl` ist ebenfalls gruppenweit, wenn es genutzt wird.
 
 ```yaml
 sessionSeed: 12345
 clockMode: monotonic
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: NONE
+  flowControl: NONE
 ports:
-  - id: main
+  - id: modem
     type: serial
+    role: modem-simulation
     name: COM7
-    baudRate: 115200
-    dataBits: 8
-    stopBits: 1
-    parity: NONE
-    flowControl: NONE
-    profile: sierra-hl78xx-v29
+    enabled: true
+    profile: sierra-hl6-hl8-v20
     initialScenario: registered-home-medium-signal
+  - id: sniffer
+    type: serial
+    role: sniffer
+    name: COM8
+    enabled: false
+    snifferFormat: tagged-text
+  - id: manual
+    type: serial
+    role: manual-dce-injection
+    name: COM9
+    enabled: false
 redaction:
   enabled: true
   maskPin: true
@@ -51,6 +75,14 @@ redaction:
 ```
 
 Line-Endings kommen aus Profil/S-Register-State. `config.yaml` darf sie nicht als zweite Wahrheit ueberschreiben.
+
+Semantik:
+
+- `modem-simulation` muss genau einmal vorhanden sein und `enabled: true` setzen.
+- `sniffer` darf hoechstens einmal vorhanden sein. Wenn aktiviert, empfaengt er eine Kopie von RX/TX-Events der Hauptsession, veraendert aber nie State und sendet nie Bytes zum Hauptport.
+- `manual-dce-injection` darf hoechstens einmal vorhanden sein. Wenn aktiviert, werden eingehende Bytes dieses Ports als `raw-dce-to-dte` Injection behandelt, vor Ausfuehrung auditierbar geloggt und an den Hauptport geschrieben.
+- Optional aktivierte Ports, die nicht geoeffnet werden koennen, erzeugen ein klares Diagnose-Event. Die Hauptsimulation darf weiterlaufen, sofern keine `strictOptionalPorts`-Policy gesetzt ist.
+- Die GUI darf die gemeinsamen seriellen Parameter nur gruppenweit aendern. Eine Aenderung erfordert einen Restart der Portgruppe.
 
 ## Modem-Control-Lines
 

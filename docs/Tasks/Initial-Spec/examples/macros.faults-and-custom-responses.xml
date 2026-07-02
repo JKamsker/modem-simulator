@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<macros version="1.0" randomSeed="12345">
+  <custom-response id="cmsg-error" priority="100">
+    <if rawGlob="AT+CMSG*"/>
+    <send text="&lt;CR&gt;ERR&lt;CR&gt;"/>
+  </custom-response>
+
+  <macro id="network-outage-restore" priority="90" phase="replace">
+    <match rawGlob="AT+TESTNETOUTAGE"/>
+    <then>
+      <fault type="network-outage"/>
+      <delay ms="5000"/>
+      <fault type="network-restore" stat="1" rssi="18" ber="0"/>
+      <emit line="OK"/>
+    </then>
+  </macro>
+
+  <macro id="modem-reboot" priority="80" phase="replace">
+    <match rawGlob="AT+TESTREBOOT"/>
+    <then>
+      <fault type="modem-reboot" durationMs="3000"/>
+    </then>
+  </macro>
+
+  <macro id="modem-freeze" priority="70" phase="replace">
+    <match rawGlob="AT+TESTFREEZE"/>
+    <then>
+      <fault type="modem-freeze" freezeMode="NO_RESPONSE"/>
+    </then>
+  </macro>
+</macros>

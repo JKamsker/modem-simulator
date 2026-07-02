@@ -1,6 +1,7 @@
 CHANGELOG.md
 README.md
 examples/gui-workflows.md
+examples/macros.faults-and-custom-responses.xml
 examples/macros.sms-error-123.xml
 examples/modem-profile.sample.xml
 examples/scenario.no-network.xml

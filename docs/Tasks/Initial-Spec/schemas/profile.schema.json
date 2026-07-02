@@ -24,6 +24,7 @@
         "device-family",
         "device-target",
         "candidate",
+        "out-of-scope",
         "stub",
         "verified"
       ]

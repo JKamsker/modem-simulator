@@ -52,6 +52,10 @@ state:
   call:
     mode: command
     carrier: false
+  modem:
+    lifecycle: READY
+    freezeMode: NONE
+    bootDelayMs: 0
   modemLines:
     dtr: true
     dsr: true
@@ -83,6 +87,9 @@ Diese Pfade sind fuer `state-change`, Makro-`<when>`, Makro-`<set>`, Szenarien u
 | `state.sms.storage` | `ME`, `SM`, `MT` |
 | `state.call.mode` | `command`, `dialing`, `online-data`, `online-command` |
 | `state.call.carrier` | boolean |
+| `state.modem.lifecycle` | `READY`, `REBOOTING`, `FROZEN` |
+| `state.modem.freezeMode` | `NONE`, `NO_RESPONSE`, `HOLD_TX`, `HOLD_RX_TX` |
+| `state.modem.bootDelayMs` | non-negative integer |
 | `state.modemLines.dtr/dsr/dcd/ri/rts/cts` | boolean |
 
 ## XML-Konfiguration
@@ -219,6 +226,19 @@ OK
 +CREG: 1
 ```
 
+## Fault-Simulationen
+
+Faults sind deterministische State-Uebergaenge, die per GUI, Szenario oder Makro ausgelöst werden koennen. Sie laufen immer ueber den `SessionActor`, erzeugen `stateBefore/stateAfter` und werden auditierbar geloggt.
+
+| Fault | State-Wirkung | Schnittstellenwirkung |
+|---|---|---|
+| Netz-Ausfall | `state.network.stat=4`, `state.signal.rssi=99`, `state.signal.ber=99` | Bei aktivem `+CREG`-URC-Modus wird `+CREG: 4` geplant; netzabhaengige Kommandos liefern profilabhaengige Fehler. |
+| Netz-Wiederkehr | `state.network.stat=1` oder `5`, Signalwerte aus Fault-Action oder Profil | Bei aktivem `+CREG`-URC-Modus wird `+CREG: 1` oder `+CREG: 5` geplant. |
+| Modem-Neustart | `state.modem.lifecycle=REBOOTING`, DSR/DCD false, Scheduler-Eintraege canceln | Bis Boot-Ende keine Antwort oder profildefinierte Boot-Antwort; danach `READY`, DSR true und optionale Boot-URCs. |
+| Freeze | `state.modem.lifecycle=FROZEN`, `freezeMode` gesetzt | Je nach Modus keine Antworten, gehaltene TX-Queue oder ignorierte RX-Bytes; Unfreeze stellt `READY` wieder her. |
+
+`REBOOTING` und `FROZEN` duerfen nicht als implizite Java-Thread-Blockade implementiert werden. Auch Freeze bleibt ein deterministischer Session-State, damit Replay, GUI und Stop weiterhin funktionieren.
+
 ## Fehlerszenarien
 
 - Defekte SIM: `SIM_FAILURE`, blockiert netzabhaengige Befehle je Profil.
@@ -227,3 +247,5 @@ OK
 - Kein Netz: `stat=4`, `+CSQ: 99,99`, SMS-Versand schlaegt mit `+CMS ERROR` oder Profilcode fehl.
 - Registrierung abgelehnt: `stat=3`, optional Reject Cause ohne Location-Felder.
 - Netzwerk-Timeout: Antwortverzoegerung, `+CME ERROR: 31` oder keine Antwort je Profil.
+- Modem-Neustart: `state.modem.lifecycle=REBOOTING`, danach profilierter Boot-Ready-State.
+- Modem-Freeze: `state.modem.lifecycle=FROZEN`, keine oder verzögerte Antworten je `freezeMode`.

@@ -17,7 +17,7 @@
 Alle Golden-Transcript-Fixtures verwenden:
 
 ```yaml
-profile: acceptance-sierra-ready
+profile: acceptance-sierra-hl6-hl8-ready
 commandTerminator: CR
 responseTerminator: CRLF
 defaultEcho: false
@@ -25,6 +25,12 @@ defaultVerbose: true
 defaultQuiet: false
 sessionSeed: 12345
 clockMode: virtual
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: NONE
+  flowControl: NONE
 ```
 
 Default-Ausgabeformat:
@@ -61,7 +67,11 @@ Serielle Integrationslaeufe duerfen bei wall-clock Timing eine Toleranz von `max
 | A18 | Replay deterministisch. | Redigierter test-sicherer Eventlog. | `validate-recompute` prueft Hashes, Initial-State, Sequenzen, Scheduler-Events und bricht bei Divergenz ab. | `modemsim replay logs/fixture.jsonl --mode validate-recompute` |
 | A19 | ModemLines/Datenmodus. | `generic-hayes-v250`, `lineModel=minimal-v250`. | `ATD123\r` -> `CONNECT`, DCD true; `+++` mit Guard-Time -> Online Command; `ATH\r` -> OK, DCD false. | `modemsim test --suite hayes --case data-mode-lines` |
 | A20 | SMS Storage/PDU Mindestumfang. | SMS store ME/SM. | `CMGR/CMGL/CMGD/CPMS/CSCA` deterministisch; PDU `CMGS=<len>` akzeptiert opaque PDU oder liefert spezifizierten Fehler. | `modemsim test --suite sms --case storage-pdu` |
-| A21 | `+CGREG`/`+CEREG` Scope. | Sierra v1 targets. | Commands sind nicht unknown; liefern `implemented_stub`-Transcript oder profildefinierte Ausgabe. | `modemsim test --suite cellular --case packet-registration-stubs` |
+| A21 | Packet-Registration ohne Sierra-LTE-Scope. | Sierra v1 targets und 3GPP-Basis. | `+CGREG` ist fuer Sierra-v1-Targets nicht unknown; `+CEREG` bleibt nur 3GPP-Basis-/Stub-Abdeckung und begruendet kein Sierra-LTE-Zielprofil. | `modemsim test --suite cellular --case packet-registration-stubs` |
+| A22 | Drei-Port-Gruppe mit gemeinsamen seriellen Parametern. | Config mit `modem-simulation` enabled, optionalem `sniffer` und optionalem `manual-dce-injection`. | Config mit port-spezifischer Baudrate/Parity/DataBits/StopBits wird abgelehnt; Hauptport ist immer aktiv; Sniffer empfaengt Traffic ohne State-Aenderung; Bytes vom Manual-DCE-Port werden als `raw-dce-to-dte` an den Hauptport gesendet und auditierbar geloggt. | `modemsim test --suite serial-config --case port-group` |
+| A23 | Fault-Simulationen. | `examples/macros.faults-and-custom-responses.xml`, virtual clock. | Network outage setzt `stat=4` und `CSQ=99,99`; Restore setzt Zielwerte; Reboot setzt `REBOOTING` und danach `READY`; Freeze mit `NO_RESPONSE` blockiert Antworten ohne Threads zu blockieren. | `modemsim test --suite faults --case lifecycle-and-network` |
+| A24 | Custom Responses aus XML. | `examples/macros.faults-and-custom-responses.xml`. | Input `AT+CMSG123\r` matcht `rawGlob=AT+CMSG*` und sendet bytegenau `0D 45 52 52 0D` (`<CR>ERR<CR>`). | `modemsim test --suite macros --case custom-response-cmsg` |
+| A25 | Unknown-AT-Command Policy. | Vier Profile mit `unknownAtCommand=OK`, `ERR`, `ERROR`, `restart`. | Unbekanntes `AT+UNKNOWN\r` liefert jeweils `OK`, `ERR`, `ERROR` oder triggert `FAULT_TRIGGERED`/`modem-reboot`; andere Werte werden bei Profilvalidierung abgelehnt. | `modemsim test --suite profiles --case unknown-at-command-policy` |
 
 ## Golden Transcript Format
 
@@ -69,7 +79,7 @@ Golden Transcripts bestehen aus Metadaten, Byte-IO und optionalen Event-Erwartun
 
 ```yaml
 name: creg-no-network
-profile: acceptance-sierra-ready
+profile: acceptance-sierra-hl6-hl8-ready
 clockMode: virtual
 sessionSeed: 12345
 initialState:

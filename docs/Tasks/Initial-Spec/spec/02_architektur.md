@@ -105,7 +105,7 @@ Der Parser enthaelt keine Herstellerlogik. Er erkennt Frames, AT-Syntaxformen, B
 | Extension Point | Zweck |
 |---|---|
 | `CommandHandler` | Implementiert einen konkreten Befehl wie `+CREG` oder `&V`. |
-| `ProfileDialect` | Legt Default-Line-Endings, Echo, Error-Policy, Prompt-Bytes und Antwortformate fest. |
+| `ProfileDialect` | Legt Default-Line-Endings, Echo, Unknown-AT-Command-Policy, Prompt-Bytes und Antwortformate fest. |
 | `StateModel` | Definiert die kanonischen State-Pfade; Schreibzugriff nur ueber den `SessionActor`. |
 | `MacroProvider` | Laedt XML-Makros, priorisiert und matched sie. |
 | `TransportEndpoint` | Serielle Ports, virtuelle Ports oder Headless-Teststreams. |

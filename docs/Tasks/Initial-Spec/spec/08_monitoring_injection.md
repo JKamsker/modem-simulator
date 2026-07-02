@@ -12,15 +12,16 @@ Pflichtbereiche der GUI:
 
 | Bereich | Pflichtfelder / Aktionen | Test-ID-Prefix |
 |---|---|---|
-| Session/Port Control | Profil, Port, Baudrate, Datenbits, Stopbits, Paritaet, Flow-Control, Start, Stop, Reconnect, Port-Lost-Anzeige | `session.*` |
+| Session/Port Control | Profil, Hauptport, optionaler Sniffer-Port, optionaler Manual-DCE-Port, gemeinsame Baudrate/Datenbits/Stopbits/Paritaet/Flow-Control, Start, Stop, Reconnect, Port-Lost-Anzeige | `session.*` |
 | Live Log | Sequence, Zeit, Richtung, raw bytes, redigierter Text, Parser-Ergebnis, Handler/Makro, Result Code, Latenzen, State Before/After, Redaction Status | `log.*` |
-| State Editor | SIM-State, PIN-Retry, PUK-Retry, Netzstatus, CREG-N, LAC/CI/AcT, Reject Cause, Signal, SMS-Storage, Call-Mode, ModemLines | `state.*` |
+| State Editor | SIM-State, PIN-Retry, PUK-Retry, Netzstatus, CREG-N, LAC/CI/AcT, Reject Cause, Signal, SMS-Storage, Call-Mode, Modem-Lifecycle, Freeze-Mode, ModemLines | `state.*` |
 | Injection | `raw-dte-to-dce`, `raw-dce-to-dte`, parsed command, URC helper, State-Patch, safety confirmation | `inject.*` |
-| Macro Control | Datei, Hash, Reload, Reload-Fehler, enable/disable je Macro-ID | `macro.*` |
+| Fault Control | Netz-Ausfall/-Wiederkehr, Modem-Reboot, Freeze/Unfreeze ausloesen | `fault.*` |
+| Macro Control | Datei, Hash, Reload, Reload-Fehler, enable/disable je Macro-ID, Custom-Response-Liste | `macro.*` |
 | Replay | Modus, Log-Datei, Profil-/Config-/Macro-Hash-Vergleich, virtuelle Clock, Divergenzen | `replay.*` |
 | Export | Redigiertes JSONL, Texttranskript, Coverage-/Replay-Report | `export.*` |
 
-Read-only-Modus deaktiviert alle Controls mit Prefix `state.*`, `inject.*`, `macro.reload`, `macro.enable`, `macro.disable`, `replay.playToDte` und `session.reconnect`, laesst aber Filter, Export und Log-Auswahl aktiv.
+Read-only-Modus deaktiviert alle Controls mit Prefix `state.*`, `fault.*`, `inject.*`, `macro.reload`, `macro.enable`, `macro.disable`, `replay.playToDte` und `session.reconnect`, laesst aber Filter, Export und Log-Auswahl aktiv.
 
 GUI-Tests muessen Headless-JavaFX starten koennen und die Test-IDs verwenden. Mindestens ein Test prueft, dass Read-only alle mutierenden Controls deaktiviert.
 
@@ -40,7 +41,7 @@ Persistente Events validieren gegen `schemas/event-log.schema.json`.
   "rawHex": "41542B4353510D",
   "textEscaped": "AT+CSQ\\r",
   "parsedCommand": {"name":"+CSQ","kind":"EXTENDED_EXEC"},
-  "profile": "sierra-hl78xx-v29",
+  "profile": "sierra-hl6-hl8-v20",
   "profileHash": "sha256:...",
   "configHash": "sha256:...",
   "macroHash": "sha256:...",
@@ -73,6 +74,14 @@ State aendern:
 4. GUI sendet `SessionCommand`.
 5. Eventlog zeigt alten und neuen State mit Sequenznummer.
 
+Fault ausloesen:
+
+1. Tab `Fault Control` oeffnen.
+2. Fault `network-outage`, `network-restore`, `modem-reboot`, `modem-freeze` oder `modem-unfreeze` waehlen.
+3. Optionale Parameter wie Dauer, Ziel-`stat`, RSSI/BER oder Freeze-Mode setzen.
+4. Aenderung anwenden.
+5. Eventlog zeigt `FAULT_TRIGGERED` und die resultierenden State-/Scheduler-Events.
+
 URC an DTE senden:
 
 1. Tab `Injection` oeffnen.
@@ -88,6 +97,21 @@ Befehl intern einspeisen:
 3. Payload `AT+CSQ` eingeben.
 4. Response im Live-Log pruefen.
 
+Manuelle Modemantwort ueber PuTTY senden:
+
+1. In `Session/Port Control` den Port mit Rolle `manual-dce-injection` aktivieren.
+2. PuTTY mit denselben `serialLine`-Parametern wie der Hauptport verbinden.
+3. Bytes oder Textantwort eingeben.
+4. Simulator loggt die Eingabe als `raw-dce-to-dte` Injection.
+5. Simulator sendet die Bytes an das am Hauptport angeschlossene Geraet.
+
+Sniffer-Port aktivieren:
+
+1. In `Session/Port Control` den Port mit Rolle `sniffer` aktivieren.
+2. Sniffer-Tool mit denselben `serialLine`-Parametern wie der Hauptport verbinden.
+3. Datenverkehr beobachten.
+4. Sniffer-Eingaben werden ignoriert und duerfen State oder Hauptport nicht veraendern.
+
 ## Injection-Arten
 
 | Typ | Zweck |
@@ -100,6 +124,8 @@ Befehl intern einspeisen:
 | `replay` | Mitschnitt in einem der definierten Replay-Modi abspielen. |
 
 Legacy-Richtungsaliases werden nicht akzeptiert; v1 nutzt DTE/DCE konsistent.
+
+Der Port mit Rolle `manual-dce-injection` ist eine externe Quelle fuer `raw-dce-to-dte`. Er teilt Baudrate, Paritaet, Datenbits und Stopbits mit dem Hauptport und darf keine eigenen seriellen Parameter besitzen.
 
 ## Replay
 

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <modem-simulator version="1.0">
-  <profile id="sierra-hl78xx-test"
+  <profile id="sierra-hl6-hl8-test"
            vendor="Sierra Wireless / Semtech"
            status="device-target"
            profileKind="cellular"
-           extends="sierra-hl78xx-v29">
+           extends="sierra-hl6-hl8-v20">
     <identity manufacturer="Sierra Wireless"
-              model="HL7812"
+              model="HL8548"
               revision="sim-1.0"
               imei="359762080000001"/>
 
@@ -17,7 +17,8 @@
              defaultVerbose="true"
              defaultQuiet="false"
              resetPolicy="nvram-on-atz"
-             lineModel="minimal-v250"/>
+             lineModel="minimal-v250"
+             unknownAtCommand="ERROR"/>
 
     <initial-state>
       <sim state="READY"
@@ -51,8 +52,9 @@
       <signal rssi="18" ber="0"/>
       <sms textMode="true" smsc="+491710760000"/>
       <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
       <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
     </initial-state>
-    <coverage source="references/snapshots/sierra-hl78xx-v29.md" commandsTotal="0" unknown="0"/>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="0" unknown="0"/>
   </profile>
 </modem-simulator>
