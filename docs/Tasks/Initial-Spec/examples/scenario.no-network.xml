@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scenario id="no-network" version="1.0">
+  <initial-state>
+    <sim state="READY"/>
+    <network cregN="2" stat="4"/>
+    <signal rssi="99" ber="99"/>
+  </initial-state>
+
+  <expect command="AT+CREG?">
+    <line>+CREG: 2,4</line>
+    <result>OK</result>
+  </expect>
+
+  <expect command="AT+CSQ">
+    <line>+CSQ: 99,99</line>
+    <result>OK</result>
+  </expect>
+</scenario>

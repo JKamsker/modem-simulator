@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Modem Simulator Profile",
+  "type": "object",
+  "required": [
+    "id",
+    "vendor",
+    "status",
+    "extends"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "vendor": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "normative-base",
+        "manufacturer-base",
+        "device-target",
+        "candidate",
+        "stub",
+        "verified"
+      ]
+    },
+    "extends": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "identity": {
+      "type": "object"
+    },
+    "dialect": {
+      "type": "object"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "coverage": {
+      "type": "object"
+    }
+  }
+}

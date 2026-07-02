@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Modem Simulator Event Log",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "sessionId",
+    "direction",
+    "rawHex"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "monotonicNanos": {
+      "type": "integer"
+    },
+    "sessionId": {
+      "type": "string"
+    },
+    "port": {
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "DTE_TO_MODEM",
+        "MODEM_TO_DTE",
+        "INJECTED",
+        "INTERNAL"
+      ]
+    },
+    "rawHex": {
+      "type": "string"
+    },
+    "textEscaped": {
+      "type": "string"
+    },
+    "parsedCommand": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "profile": {
+      "type": "string"
+    },
+    "macroId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "result": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "latencyMs": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stateBefore": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "stateAfter": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modem-simulator version="1.0">
+  <profile id="sierra-hl78xx-test" extends="sierra-hl78xx-v29">
+    <identity manufacturer="Sierra Wireless"
+              model="HL7812"
+              revision="sim-1.0"
+              imei="359762080000001"/>
+
+    <dialect commandTerminator="CR"
+             responseTerminator="CRLF"
+             smsPrompt="&gt; "
+             defaultEcho="true"
+             defaultVerbose="true"/>
+
+    <initial-state>
+      <sim state="READY"/>
+      <network cregN="2"
+               stat="1"
+               lac="00C3"
+               ci="00001234"
+               act="7"/>
+      <signal rssi="18" ber="0"/>
+      <sms textMode="true" smsc="+491710760000"/>
+    </initial-state>
+  </profile>
+</modem-simulator>

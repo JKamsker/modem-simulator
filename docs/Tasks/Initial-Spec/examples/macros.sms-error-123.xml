@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<macros version="1.0" randomSeed="12345">
+  <macro id="smscommand-dst-error-123" priority="100" phase="replace">
+    <match type="sms-submit">
+      <destination equals="+491701234567"/>
+      <body contains="smscommand dst"/>
+    </match>
+    <then>
+      <delay ms="250" jitterMs="0"/>
+      <emit line="+CMS ERROR: 123"/>
+    </then>
+  </macro>
+
+  <macro id="smscommand-dst-vendor-raw" priority="90" phase="replace" enabled="false">
+    <match type="sms-submit">
+      <body contains="smscommand dst"/>
+    </match>
+    <then>
+      <emit raw="
+ATHayesErrorCode 123
+"/>
+    </then>
+  </macro>
+</macros>

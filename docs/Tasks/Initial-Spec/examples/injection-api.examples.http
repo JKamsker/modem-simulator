@@ -1,0 +1,39 @@
+### State abfragen
+GET http://127.0.0.1:8080/api/v1/sessions/main/state
+
+### Kein Netz injizieren
+POST http://127.0.0.1:8080/api/v1/sessions/main/state
+Content-Type: application/json
+
+{
+  "network": {"stat": 4},
+  "signal": {"rssi": 99, "ber": 99}
+}
+
+### Defekte SIM injizieren
+POST http://127.0.0.1:8080/api/v1/sessions/main/state
+Content-Type: application/json
+
+{
+  "sim": {"state": "SIM_FAILURE"}
+}
+
+### URC senden
+POST http://127.0.0.1:8080/api/v1/sessions/main/inject
+Content-Type: application/json
+
+{
+  "direction": "MODEM_TO_DTE",
+  "data": "
++CREG: 4
+"
+}
+
+### Befehl einspeisen
+POST http://127.0.0.1:8080/api/v1/sessions/main/inject
+Content-Type: application/json
+
+{
+  "direction": "DTE_TO_MODEM",
+  "data": "AT+CSQ"
+}
