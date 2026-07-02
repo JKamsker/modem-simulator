@@ -17,4 +17,8 @@ public record Profile(
     public Profile withInitialState(ModemState value) {
         return new Profile(id, parents, vendor, status, profileKind, dialect, identity, value);
     }
+
+    public Profile withDialect(Dialect value) {
+        return new Profile(id, parents, vendor, status, profileKind, value, identity, initialState);
+    }
 }

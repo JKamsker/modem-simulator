@@ -3,6 +3,8 @@ package com.alegs3.modemsim.app;
 import com.alegs3.modemsim.macros.MacroLoader;
 import com.alegs3.modemsim.profiles.ProfileXmlLoader;
 import com.alegs3.modemsim.transport.PortDiscovery;
+import com.alegs3.modemsim.testkit.AcceptanceResult;
+import com.alegs3.modemsim.testkit.AcceptanceSuite;
 import com.alegs3.modemsim.validation.ConfigValidator;
 import com.alegs3.modemsim.validation.CoverageValidator;
 import com.alegs3.modemsim.validation.ScenarioValidator;
@@ -56,6 +58,7 @@ public final class ModemSimCli {
                 case "validate-scenario" -> report(new ScenarioValidator().validate(pathArg(args, 1)));
                 case "validate-config" -> report(new ConfigValidator().validate(pathArg(args, 1)));
                 case "coverage" -> coverage(args);
+                case "test" -> test(args);
                 case "list-ports" -> listPorts();
                 default -> {
                     usage();
@@ -73,6 +76,16 @@ public final class ModemSimCli {
             }
             usage();
             return 2;
+        }
+
+        private int test(String[] args) {
+            String caseId = option(args, "--case", "all");
+            AcceptanceSuite suite = new AcceptanceSuite();
+            var results = caseId.equals("all")
+                    ? suite.caseIds().stream().map(suite::run).toList()
+                    : java.util.List.of(suite.run(caseId));
+            results.forEach(result -> out.println(result.caseId() + " " + (result.passed() ? "OK" : result.message())));
+            return results.stream().allMatch(AcceptanceResult::passed) ? 0 : 1;
         }
 
         private int listPorts() {
@@ -97,6 +110,15 @@ public final class ModemSimCli {
             return Path.of(args[index]);
         }
 
+        private String option(String[] args, String name, String fallback) {
+            for (int i = 0; i < args.length - 1; i++) {
+                if (args[i].equals(name)) {
+                    return args[i + 1];
+                }
+            }
+            return fallback;
+        }
+
         private void usage() {
             err.println("""
                     Usage:
@@ -105,6 +127,7 @@ public final class ModemSimCli {
                       modemsim validate-scenario <scenario.xml>
                       modemsim validate-config <config.yaml>
                       modemsim coverage verify --profiles v1-targets
+                      modemsim test --suite acceptance --case A01
                       modemsim list-ports
                     """);
         }

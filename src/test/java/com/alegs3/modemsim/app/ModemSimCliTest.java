@@ -22,6 +22,7 @@ class ModemSimCliTest {
         assertThat(runner.run(new String[] {
                 "validate-scenario", "docs/Tasks/Initial-Spec/examples/scenario.no-network.xml"})).isZero();
         assertThat(runner.run(new String[] {"coverage", "verify", "--profiles", "v1-targets"})).isZero();
+        assertThat(runner.run(new String[] {"test", "--suite", "acceptance", "--case", "A01"})).isZero();
         assertThat(err.toString()).isEmpty();
     }
 }
