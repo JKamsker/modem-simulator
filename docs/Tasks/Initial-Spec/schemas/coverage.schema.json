@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Modem Simulator Coverage Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile",
+    "source",
+    "commands_total",
+    "commands",
+    "unknown"
+  ],
+  "properties": {
+    "profile": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "commands_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "implemented_full": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "implemented_stub": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unsupported_declared": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "not_applicable": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unknown": {
+      "const": 0
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command",
+          "status"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "implemented_full",
+              "implemented_stub",
+              "unsupported_declared",
+              "not_applicable"
+            ]
+          },
+          "handler": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

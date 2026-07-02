@@ -11,12 +11,22 @@
 
   <xs:complexType name="ProfileType">
     <xs:sequence>
-      <xs:element name="identity" type="IdentityType"/>
+      <xs:element name="identity" type="IdentityType" minOccurs="0"/>
       <xs:element name="dialect" type="DialectType"/>
-      <xs:element name="initial-state" type="InitialStateType"/>
+      <xs:element name="initial-state" type="InitialStateType" minOccurs="0"/>
+      <xs:element name="commands" type="CommandsType" minOccurs="0"/>
+      <xs:element name="registers" type="RegistersType" minOccurs="0"/>
+      <xs:element name="coverage" type="CoverageType" minOccurs="0"/>
+      <xs:element name="deviations" type="DeviationsType" minOccurs="0"/>
     </xs:sequence>
-    <xs:attribute name="id" type="xs:NCName" use="required"/>
-    <xs:attribute name="extends" type="xs:string" use="optional"/>
+    <xs:attribute name="id" type="ProfileIdType" use="required"/>
+    <xs:attribute name="vendor" type="xs:string" use="required"/>
+    <xs:attribute name="status" type="ProfileStatusType" use="required"/>
+    <xs:attribute name="profileKind" type="ProfileKindType" use="optional" default="cellular"/>
+    <xs:attribute name="extends" type="ProfileIdListType" use="optional"/>
+    <xs:attribute name="modelFamily" type="xs:string" use="optional"/>
+    <xs:attribute name="manualVersion" type="xs:string" use="optional"/>
+    <xs:attribute name="manualDate" type="xs:date" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="IdentityType">
@@ -29,24 +39,30 @@
   <xs:complexType name="DialectType">
     <xs:attribute name="commandTerminator" type="TerminatorType" use="required"/>
     <xs:attribute name="responseTerminator" type="TerminatorType" use="required"/>
-    <xs:attribute name="smsPrompt" type="xs:string" use="optional"/>
+    <xs:attribute name="smsPromptBytes" type="HexBytesType" use="optional"/>
     <xs:attribute name="defaultEcho" type="xs:boolean" use="optional"/>
     <xs:attribute name="defaultVerbose" type="xs:boolean" use="optional"/>
+    <xs:attribute name="defaultQuiet" type="xs:boolean" use="optional"/>
+    <xs:attribute name="resetPolicy" type="ResetPolicyType" use="optional"/>
+    <xs:attribute name="lineModel" type="LineModelType" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="InitialStateType">
     <xs:sequence>
-      <xs:element name="sim" type="SimType"/>
-      <xs:element name="network" type="NetworkType"/>
-      <xs:element name="signal" type="SignalType"/>
+      <xs:element name="sim" type="SimType" minOccurs="0"/>
+      <xs:element name="network" type="NetworkType" minOccurs="0"/>
+      <xs:element name="signal" type="SignalType" minOccurs="0"/>
       <xs:element name="sms" type="SmsType" minOccurs="0"/>
+      <xs:element name="call" type="CallType" minOccurs="0"/>
+      <xs:element name="modem-lines" type="ModemLinesType" minOccurs="0"/>
     </xs:sequence>
   </xs:complexType>
 
   <xs:complexType name="SimType">
     <xs:attribute name="state" type="SimStateType" use="optional"/>
-    <xs:attribute name="pinQueryEnabled" type="xs:boolean" use="required"/>
+    <xs:attribute name="pinQueryEnabled" type="xs:boolean" use="optional"/>
     <xs:attribute name="pin" type="PinType" use="optional"/>
+    <xs:attribute name="pinRef" type="xs:string" use="optional"/>
     <xs:attribute name="pinRetries" type="RetryCounterType" use="optional"/>
     <xs:attribute name="pukRetries" type="RetryCounterType" use="optional"/>
     <xs:attribute name="imsi" type="ImsiType" use="optional"/>
@@ -65,6 +81,7 @@
     <xs:attribute name="ci" type="HexCellType" use="optional"/>
     <xs:attribute name="act" type="AccessTechnologyType" use="optional"/>
     <xs:attribute name="rejectCause" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="rejectCauseType" type="xs:nonNegativeInteger" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="OperatorType">
@@ -97,20 +114,143 @@
   </xs:complexType>
 
   <xs:complexType name="SignalType">
-    <xs:attribute name="rssi" type="CsqValueType" use="required"/>
-    <xs:attribute name="ber" type="CsqValueType" use="required"/>
+    <xs:attribute name="rssi" type="CsqRssiType" use="required"/>
+    <xs:attribute name="ber" type="CsqBerType" use="required"/>
   </xs:complexType>
 
   <xs:complexType name="SmsType">
     <xs:attribute name="textMode" type="xs:boolean" use="optional"/>
     <xs:attribute name="smsc" type="xs:string" use="optional"/>
+    <xs:attribute name="storage" type="SmsStorageType" use="optional"/>
   </xs:complexType>
+
+  <xs:complexType name="CallType">
+    <xs:attribute name="mode" type="CallModeType" use="optional" default="command"/>
+    <xs:attribute name="carrier" type="xs:boolean" use="optional" default="false"/>
+    <xs:attribute name="dialedNumber" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ModemLinesType">
+    <xs:attribute name="dtr" type="xs:boolean" use="optional"/>
+    <xs:attribute name="dsr" type="xs:boolean" use="optional"/>
+    <xs:attribute name="dcd" type="xs:boolean" use="optional"/>
+    <xs:attribute name="ri" type="xs:boolean" use="optional"/>
+    <xs:attribute name="rts" type="xs:boolean" use="optional"/>
+    <xs:attribute name="cts" type="xs:boolean" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="CommandsType">
+    <xs:sequence>
+      <xs:element name="command" type="CommandDeclarationType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CommandDeclarationType">
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="status" type="CoverageStatusType" use="required"/>
+    <xs:attribute name="handler" type="xs:string" use="optional"/>
+    <xs:attribute name="reason" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="RegistersType">
+    <xs:sequence>
+      <xs:element name="register" type="RegisterDeclarationType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="RegisterDeclarationType">
+    <xs:attribute name="name" type="RegisterNameType" use="required"/>
+    <xs:attribute name="default" type="xs:integer" use="required"/>
+    <xs:attribute name="min" type="xs:integer" use="optional"/>
+    <xs:attribute name="max" type="xs:integer" use="optional"/>
+    <xs:attribute name="writable" type="xs:boolean" use="optional" default="true"/>
+    <xs:attribute name="persistent" type="xs:boolean" use="optional" default="false"/>
+  </xs:complexType>
+
+  <xs:complexType name="CoverageType">
+    <xs:sequence>
+      <xs:element name="command" type="CommandDeclarationType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="source" type="xs:string" use="required"/>
+    <xs:attribute name="commandsTotal" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="unknown" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="DeviationsType">
+    <xs:sequence>
+      <xs:element name="deviation" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="id" type="xs:string" use="required"/>
+              <xs:attribute name="severity" type="DeviationSeverityType" use="optional"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="ProfileIdType">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:pattern value="[A-Za-z0-9][A-Za-z0-9._:-]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ProfileIdListType">
+    <xs:list itemType="ProfileIdType"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="ProfileStatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="normative-base"/>
+      <xs:enumeration value="manufacturer-base"/>
+      <xs:enumeration value="device-family"/>
+      <xs:enumeration value="device-target"/>
+      <xs:enumeration value="candidate"/>
+      <xs:enumeration value="stub"/>
+      <xs:enumeration value="verified"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ProfileKindType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="base"/>
+      <xs:enumeration value="cellular"/>
+      <xs:enumeration value="pstn"/>
+      <xs:enumeration value="isdn"/>
+      <xs:enumeration value="hybrid"/>
+    </xs:restriction>
+  </xs:simpleType>
 
   <xs:simpleType name="TerminatorType">
     <xs:restriction base="xs:string">
       <xs:enumeration value="CR"/>
       <xs:enumeration value="LF"/>
       <xs:enumeration value="CRLF"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="HexBytesType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9A-Fa-f]{2})*"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ResetPolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="factory-on-atz"/>
+      <xs:enumeration value="nvram-on-atz"/>
+      <xs:enumeration value="profile-default-on-atz"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="LineModelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="byte-only"/>
+      <xs:enumeration value="minimal-v250"/>
+      <xs:enumeration value="profile-specific"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -168,7 +308,7 @@
 
   <xs:simpleType name="NetworkStatType">
     <xs:restriction base="xs:nonNegativeInteger">
-      <xs:maxInclusive value="5"/>
+      <xs:maxInclusive value="11"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -180,7 +320,7 @@
 
   <xs:simpleType name="AccessTechnologyType">
     <xs:restriction base="xs:nonNegativeInteger">
-      <xs:maxInclusive value="9"/>
+      <xs:maxInclusive value="13"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -243,9 +383,69 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="CsqValueType">
+  <xs:simpleType name="CsqRssiKnownType">
     <xs:restriction base="xs:nonNegativeInteger">
-      <xs:maxInclusive value="99"/>
+      <xs:maxInclusive value="31"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CsqBerKnownType">
+    <xs:restriction base="xs:nonNegativeInteger">
+      <xs:maxInclusive value="7"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CsqUnknownType">
+    <xs:restriction base="xs:nonNegativeInteger">
+      <xs:enumeration value="99"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CsqRssiType">
+    <xs:union memberTypes="CsqRssiKnownType CsqUnknownType"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="CsqBerType">
+    <xs:union memberTypes="CsqBerKnownType CsqUnknownType"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="SmsStorageType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ME"/>
+      <xs:enumeration value="SM"/>
+      <xs:enumeration value="MT"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CallModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="command"/>
+      <xs:enumeration value="dialing"/>
+      <xs:enumeration value="online-data"/>
+      <xs:enumeration value="online-command"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CoverageStatusType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="implemented_full"/>
+      <xs:enumeration value="implemented_stub"/>
+      <xs:enumeration value="unsupported_declared"/>
+      <xs:enumeration value="not_applicable"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="RegisterNameType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="S[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="DeviationSeverityType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="info"/>
+      <xs:enumeration value="warning"/>
+      <xs:enumeration value="compatibility"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>

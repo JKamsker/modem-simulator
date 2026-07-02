@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3 - 2026-07-02
+
+- Alegs3-Spec als Source of Record markiert.
+- XSD als autoritatives Runtime-Profilformat festgelegt; JSON-Profil-Schema zu Catalog/Coverage-Helper demotiert.
+- SessionActor, deterministischen Scheduler, `sessionSeed`, virtuelle Clock und Replay-Modi spezifiziert.
+- v1-Zielprofile, JavaFX-GUI, Ziel-OS, Virtual-COM-Tools und TCP-Bridge-Out-of-Scope festgelegt.
+- Profile-, Macro-, Scenario-, Config-, Coverage- und Eventlog-Schemas ergaenzt bzw. gehaertet.
+- SIM/Network-Beispiel korrigiert: keine PIN-gesperrte SIM mit aktiver Registrierung.
+- `+CREG`, `+CSQ`, SMS-Prompt, `ATH`, Rate-Limit-CMS-Code und S-Register-Framing korrigiert.
+- Akzeptanzkriterien durch ausfuehrbare Matrix mit Byte-IO, Event-Oracles, Timing-Toleranzen und CI-Kommandos ersetzt.
+- Redaction default-on fuer Logs, GUI, Export und Replay festgelegt.
+- Lokale Referenzdownloads als nicht redistributable Arbeitskopien markiert.
+
 ## v0.2 - 2026-07-02
 
 - Spec in mehrere Markdown-Dateien aufgeteilt.

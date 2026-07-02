@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="scenario">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="initial-state" type="InitialStateType" minOccurs="0"/>
+        <xs:element name="step" type="ScenarioStepType" minOccurs="0" maxOccurs="unbounded"/>
+        <xs:element name="expect" type="ScenarioExpectationType" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="clock" use="optional" default="virtual">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="virtual"/>
+            <xs:enumeration value="monotonic"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:complexType name="InitialStateType">
+    <xs:sequence>
+      <xs:element name="sim" type="SimType" minOccurs="0"/>
+      <xs:element name="network" type="NetworkType" minOccurs="0"/>
+      <xs:element name="signal" type="SignalType" minOccurs="0"/>
+      <xs:element name="modem-lines" type="ModemLinesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ScenarioStepType">
+    <xs:sequence>
+      <xs:element name="set" type="SetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="advance" type="AdvanceType" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="atMs" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="ScenarioExpectationType">
+    <xs:sequence>
+      <xs:element name="line" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="result" type="xs:string" minOccurs="0" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="command" type="xs:string" use="required"/>
+    <xs:attribute name="inputHex" type="HexBytesType" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="SetType">
+    <xs:attribute name="path" type="StatePathType" use="required"/>
+    <xs:attribute name="value" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="AdvanceType">
+    <xs:attribute name="ms" type="xs:nonNegativeInteger" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="SimType">
+    <xs:attribute name="state" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="NetworkType">
+    <xs:attribute name="cregN" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="stat" type="xs:nonNegativeInteger" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="SignalType">
+    <xs:attribute name="rssi" type="xs:nonNegativeInteger" use="optional"/>
+    <xs:attribute name="ber" type="xs:nonNegativeInteger" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ModemLinesType">
+    <xs:attribute name="dtr" type="xs:boolean" use="optional"/>
+    <xs:attribute name="dsr" type="xs:boolean" use="optional"/>
+    <xs:attribute name="dcd" type="xs:boolean" use="optional"/>
+    <xs:attribute name="ri" type="xs:boolean" use="optional"/>
+  </xs:complexType>
+
+  <xs:simpleType name="StatePathType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="state(\.[A-Za-z][A-Za-z0-9_-]*)+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="HexBytesType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9A-Fa-f]{2})*"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

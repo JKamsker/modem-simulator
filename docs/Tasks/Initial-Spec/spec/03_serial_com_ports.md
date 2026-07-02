@@ -2,19 +2,32 @@
 
 ## Anforderungen
 
-Der Serial Endpoint Layer muss mehrere Porttypen unterstützen:
+Der Transport Endpoint Layer muss in v1 diese Porttypen unterstuetzen:
 
 | Typ | Beispiel | Muss in v1 |
 |---|---|---|
 | Physischer RS-232/USB-Serial-Port | `COM3`, `/dev/ttyUSB0` | Ja |
-| Virtuelles COM-Paar | com0com, tty0tty, socat PTY | Ja, als externer Treiber |
-| USB CDC/ACM | `/dev/ttyACM0`, Windows COMx | Ja, als Betriebssystemgerät |
-| TCP-Serial-Bridge | RFC2217, eigener TCP Endpoint | Optional |
-| Headless | In-Memory-Teststream | Ja für Tests |
+| Virtuelles COM-Paar | com0com, socat PTY | Ja, als externer Treiber |
+| USB CDC/ACM | `/dev/ttyACM0`, Windows COMx | Ja, als Betriebssystemgeraet |
+| Headless | In-Memory-Teststream | Ja fuer Tests |
+| TCP-Serial-Bridge | RFC2217, eigener TCP Endpoint | Nein, post-v1 |
+
+v1-Zielplattformen fuer CI und Support:
+
+| OS | Virtuelle Port-Strategie |
+|---|---|
+| Windows 11 | com0com oder echte USB-Serial-Hardware fuer `serial-it` |
+| Linux LTS | socat PTY fuer `serial-it`; tty0tty optional |
+
+macOS ist zulaessig, aber kein v1-Abnahmekriterium.
 
 ## Konfiguration pro Port
 
+`config.yaml` wird nach YAML-Parsing gegen `schemas/config.schema.json` validiert.
+
 ```yaml
+sessionSeed: 12345
+clockMode: monotonic
 ports:
   - id: main
     type: serial
@@ -25,52 +38,66 @@ ports:
     parity: NONE
     flowControl: NONE
     profile: sierra-hl78xx-v29
-    lineEndingRx: CR
-    lineEndingTx: CRLF
     initialScenario: registered-home-medium-signal
+redaction:
+  enabled: true
+  maskPin: true
+  maskPuk: true
+  maskImsi: true
+  maskIccid: true
+  maskImei: true
+  maskMsisdn: true
+  maskSmsBody: true
 ```
+
+Line-Endings kommen aus Profil/S-Register-State. `config.yaml` darf sie nicht als zweite Wahrheit ueberschreiben.
 
 ## Modem-Control-Lines
 
-Modem-Control-Lines sind fuer die erste Version nicht relevant. v1 behandelt serielle Ports als Byte-Stream; DTR, DSR, DCD, RI sowie RTS/CTS muessen nicht simuliert, geschaltet oder im Eventlog sichtbar gemacht werden.
+v1 ist nicht vollstaendig RS-232-line-aware, muss aber ein minimales `ModemLines`-Modell bereitstellen, weil Datenmodus und Westermo-TD-Profile sonst fuer line-aware DTEs nicht abnahmefaehig sind.
 
-Nicht Bestandteil von v1:
+Pflichtumfang v1:
 
-- DTR: DTE ready.
-- DSR: Modem ready.
-- DCD: Carrier detect.
-- RI: Ring indicator.
-- RTS/CTS: Hardware-Flow-Control.
+| Line | v1-Verhalten |
+|---|---|
+| DTR | Eingehender DTE-ready-Status. Bei `AT&D2` fuehrt DTR-Drop zu Hangup und Command Mode. |
+| DSR | DCE-ready-Status; beim Session-Start `true`, bei `PORT_LOST` `false`. |
+| DCD | Carrier Detect; `true` nach `CONNECT`, `false` nach `ATH`, Carrier Loss oder DTR-Hangup. |
+| RI | Optionales Ring-Signal fuer Call/SMS-URCs; muss geloggt werden, wenn gesetzt. |
+| RTS/CTS | Sichtbar im State und Eventlog; Hardware-Flow-Control wird nur genutzt, wenn der Endpoint es anbietet. |
 
-Ebenfalls nicht Bestandteil von v1:
+`AT&D0..3` und `AT&C0..1` muessen fuer Profile mit `lineModel=minimal-v250` implementiert werden. Profile mit `lineModel=byte-only` muessen klar als nicht geeignet fuer line-aware DTEs markiert sein.
 
-- `AT&D0..3` beeinflusst Verhalten bei DTR-Abfall.
-- `AT&C0..1` beeinflusst DCD-Verhalten.
-- `RING` oder eingehende SMS/Call-URCs können RI setzen.
-- Connect/Disconnect kann DCD schalten.
+## Endpoint API
 
-Die Architektur darf spaeter ein `ModemLines`-Interface nachruesten, aber v1-Handler und Abnahmetests duerfen nicht davon abhaengen.
-
-## Java-Bibliotheken
-
-Empfohlene primäre Bibliothek: `com.fazecast:jSerialComm`, weil sie Windows, Linux und macOS abdeckt und relativ einfach einzubinden ist. Alternativen sind `jSerialComm` plus JNA-spezifische Hilfen oder RXTX nur für Legacy-Umgebungen.
-
-Die Architektur muss die Bibliothek hinter einem Interface kapseln:
+Die Architektur kapselt die Bibliothek hinter einem Interface. RX-Bytes muessen mit einer monotonen Eingangszeit oder einer Idle-Gap-Information beim Parser ankommen, damit `+++`-Guard-Time testbar ist.
 
 ```java
 interface SerialEndpoint extends AutoCloseable {
     void open(SerialConfig config) throws SerialException;
-    int read(byte[] buffer, int offset, int length) throws IOException;
+    SerialRead read() throws IOException;
     void write(byte[] buffer, int offset, int length) throws IOException;
+    ModemLines readLines();
+    void writeLines(ModemLines lines);
 }
+
+record SerialRead(byte[] bytes, long firstByteMonotonicNanos, long lastByteMonotonicNanos) {}
 ```
 
-## Fehlerfälle
+Headless-Endpoints liefern dieselben Datenstrukturen mit virtueller Clock.
+
+## Java-Bibliotheken
+
+Primaere Bibliothek: `com.fazecast:jSerialComm`. Die konkrete Version wird im Build-Manifest exakt gepinnt; Versionsbereiche oder dynamische Versionen sind nicht zulaessig. Native Access Flags sind in Kapitel 12 verbindlich geregelt.
+
+## Fehlerfaelle
 
 | Fehler | Erwartetes Verhalten |
 |---|---|
 | Port nicht vorhanden | Startfehler mit klarer Diagnose. |
 | Port belegt | Startfehler, kein stiller Retry ohne Konfiguration. |
-| Device verschwindet | Session auf `PORT_LOST`, Eventlog-Eintrag, optional Auto-Reconnect. |
-| Baudrate nicht unterstützt | Validierungsfehler. |
-| Pufferüberlauf | Event `RX_OVERFLOW` oder `TX_OVERFLOW`, optional `ERROR`/Disconnect. |
+| Device verschwindet | Session auf `PORT_LOST`, DSR/DCD false, Scheduler-Cancel, Eventlog-Eintrag, optional Auto-Reconnect nur nach Konfiguration. |
+| Baudrate nicht unterstuetzt | Validierungsfehler. |
+| Pufferueberlauf | Event `RX_OVERFLOW` oder `TX_OVERFLOW`; bei Datenverlust muss die Session fuer Replay als divergent markiert werden. |
+
+`PORT_LOST` darf nicht allein aus einem leeren oder timeoutenden `read()` abgeleitet werden. Die Implementierung muss Bibliotheksereignisse, IOException-Klassen und Port-Reenumeration kombinieren und die Diagnose loggen.

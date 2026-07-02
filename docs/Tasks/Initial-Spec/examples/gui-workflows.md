@@ -20,15 +20,22 @@
 ## URC senden
 
 1. Tab `Injection` oeffnen.
-2. Richtung `Modem -> Device` waehlen.
+2. Typ `raw-dce-to-dte` oder URC Helper waehlen.
 3. Payload `+CREG: 4` eingeben.
-4. Senden.
-5. Live-Log muss die injizierte Ausgabe als Injection markieren.
+4. Safety-Hinweis bestaetigen, falls ein externer Port verbunden ist.
+5. Senden.
+6. Live-Log muss die injizierte Ausgabe als Injection markieren.
 
 ## AT-Befehl einspeisen
 
 1. Tab `Injection` oeffnen.
-2. Richtung `Device -> Modem` waehlen.
+2. Typ `raw-dte-to-dce` oder `parsed-command` waehlen.
 3. Payload `AT+CSQ` eingeben.
 4. Senden.
 5. Response-Log muss Parser-Ergebnis, Handler und Result Code anzeigen.
+
+## Read-only pruefen
+
+1. Read-only aktivieren.
+2. Tabs `State`, `Injection`, `Macro Control` und `Replay` pruefen.
+3. Mutierende Controls muessen deaktiviert sein; Log-Filter und Export bleiben aktiv.

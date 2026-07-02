@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scenario id="no-network" version="1.0">
+<scenario id="no-network" version="1.0" clock="virtual">
   <initial-state>
     <sim state="READY"/>
     <network cregN="2" stat="4"/>

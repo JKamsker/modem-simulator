@@ -46,9 +46,12 @@ references/url/westermo-td32.url
 references/url/westermo-td33.url
 references/url/westermo-td36.url
 schemas/event-log.schema.json
+schemas/config.schema.json
+schemas/coverage.schema.json
 schemas/macro-schema-draft.xsd
 schemas/modem-profile.schema.xsd
 schemas/profile.schema.json
+schemas/scenario.schema.xsd
 spec/00_glossar_und_annahmen.md
 spec/01_zielbild_scope.md
 spec/02_architektur.md
@@ -65,3 +68,6 @@ spec/12_java_implementation.md
 spec/13_teststrategie_abnahme.md
 spec/14_betrieb_sicherheit.md
 spec/15_risiken_offene_punkte.md
+
+# Excluded from redistributable package:
+# references/downloads/**

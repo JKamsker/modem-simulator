@@ -5,14 +5,21 @@
 ```text
 generic-hayes-v250
   -> westermo-common
-      -> westermo-td20-candidate
       -> westermo-td22-6177-2203
-      -> westermo-td32-6178-2203
-      -> westermo-td33-6179-2203
       -> westermo-td36-6618-2202
+
+generic-hayes-v250
+3gpp-27007-r18
+3gpp-27005-r16
+  -> westermo-common
       -> westermo-gd01-6196-2220
       -> westermo-gdw11-6615-2220
-      -> westermo-idw90-6620-3200
+
+candidate/post-v1:
+  westermo-td20-candidate
+  westermo-td32-6178-2203
+  westermo-td33-6179-2203
+  westermo-idw90-6620-3200
 ```
 
 ## `westermo-common`
@@ -37,12 +44,12 @@ Die TD-Familie ist primär analog/PSTN/leased-line geprägt. Für v1:
 - Dial/Hangup/Connect/No Carrier.
 - S-Register.
 - `AT&W` und `AT&V`.
-- Control-Line-Verhalten.
+- `lineModel=minimal-v250` mit DTR/DCD-Verhalten.
 - Keine Mobilfunkbefehle außer per Makro/Stub.
 
 ## GSM/GPRS-Familie
 
-`GD-01` und `GDW-11` erweitern Westermo um Mobilfunk- und SMS-Verhalten:
+`GD-01` und `GDW-11` erweitern Westermo um Mobilfunk- und SMS-Verhalten und muessen die 3GPP-Basisprofile erben:
 
 - `+CGMI`, `+CGMM`, `+CGMR`, `+CGSN`.
 - `+CPIN`, `+CREG`, `+CSQ`.

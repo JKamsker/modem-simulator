@@ -8,35 +8,37 @@ Basisprofil für klassische Modemsteuerung über AT-Befehle. Dieses Profil ist k
 
 | Befehl | Status | Beschreibung |
 |---|---|---|
-| `AT` | full | Attention, liefert Result Code. |
-| `A/` | full | Letzten Befehl wiederholen, ohne CR. |
-| `ATE0/1` | full | Echo aus/an. |
-| `ATQ0/1` | full | Result Codes aus/an. |
-| `ATV0/1` | full | Numeric/Verbose Result Codes. |
-| `ATZ` | full | Reset auf Profil-/NVRAM-Defaults. |
-| `AT&F` | full | Factory Defaults. |
-| `AT&W` | full | Persistente Speicherung. |
-| `AT&V` | full | Aktive Konfiguration anzeigen. |
-| `ATD...` | stub | Dial, simuliert `CONNECT`/Fehler. |
-| `ATH` | full | Hangup. |
-| `ATO` | full | Return to online data mode. |
-| `ATS<n>?` | full | S-Register lesen. |
-| `ATS<n>=<v>` | full | S-Register schreiben. |
-| `+++` | full | Escape aus Data Mode mit Guard-Time. |
+| `AT` | `implemented_full` | Attention, liefert Result Code. |
+| `A/` | `implemented_full` | Letzten Befehl wiederholen, ohne CR. |
+| `ATE0/1` | `implemented_full` | Echo aus/an. |
+| `ATQ0/1` | `implemented_full` | Result Codes aus/an. |
+| `ATV0/1` | `implemented_full` | Numeric/Verbose Result Codes. |
+| `ATZ` | `implemented_full` | Reset nach Profil-`resetPolicy`. |
+| `AT&F` | `implemented_full` | Factory Defaults. |
+| `AT&W` | `implemented_full` | Persistente Speicherung. |
+| `AT&V` | `implemented_full` | Aktive Konfiguration anzeigen. |
+| `ATD...` | `implemented_stub` | Dial, simuliert `CONNECT`/Fehler. |
+| `ATH` | `implemented_full` | Hangup, finaler Result Code `OK`. |
+| `ATO` | `implemented_full` | Return to online data mode. |
+| `ATS<n>?` | `implemented_full` | S-Register lesen. |
+| `ATS<n>=<v>` | `implemented_full` | S-Register schreiben. |
+| `+++` | `implemented_full` | Escape aus Data Mode mit Guard-Time. |
 
 ## Default S-Register
+
+Diese Tabelle ist Hayes-kompatible Profilbasis. Nicht jeder Eintrag ist normativ aus V.250 ableitbar; Abweichungen muessen im Profil-Coverage dokumentiert werden.
 
 | Register | Default | Bedeutung |
 |---|---:|---|
 | S0 | 0 | Auto-answer rings. |
-| S2 | 43 | Escape character `+`. |
+| S2 | 43 | Escape character `+` (Hayes-kompatibler Profilwert). |
 | S3 | 13 | Carriage Return. |
 | S4 | 10 | Line Feed. |
 | S5 | 8 | Backspace. |
 | S6 | 2 | Wait before dial. |
 | S7 | 60 | Wait for carrier. |
 | S8 | 2 | Dial pause. |
-| S12 | 50 | Escape guard time, in 1/50 s oder profilabhängig. |
+| S12 | 50 | Escape guard time, profilabhaengige Einheit; fuer v1 in Millisekunden umzurechnen. |
 
 ## Result Codes
 
@@ -47,7 +49,7 @@ Basisprofil für klassische Modemsteuerung über AT-Befehle. Dieses Profil ist k
 | 2 | RING |
 | 3 | NO CARRIER |
 | 4 | ERROR |
-| 5 | CONNECT 1200 |
+| 5 | reserved/profile-specific |
 | 6 | NO DIALTONE |
 | 7 | BUSY |
 | 8 | NO ANSWER |

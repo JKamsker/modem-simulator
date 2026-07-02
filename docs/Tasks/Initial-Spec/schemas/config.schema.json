@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Modem Simulator Config",
+  "description": "Schema for config.yaml after YAML parsing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ports",
+    "sessionSeed",
+    "redaction"
+  ],
+  "properties": {
+    "sessionSeed": {
+      "type": "integer"
+    },
+    "clockMode": {
+      "enum": [
+        "virtual",
+        "monotonic"
+      ],
+      "default": "monotonic"
+    },
+    "ports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "profile"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "serial",
+              "headless"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "baudRate": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "dataBits": {
+            "enum": [
+              5,
+              6,
+              7,
+              8
+            ]
+          },
+          "stopBits": {
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "parity": {
+            "enum": [
+              "NONE",
+              "EVEN",
+              "ODD",
+              "MARK",
+              "SPACE"
+            ]
+          },
+          "flowControl": {
+            "enum": [
+              "NONE",
+              "RTS_CTS",
+              "XON_XOFF"
+            ]
+          },
+          "profile": {
+            "type": "string"
+          },
+          "initialScenario": {
+            "type": "string"
+          },
+          "virtualComTool": {
+            "enum": [
+              "com0com",
+              "socat-pty",
+              "tty0tty",
+              "os-device"
+            ]
+          }
+        }
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "maskPin",
+        "maskPuk",
+        "maskImsi",
+        "maskIccid",
+        "maskImei",
+        "maskMsisdn",
+        "maskSmsBody"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "maskPin": {
+          "const": true
+        },
+        "maskPuk": {
+          "const": true
+        },
+        "maskImsi": {
+          "const": true
+        },
+        "maskIccid": {
+          "const": true
+        },
+        "maskImei": {
+          "const": true
+        },
+        "maskMsisdn": {
+          "const": true
+        },
+        "maskSmsBody": {
+          "const": true
+        }
+      }
+    },
+    "gui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "readOnly": {
+          "type": "boolean",
+          "default": false
+        },
+        "allowUnsafeDceTransmit": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "errorPolicy": {
+      "type": "object"
+    }
+  }
+}

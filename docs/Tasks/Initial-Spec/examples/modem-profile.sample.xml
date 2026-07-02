@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <modem-simulator version="1.0">
-  <profile id="sierra-hl78xx-test" extends="sierra-hl78xx-v29">
+  <profile id="sierra-hl78xx-test"
+           vendor="Sierra Wireless / Semtech"
+           status="device-target"
+           profileKind="cellular"
+           extends="sierra-hl78xx-v29">
     <identity manufacturer="Sierra Wireless"
               model="HL7812"
               revision="sim-1.0"
@@ -8,14 +12,17 @@
 
     <dialect commandTerminator="CR"
              responseTerminator="CRLF"
-             smsPrompt="&gt; "
+             smsPromptBytes="0D0A3E20"
              defaultEcho="true"
-             defaultVerbose="true"/>
+             defaultVerbose="true"
+             defaultQuiet="false"
+             resetPolicy="nvram-on-atz"
+             lineModel="minimal-v250"/>
 
     <initial-state>
-      <sim state="SIM_PIN_REQUIRED"
+      <sim state="READY"
            pinQueryEnabled="true"
-           pin="1234"
+           pinRef="TEST_SIM_PIN"
            pinRetries="3"
            pukRetries="10"
            imsi="262010123456789"
@@ -35,7 +42,7 @@
         <sms-rate-limit maxMessages="5"
                         windowSeconds="60"
                         scope="session"
-                        rejectCmsError="310"/>
+                        rejectCmsError="500"/>
         <delays>
           <delay operation="sms-submit" minMs="500" maxMs="2500"/>
           <delay operation="dial" minMs="1000" maxMs="5000"/>
@@ -43,6 +50,9 @@
       </network>
       <signal rssi="18" ber="0"/>
       <sms textMode="true" smsc="+491710760000"/>
+      <call mode="command" carrier="false"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
     </initial-state>
+    <coverage source="references/snapshots/sierra-hl78xx-v29.md" commandsTotal="0" unknown="0"/>
   </profile>
 </modem-simulator>

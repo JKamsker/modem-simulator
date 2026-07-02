@@ -16,9 +16,7 @@
       <body contains="smscommand dst"/>
     </match>
     <then>
-      <emit raw="
-ATHayesErrorCode 123
-"/>
+      <emit rawHex="415448617965734572726F72436F6465203132330D0A"/>
     </then>
   </macro>
 </macros>

@@ -1,16 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Modem Simulator Profile",
+  "title": "Modem Simulator Profile Catalog Entry",
+  "description": "Non-authoritative helper schema for generated catalog or coverage exports. Loaded profile XML MUST validate against schemas/modem-profile.schema.xsd.",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "id",
     "vendor",
-    "status",
-    "extends"
+    "status"
   ],
   "properties": {
     "id": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
     },
     "vendor": {
       "type": "string"
@@ -19,32 +21,96 @@
       "enum": [
         "normative-base",
         "manufacturer-base",
+        "device-family",
         "device-target",
         "candidate",
         "stub",
         "verified"
       ]
     },
+    "profileKind": {
+      "enum": [
+        "base",
+        "cellular",
+        "pstn",
+        "isdn",
+        "hybrid"
+      ]
+    },
     "extends": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
       }
     },
     "identity": {
       "type": "object"
     },
-    "dialect": {
-      "type": "object"
-    },
     "commands": {
       "type": "array",
       "items": {
-        "type": "object"
+        "type": "object",
+        "required": [
+          "command",
+          "status"
+        ],
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "implemented_full",
+              "implemented_stub",
+              "unsupported_declared",
+              "not_applicable"
+            ]
+          },
+          "handler": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
       }
     },
     "coverage": {
-      "type": "object"
+      "type": "object",
+      "required": [
+        "source",
+        "commands_total",
+        "unknown"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "commands_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implemented_full": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implemented_stub": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unsupported_declared": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_applicable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "const": 0
+        }
+      }
     }
   }
 }

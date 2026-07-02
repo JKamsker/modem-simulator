@@ -2,11 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Modem Simulator Event Log",
   "type": "object",
+  "additionalProperties": false,
   "required": [
     "timestamp",
+    "monotonicNanos",
+    "sequence",
     "sessionId",
+    "eventType",
     "direction",
-    "rawHex"
+    "rawHex",
+    "redaction"
   ],
   "properties": {
     "timestamp": {
@@ -14,36 +19,98 @@
       "format": "date-time"
     },
     "monotonicNanos": {
-      "type": "integer"
+      "type": "integer",
+      "minimum": 0
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
     },
     "sessionId": {
-      "type": "string"
+      "type": "string",
+      "minLength": 1
     },
     "port": {
       "type": "string"
     },
+    "eventType": {
+      "enum": [
+        "SESSION_START",
+        "SESSION_STOP",
+        "RX_BYTES",
+        "TX_BYTES",
+        "PARSED_COMMAND",
+        "HANDLER_RESULT",
+        "SCHEDULER_ENQUEUE",
+        "SCHEDULER_EMIT",
+        "STATE_CHANGE",
+        "INJECTION",
+        "MACRO_DECISION",
+        "REPLAY_MARKER",
+        "PORT_LOST",
+        "AUDIT_FAILURE"
+      ]
+    },
     "direction": {
       "enum": [
-        "DTE_TO_MODEM",
-        "MODEM_TO_DTE",
-        "INJECTED",
-        "INTERNAL"
+        "DTE_TO_DCE",
+        "DCE_TO_DTE",
+        "INTERNAL",
+        "NONE"
+      ]
+    },
+    "injectionType": {
+      "enum": [
+        "raw-dte-to-dce",
+        "raw-dce-to-dte",
+        "parsed-command",
+        "state-change",
+        "macro-control",
+        "replay"
       ]
     },
     "rawHex": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^([0-9A-Fa-f]{2})*$|^<redacted>$"
     },
     "textEscaped": {
-      "type": "string"
-    },
-    "parsedCommand": {
       "type": [
         "string",
         "null"
       ]
     },
+    "parsedCommand": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "profile": {
       "type": "string"
+    },
+    "profileHash": {
+      "type": "string"
+    },
+    "configHash": {
+      "type": "string"
+    },
+    "macroHash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "initialStateHash": {
+      "type": "string"
+    },
+    "sessionSeed": {
+      "type": "integer"
+    },
+    "clockMode": {
+      "enum": [
+        "virtual",
+        "monotonic"
+      ]
     },
     "macroId": {
       "type": [
@@ -61,7 +128,38 @@
       "type": [
         "number",
         "null"
-      ]
+      ],
+      "minimum": 0
+    },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dueMonotonicNanos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourceSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sourcePriority": {
+          "enum": [
+            "rx",
+            "gui",
+            "macro",
+            "replay",
+            "internal"
+          ]
+        },
+        "sampledDelayMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancelled": {
+          "type": "boolean"
+        }
+      }
     },
     "stateBefore": {
       "type": [
@@ -74,6 +172,48 @@
         "object",
         "null"
       ]
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applied",
+        "policy",
+        "fields",
+        "classes"
+      ],
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "pin",
+              "puk",
+              "imsi",
+              "iccid",
+              "imei",
+              "msisdn",
+              "sms-body"
+            ]
+          }
+        }
+      }
+    },
+    "droppedEventCount": {
+      "type": "integer",
+      "minimum": 0
     }
   }
 }

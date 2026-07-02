@@ -2,65 +2,107 @@
 
 ## Testebenen
 
-| Ebene | Ziel |
-|---|---|
-| Unit | Parser, Handler, State, Makros isoliert testen. |
-| Golden Transcript | Input/Output gegen erwartete Transkripte testen. |
-| Serial Loopback | Virtuelles COM-Paar oder PTY mit echter Serial-API testen. |
-| Hardware-in-the-loop | Externes Gerät gegen Simulator testen. |
-| Record-Replay | Echte Modemtranskripte gegen Profil vergleichen. |
+| Ebene | Ziel | CI-Tag |
+|---|---|---|
+| Unit | Parser, Handler, State, Makros isoliert testen. | default |
+| Golden Transcript | Input/Output gegen erwartete Transkripte testen. | default |
+| Schema/Semantic Validation | Profile, Makros, Szenarien, Config, Coverage. | default |
+| Headless Replay | Virtuelle Clock, deterministische Scheduler-/Seed-Pruefung. | default |
+| GUI Headless | JavaFX Controls, Read-only, Reload, Export. | `gui` |
+| Serial Loopback | Virtuelles COM-Paar oder PTY mit echter Serial-API testen. | `serial-it` |
+| Hardware-in-the-loop | Externes Geraet gegen Simulator testen. | manuell |
 
-## Akzeptanzkriterien v1
+## Globale Fixture-Regeln
 
-1. Externes Gerät öffnet Port und `AT` liefert `OK`.
-2. `ATE`, `ATQ`, `ATV`, `ATZ`, `AT&F`, `AT&W`, `AT&V` funktionieren für Basisprofile.
-3. `AT+CREG=0..3`, `AT+CREG?`, `AT+CREG=?` funktionieren.
-4. `AT+CSQ` liefert konfigurierbare Werte inklusive `99,99`.
-5. XML-Profilvalidierung laedt SIM-PIN-Abfrage, Test-PIN, Retry-Zaehler, Netzbetreiber-Eigenschaften, SMS-Rate-Limits und Netz-Delays aus `initial-state`.
-6. `AT+CPIN?` bildet SIM-Zustände ab; `AT+CPIN=<pin>` wechselt bei korrekter XML-Test-PIN nach `READY`.
-7. `AT+COPS?` liefert den aus XML geladenen Netzbetreiber im konfigurierten Format.
-8. `AT+CMEE=0|1|2` steuert Fehlerformat.
-9. SMS-Textmodus mit `AT+CMGF=1`, `AT+CMGS`, Prompt, Ctrl-Z und Fehlerantwort funktioniert.
-10. Netzseitige SMS-Rate-Limits akzeptieren nur die konfigurierte Anzahl SMS pro Zeitfenster und liefern danach den konfigurierten `+CMS ERROR`.
-11. Netzseitige Delays fuer `sms-submit` und `dial` liegen innerhalb des konfigurierten Min-/Max-Bereichs und sind mit Session-Seed reproduzierbar.
-12. XML-Makro erkennt SMS an Zielnummer und Body `smscommand dst` und liefert `+CMS ERROR: 123` oder eine definierte Rohantwort.
-13. GUI zeigt raw bytes, Text, Parser-Ergebnis, Handler/Makro, Result Code, Latenzen und State Before/After im Live-Log.
-14. GUI-Injection kann URCs senden, Befehle einspeisen und State ändern.
-15. v1 startet keine HTTP- oder WebSocket-Control-API.
-16. Profil-Coverage-Report enthält keine unbekannten Befehle (`unknown = 0`) für aktivierte Zielprofile.
+Alle Golden-Transcript-Fixtures verwenden:
 
-## Golden Transcript Beispiel
+```yaml
+profile: acceptance-sierra-ready
+commandTerminator: CR
+responseTerminator: CRLF
+defaultEcho: false
+defaultVerbose: true
+defaultQuiet: false
+sessionSeed: 12345
+clockMode: virtual
+```
+
+Default-Ausgabeformat:
 
 ```text
-# name: creg-no-network
-> AT+CMEE=2
-< OK
+OK -> 0D 0A 4F 4B 0D 0A
+ERROR -> 0D 0A 45 52 52 4F 52 0D 0A
+SMS prompt -> 0D 0A 3E 20
+```
 
-> AT+CREG=2
-< OK
+Serielle Integrationslaeufe duerfen bei wall-clock Timing eine Toleranz von `max(20 ms, 10% der erwarteten Verzoegerung)` haben. Headless-/Replay-Tests mit virtueller Clock haben `0 ms` Timing-Toleranz.
 
-# state: network.stat=4, signal=99/99
-> AT+CREG?
-< +CREG: 2,4
-OK
+## Akzeptanzmatrix v1
 
-> AT+CSQ
-< +CSQ: 99,99
-OK
+| ID | Kriterium | Fixture / Initial State | Eingabe -> erwartete Ausgabe / Events | CI-Kommando |
+|---|---|---|---|---|
+| A01 | Port oeffnet und `AT` liefert `OK`. | `acceptance-basic`, headless und serial-it. | `41 54 0D` -> `0D 0A 4F 4B 0D 0A`. | `modemsim test --suite acceptance --case A01` |
+| A02 | Hayes-Basisbefehle. | `generic-hayes-v250`. | `ATE0`, `ATE1`, `ATQ0`, `ATQ1`, `ATV0`, `ATV1`, `ATZ`, `AT&F`, `AT&W`, `AT&V` haben je definierte Transcript-Dateien. `ATQ1` unterdrueckt finale Result Codes. | `modemsim test --suite hayes` |
+| A03 | `+CREG` 0..3. | `state.sim.state=READY`, `state.network.stat=1`, `cregN=2`. | `AT+CREG=2\r` -> OK; `AT+CREG?\r` -> `+CREG: 2,1,"00C3","00001234",7` + OK; denied fixture `stat=3` -> `+CREG: 3,3,0,11` + OK. | `modemsim test --suite cellular --case creg` |
+| A04 | `+CSQ` inklusive unknown. | `signal.rssi=18,ber=0` und `99,99`. | `AT+CSQ\r` -> `+CSQ: 18,0` + OK; no-network -> `+CSQ: 99,99` + OK. Invalid `rssi=32` wird bei Profilvalidierung abgelehnt. | `modemsim test --suite cellular --case csq` |
+| A05 | XML-Profilvalidierung. | `examples/modem-profile.sample.xml`. | XSD + Semantic-Validation erfolgreich; geladener State enthaelt SIM, Operator, Rate-Limit, Delays, ModemLines; kein Klartext-PIN im Eventlog. | `modemsim validate-profile examples/modem-profile.sample.xml` |
+| A06 | SIM PIN Workflow. | `acceptance-sim-locked`, `state.sim.state=SIM_PIN_REQUIRED`, `network.stat=0`, `pinRef=TEST_SIM_PIN`. | `AT+CPIN?\r` -> `+CPIN: SIM PIN` + OK; falsche PIN reduziert `pinRetries`; `AT+CPIN="1234"\r` -> OK, State `READY`. Registrierung bleibt `0`, bis Szenario/Makro sie setzt. | `modemsim test --suite cellular --case cpin` |
+| A07 | `AT+COPS?` aus XML. | Operator Telekom.de, numeric 26201. | `AT+COPS?\r` -> `+COPS: 0,0,"Telekom.de",7` + OK oder profildefiniertes Format. | `modemsim test --suite cellular --case cops` |
+| A08 | `AT+CMEE=0|1|2`. | SIM failure fixture. | Fehlerausgabe wechselt zwischen `ERROR`, `+CME ERROR: 13`, `+CME ERROR: SIM failure`. | `modemsim test --suite cellular --case cmee` |
+| A09 | SMS Textmodus. | `sms.textMode=true`, registered. | `AT+CMGF=1\r` -> OK; `AT+CMGS="..."\r` -> `0D0A3E20`; body+Ctrl-Z -> `+CMGS: <mr>` + OK oder definierter CMS-Fehler. | `modemsim test --suite sms --case text-cmgs` |
+| A10 | SMS Rate-Limit. | `maxMessages=5`, `windowSeconds=60`, virtual clock. | 5 Submits in `(now-60s, now]` akzeptiert; 6. Submit -> `+CMS ERROR: 500`; nach `advance 60001ms` naechster Submit akzeptiert. | `modemsim test --suite sms --case rate-limit` |
+| A11 | Delays reproduzierbar. | `sessionSeed=12345`, delay ranges fuer `sms-submit` und `dial`. | Zwei Headless-Laeufe erzeugen identische `SCHEDULER_ENQUEUE.sampledDelayMs`; alle Werte innerhalb Min/Max; serial-it innerhalb Toleranz. | `modemsim test --suite scheduler --case deterministic-delays` |
+| A12 | SMS-Makro. | `examples/macros.sms-error-123.xml`. | Zielnummer + Body `smscommand dst` -> `+CMS ERROR: 123`; Scheduler-Event enthaelt Macro-ID und Delay. | `modemsim test --suite macros --case sms-error-123` |
+| A13 | GUI Live Log. | JavaFX headless. | `log.table` zeigt raw bytes, Text, Parser-Ergebnis, Handler/Makro, Result Code, Latenzen, State Before/After und Redaction. | `modemsim test --tags gui --case live-log` |
+| A14 | GUI Injection. | JavaFX headless. | `raw-dte-to-dce`, URC helper und `state-change` erzeugen `SessionCommand`; `raw-dce-to-dte` ist blockiert, wenn `allowUnsafeDceTransmit=false`. | `modemsim test --tags gui --case injection` |
+| A15 | Keine HTTP/WS Control API. | Runtime smoke. | Portscan/Process inspection findet keinen HTTP- oder WebSocket-Listener des Simulators. | `modemsim test --suite security --case no-http-ws` |
+| A16 | Coverage `unknown == 0`. | Alle v1-Zielprofile. | Coverage validiert gegen `schemas/coverage.schema.json`; `commands_total == len(commands)` und `unknown == 0`. | `modemsim coverage verify --profiles v1-targets` |
+| A17 | XML-Hardening. | Negative XXE/entity/schema fixtures. | DOCTYPE, externe Entity, XInclude, externe Schema-URL, Entity Expansion und zu tiefe Baeume werden abgelehnt. | `modemsim test --suite security --case xml-hardening` |
+| A18 | Replay deterministisch. | Redigierter test-sicherer Eventlog. | `validate-recompute` prueft Hashes, Initial-State, Sequenzen, Scheduler-Events und bricht bei Divergenz ab. | `modemsim replay logs/fixture.jsonl --mode validate-recompute` |
+| A19 | ModemLines/Datenmodus. | `generic-hayes-v250`, `lineModel=minimal-v250`. | `ATD123\r` -> `CONNECT`, DCD true; `+++` mit Guard-Time -> Online Command; `ATH\r` -> OK, DCD false. | `modemsim test --suite hayes --case data-mode-lines` |
+| A20 | SMS Storage/PDU Mindestumfang. | SMS store ME/SM. | `CMGR/CMGL/CMGD/CPMS/CSCA` deterministisch; PDU `CMGS=<len>` akzeptiert opaque PDU oder liefert spezifizierten Fehler. | `modemsim test --suite sms --case storage-pdu` |
+| A21 | `+CGREG`/`+CEREG` Scope. | Sierra v1 targets. | Commands sind nicht unknown; liefern `implemented_stub`-Transcript oder profildefinierte Ausgabe. | `modemsim test --suite cellular --case packet-registration-stubs` |
 
-> AT+CMGS="+491701234567"
-< > 
-> smscommand dst
-< +CMS ERROR: 123
+## Golden Transcript Format
 
+Golden Transcripts bestehen aus Metadaten, Byte-IO und optionalen Event-Erwartungen:
+
+```yaml
+name: creg-no-network
+profile: acceptance-sierra-ready
+clockMode: virtual
+sessionSeed: 12345
+initialState:
+  state.network.stat: 4
+  state.signal.rssi: 99
+  state.signal.ber: 99
+steps:
+  - inputHex: "41542B434D45453D320D"
+    outputHex: "0D0A4F4B0D0A"
+  - inputHex: "41542B435245473D320D"
+    outputHex: "0D0A4F4B0D0A"
+  - inputHex: "41542B435245473F0D"
+    outputHex: "0D0A2B435245473A20322C340D0A0D0A4F4B0D0A"
+  - inputHex: "41542B4353510D"
+    outputHex: "0D0A2B4353513A2039392C39390D0A0D0A4F4B0D0A"
+```
+
+Timing-Erwartungen werden nicht durch sleeps ausgedrueckt, sondern durch Scheduler-Events:
+
+```yaml
+expectEvents:
+  - eventType: SCHEDULER_ENQUEUE
+    operation: sms-submit
+    sampledDelayMsWithin: [500, 2500]
 ```
 
 ## Profilverifikation
 
-Für jedes Profil:
+Fuer jedes v1-Zielprofil:
 
 - Referenzmanual im `references/`-Index verlinken.
 - Command-Liste extrahieren oder manuell pflegen.
-- Jede Zeile mit `implemented_full`, `stub`, `unsupported_declared` oder `not_applicable` markieren.
-- Mindestens Smoke-Test für Identität, `AT`, Fehler, Data-Mode und ggf. SMS.
-- Für Herstellerprofile bevorzugt ein echtes Gerätetranskript pro kritischem Befehl.
+- Jede Zeile mit `implemented_full`, `implemented_stub`, `unsupported_declared` oder `not_applicable` markieren.
+- Coverage-Report gegen `schemas/coverage.schema.json` validieren.
+- Smoke-Test fuer Identitaet, `AT`, Fehler, Data-Mode und ggf. SMS.
+- Fuer Herstellerprofile bevorzugt ein echtes Geraetetranskript pro kritischem Befehl.

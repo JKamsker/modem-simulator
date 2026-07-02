@@ -16,6 +16,8 @@ Der Simulator soll sowohl für automatisierte Tests als auch für manuelle Integ
 - XML-basierte Input->Output-Makros, z. B. SMS an Zielnummer mit Body-Match -> `+CMS ERROR: 123` oder herstellerspezifische Rohantwort.
 - Lokale GUI fuer Mitschnitt, State-Aenderung, Logs und Command/Response Injection.
 - Profilbasis für mehrere Herstellerfamilien und konkrete Zielmodelle.
+- Deterministische Headless-/Replay-Ausfuehrung mit `sessionSeed`, virtueller Clock und sequenziertem Eventlog.
+- Default-on Redaction fuer Logs, Exporte und Replay-Artefakte.
 
 ## Soll-Ziele
 
@@ -32,6 +34,28 @@ Der Simulator soll sowohl für automatisierte Tests als auch für manuelle Integ
 - Keine vollständige Emulation proprietärer Firmwarefehler ohne Referenztranskripte.
 - Keine Redistribution vollständiger Herstellerhandbücher im Spec-Paket.
 - Keine HTTP- oder WebSocket-Control-API in v1.
+- Keine TCP-Serial-Bridge in v1.
+- Kein vollstaendiges SMS-PDU-Encoding/Decoding in v1; PDU-Submit ist opaque.
+
+## Verbindliche v1-Zielprofile
+
+Nur diese Profile sind v1-Abnahmeziele:
+
+| Profil | Rolle |
+|---|---|
+| `generic-hayes-v250` | Hayes/V.250-Basis |
+| `3gpp-27007-r18` | Mobilfunkbasis |
+| `3gpp-27005-r16` | SMS-Basis |
+| `sierra-common` | Sierra-Herstellerbasis |
+| `sierra-hl6-hl8-v20` | Sierra device-family |
+| `sierra-hl78xx-v29` | Sierra device-target |
+| `westermo-common` | Westermo-Herstellerbasis |
+| `westermo-td22-6177-2203` | Westermo PSTN target |
+| `westermo-td36-6618-2202` | Westermo PSTN target |
+| `westermo-gd01-6196-2220` | Westermo GSM/SMS target |
+| `westermo-gdw11-6615-2220` | Westermo GSM/GPRS target |
+
+Alle anderen Katalogeintraege sind candidate/post-v1, bis Coverage und Smoke-Tests sie ausdruecklich in diese Liste aufnehmen.
 
 ## Qualitätsdefinition für "vollständig"
 
@@ -39,11 +63,13 @@ Ein Profil gilt als vollständig spezifiziert, wenn es einen Coverage-Report bes
 
 ```text
 profile: sierra-hl78xx-v29
-commands_total: <aus extrahierter Referenzliste>
+source: references/snapshots/sierra-hl78xx-v29.md
+commands_total: <Anzahl Eintraege in commands>
 implemented_full: <vollständig implementiert>
 implemented_stub: <syntaktisch vorhanden, semantisch begrenzt>
 unsupported_declared: <bewusst nicht unterstützt>
+not_applicable: <fuer dieses Profil nicht relevant>
 unknown: 0
 ```
 
-Für die Entwicklung ist `unknown = 0` wichtiger als eine hohe `implemented_full`-Quote. Dadurch entstehen keine zufälligen Antworten bei unbekannten Befehlen.
+Der Coverage-Report validiert gegen `schemas/coverage.schema.json`. Fuer die Entwicklung ist `unknown = 0` wichtiger als eine hohe `implemented_full`-Quote. Dadurch entstehen keine zufälligen Antworten bei unbekannten Befehlen.

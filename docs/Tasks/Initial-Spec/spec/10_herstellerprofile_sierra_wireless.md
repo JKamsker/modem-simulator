@@ -2,44 +2,52 @@
 
 ## Ziel
 
-Sierra-Wireless/Semtech-Profile werden mehrstufig aufgebaut: erst 3GPP-Basis, dann Sierra-Familienprofil, dann konkrete Modulreihe und Dokumentversion.
+Sierra-Wireless/Semtech-Profile werden mehrstufig aufgebaut: erst Hayes/3GPP-Basis, dann Sierra-Familienprofil, dann konkrete Modulreihe und Dokumentversion.
 
-## Empfohlene Profilbasis
+## Verbindlicher v1-Zielumfang
 
-| Profil-ID | Status | Schwerpunkt |
+Nur diese Sierra-Profile sind v1-Abnahmeziele:
+
+| Profil-ID | Status | v1-Rolle |
 |---|---|---|
-| `sierra-common` | manufacturer-base | Gemeinsame `ATI`, `+CGMI`, Fehler-/Prompt-Konventionen, Sierra-URCs. |
-| `sierra-umts-airprime-standard-2130617-r7` | device-family | UMTS AirCard/AirPrime Standard AT Reference, gut für ältere Embedded-UMTS-Module. |
-| `sierra-mc-sl-umts-lte-v8` | device-family | AirPrime MC/SL UMTS/LTE Extended AT Commands. |
-| `sierra-hl6-hl8-v20` | device-family | AirPrime HL6528x und HL85xxx, embedded 2G/3G-Familie. |
-| `sierra-hl78xx-v29` | device-target | Aktuelle HL78xx LPWA/embedded Familie, Dokumentstand 2026-05-19. |
-| `sierra-em74xx-mc74xx-r3` | device-family | EM/MC74xx LTE-embedded Familie, älter aber verbreitet. |
-| `sierra-em75xx-emmc74x1-v8` | device-target | Neuere Semtech 9x50-basierte Embedded-Module, Dokumentstand 2026-01-27. |
-| `sierra-em9-v14` | device-target | Moderne EM9-Serie, Dokumentstand 2026-01-30. |
+| `sierra-common` | `manufacturer-base` | Gemeinsame `ATI`, `+CGMI`, Fehler-/Prompt-Konventionen, Sierra-URCs. |
+| `sierra-hl6-hl8-v20` | `device-family` | Embedded 2G/3G-Referenz fuer klassische Sierra-HL-Anforderungen. |
+| `sierra-hl78xx-v29` | `device-target` | Aktuelle HL78xx LPWA/embedded Familie, Dokumentstand 2026-05-19. |
 
-## Priorisierung für v1
+Diese Profile werden im Katalog gefuehrt, sind aber post-v1 oder candidate, solange Coverage und Smoke-Tests fehlen:
 
-1. `sierra-common`
-2. `sierra-umts-airprime-standard-2130617-r7`
-3. `sierra-mc-sl-umts-lte-v8`
-4. `sierra-hl6-hl8-v20`
-5. `sierra-hl78xx-v29`
-6. `sierra-em75xx-emmc74x1-v8`
-7. `sierra-em9-v14`
+| Profil-ID | Status in v1 | Grund |
+|---|---|---|
+| `sierra-umts-airprime-standard-2130617-r7` | `candidate` | Exaktes Zielmodul nicht bestaetigt. |
+| `sierra-mc-sl-umts-lte-v8` | `candidate` | Breite MC/SL-Familie, braucht gesonderte Coverage. |
+| `sierra-em74xx-mc74xx-r3` | `candidate` | Keine v1-Abnahme. |
+| `sierra-em75xx-emmc74x1-v8` | `candidate` | Proprietaere/passwortgeschuetzte Befehle. |
+| `sierra-em9-v14` | `candidate` | Keine v1-Abnahme. |
 
-Damit deckt der Simulator sowohl die gewünschten aktuelleren embedded/UMTS-orientierten Sierra-Profile als auch eine moderne AT-Basis für neuere Embedded-Module ab.
+## Vererbung
+
+```text
+generic-hayes-v250
+3gpp-27007-r18
+3gpp-27005-r16
+  -> sierra-common
+      -> sierra-hl6-hl8-v20
+      -> sierra-hl78xx-v29
+```
+
+`sierra-common` erweitert die drei Basisprofile. Konkrete Sierra-Ziele erweitern `sierra-common`; sie duerfen die 3GPP-Basis nicht direkt umgehen.
 
 ## Sierra-spezifische Anforderungen
 
-- Identitätsbefehle müssen pro Profil feste Antworten liefern:
+- Identitaetsbefehle muessen pro Profil feste Antworten liefern:
   - `ATI`
   - `AT+CGMI`
   - `AT+CGMM`
   - `AT+CGMR`
   - `AT+CGSN`
-- Sierra-spezifische Extended Commands werden zunächst als Coverage-Einträge geführt.
-- Passwortgeschützte oder proprietäre Befehle werden nicht implementiert, solange kein konkretes Testbed und kein erlaubter Zugriff vorhanden ist.
-- URCs müssen pro Modulreihe konfigurierbar sein, z. B. Sierra-spezifische Registration-, SIM- oder Packet-Service-Meldungen.
+- Sierra-spezifische Extended Commands werden als Coverage-Eintraege gefuehrt.
+- Passwortgeschuetzte oder proprietaere Befehle werden nicht implementiert, solange kein konkretes Testbed und kein erlaubter Zugriff vorhanden ist.
+- URCs muessen pro Modulreihe konfigurierbar sein, z. B. Sierra-spezifische Registration-, SIM- oder Packet-Service-Meldungen.
 
 ## Beispielprofil
 
@@ -47,10 +55,9 @@ Damit deckt der Simulator sowohl die gewünschten aktuelleren embedded/UMTS-orie
 id: sierra-hl6-hl8-v20
 vendor: Sierra Wireless
 status: device-family
+profileKind: cellular
 extends:
-  - generic-hayes-v250
-  - 3gpp-27007-r18
-  - 3gpp-27005-r16
+  - sierra-common
 identity:
   manufacturer: "Sierra Wireless"
   model: "HL8548"
@@ -58,14 +65,15 @@ identity:
 dialect:
   commandTerminator: CR
   responseTerminator: CRLF
-  smsPrompt: "> "
+  smsPromptBytes: "0D0A3E20"
   defaultCmee: 0
+  lineModel: minimal-v250
 unsupportedPolicy:
   unknownCommand: ERROR
 ```
 
 ## Offene Punkte
 
-- Exakte UMTS-Zielmodule müssen vom Projekt bestätigt werden, z. B. HL8548/HL8549 oder MC8790/MC870x/MC7304-artige Varianten.
-- Für proprietäre Sierra-Befehle ist ein Manual-Coverage-Import erforderlich.
-- Für modemnahe Abweichungen sollten Record-Replay-Transkripte gegen echte Module erstellt werden.
+- Fuer `sierra-umts-airprime-standard-2130617-r7` muss ein konkretes Zielmodul bestaetigt werden, bevor es v1-Ziel werden darf.
+- Fuer proprietaere Sierra-Befehle ist ein Manual-Coverage-Import erforderlich.
+- Fuer modemnahe Abweichungen sollten Record-Replay-Transkripte gegen echte Module erstellt werden.

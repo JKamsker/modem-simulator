@@ -3,32 +3,132 @@
   <xs:element name="macros">
     <xs:complexType>
       <xs:sequence>
-        <xs:element name="macro" maxOccurs="unbounded">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="match" minOccurs="1" maxOccurs="1"/>
-              <xs:element name="when" minOccurs="0" maxOccurs="1"/>
-              <xs:element name="then" minOccurs="1" maxOccurs="1"/>
-            </xs:sequence>
-            <xs:attribute name="id" type="xs:string" use="required"/>
-            <xs:attribute name="priority" type="xs:int" use="optional" default="0"/>
-            <xs:attribute name="phase" use="required">
-              <xs:simpleType>
-                <xs:restriction base="xs:string">
-                  <xs:enumeration value="before"/>
-                  <xs:enumeration value="replace"/>
-                  <xs:enumeration value="after"/>
-                  <xs:enumeration value="on-state-change"/>
-                  <xs:enumeration value="on-timer"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="enabled" type="xs:boolean" use="optional" default="true"/>
-          </xs:complexType>
-        </xs:element>
+        <xs:element name="macro" type="MacroType" maxOccurs="unbounded"/>
       </xs:sequence>
       <xs:attribute name="version" type="xs:string" use="required"/>
       <xs:attribute name="randomSeed" type="xs:long" use="optional"/>
     </xs:complexType>
   </xs:element>
+
+  <xs:complexType name="MacroType">
+    <xs:sequence>
+      <xs:element name="match" type="MatchType" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="when" type="WhenType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="then" type="ThenType" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="priority" type="xs:int" use="optional" default="0"/>
+    <xs:attribute name="phase" type="MacroPhaseType" use="required"/>
+    <xs:attribute name="enabled" type="xs:boolean" use="optional" default="true"/>
+  </xs:complexType>
+
+  <xs:complexType name="MatchType">
+    <xs:sequence>
+      <xs:element name="destination" type="StringPredicateType" minOccurs="0"/>
+      <xs:element name="body" type="StringPredicateType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="command" type="xs:string" use="optional"/>
+    <xs:attribute name="mode" type="CommandModeType" use="optional"/>
+    <xs:attribute name="rawRegex" type="xs:string" use="optional"/>
+    <xs:attribute name="type" type="MatchInputType" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="StringPredicateType">
+    <xs:attribute name="equals" type="xs:string" use="optional"/>
+    <xs:attribute name="contains" type="xs:string" use="optional"/>
+    <xs:attribute name="regex" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="WhenType">
+    <xs:sequence>
+      <xs:element name="state" type="StatePredicateType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="profile" type="ProfilePredicateType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="StatePredicateType">
+    <xs:attribute name="path" type="StatePathType" use="required"/>
+    <xs:attribute name="equals" type="xs:string" use="optional"/>
+    <xs:attribute name="lessThan" type="xs:decimal" use="optional"/>
+    <xs:attribute name="greaterThan" type="xs:decimal" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ProfilePredicateType">
+    <xs:attribute name="id" type="xs:string" use="optional"/>
+    <xs:attribute name="status" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="ThenType">
+    <xs:choice minOccurs="1" maxOccurs="unbounded">
+      <xs:element name="delay" type="DelayActionType"/>
+      <xs:element name="emit" type="EmitActionType"/>
+      <xs:element name="set" type="SetActionType"/>
+      <xs:element name="event" type="EventActionType"/>
+    </xs:choice>
+  </xs:complexType>
+
+  <xs:complexType name="DelayActionType">
+    <xs:attribute name="ms" type="xs:nonNegativeInteger" use="required"/>
+    <xs:attribute name="jitterMs" type="xs:nonNegativeInteger" use="optional" default="0"/>
+  </xs:complexType>
+
+  <xs:complexType name="EmitActionType" mixed="true">
+    <xs:attribute name="line" type="xs:string" use="optional"/>
+    <xs:attribute name="raw" type="xs:string" use="optional"/>
+    <xs:attribute name="rawHex" type="HexBytesType" use="optional"/>
+  </xs:complexType>
+
+  <xs:complexType name="SetActionType">
+    <xs:attribute name="path" type="StatePathType" use="required"/>
+    <xs:attribute name="value" type="xs:string" use="required"/>
+  </xs:complexType>
+
+  <xs:complexType name="EventActionType">
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="message" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <xs:simpleType name="MacroPhaseType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="before"/>
+      <xs:enumeration value="replace"/>
+      <xs:enumeration value="after"/>
+      <xs:enumeration value="on-state-change"/>
+      <xs:enumeration value="on-timer"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CommandModeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="exec"/>
+      <xs:enumeration value="set"/>
+      <xs:enumeration value="read"/>
+      <xs:enumeration value="test"/>
+      <xs:enumeration value="basic"/>
+      <xs:enumeration value="sms-entry"/>
+      <xs:enumeration value="data"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="MatchInputType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="at-command"/>
+      <xs:enumeration value="sms-submit"/>
+      <xs:enumeration value="raw-bytes"/>
+      <xs:enumeration value="state-change"/>
+      <xs:enumeration value="timer"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="StatePathType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="state(\.[A-Za-z][A-Za-z0-9_-]*)+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="HexBytesType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9A-Fa-f]{2})*"/>
+    </xs:restriction>
+  </xs:simpleType>
 </xs:schema>

@@ -2,12 +2,14 @@
 
 ## Kernzustand
 
+Der kanonische State ist ein strukturierter Baum. Makros, GUI-State-Patches, Szenarien und Eventlogs verwenden dieselben Pfade.
+
 ```yaml
 state:
   sim:
-    state: SIM_PIN_REQUIRED
+    state: READY
     pinQueryEnabled: true
-    pin: "1234"
+    pinRef: TEST_SIM_PIN
     pinRetries: 3
     pukRetries: 10
     imsi: "262010123456789"
@@ -18,6 +20,7 @@ state:
     lac: "00C3"
     ci: "00001234"
     act: 7
+    rejectCauseType: null
     rejectCause: null
     operator:
       selectionMode: automatic
@@ -31,7 +34,7 @@ state:
       maxMessages: 5
       windowSeconds: 60
       scope: session
-      rejectCmsError: 310
+      rejectCmsError: 500
     delays:
       - operation: sms-submit
         minMs: 500
@@ -46,7 +49,41 @@ state:
     textMode: true
     smsc: "+491710760000"
     storage: ME
+  call:
+    mode: command
+    carrier: false
+  modemLines:
+    dtr: true
+    dsr: true
+    dcd: false
+    ri: false
+    rts: true
+    cts: true
 ```
+
+## Kanonische State-Pfade
+
+Diese Pfade sind fuer `state-change`, Makro-`<when>`, Makro-`<set>`, Szenarien und Eventlog-Patches verbindlich:
+
+| Pfad | Typ |
+|---|---|
+| `state.sim.state` | `READY`, `SIM_NOT_INSERTED`, `SIM_PIN_REQUIRED`, `SIM_PUK_REQUIRED`, `SIM_FAILURE`, `SIM_BUSY`, `SIM_WRONG` |
+| `state.sim.pinRetries` | 0..10 |
+| `state.sim.pukRetries` | 0..10 |
+| `state.network.cregN` | 0..3 |
+| `state.network.stat` | 0..11 |
+| `state.network.lac` | Hex string oder null |
+| `state.network.ci` | Hex string oder null |
+| `state.network.act` | 0..13 oder null |
+| `state.network.rejectCauseType` | non-negative integer oder null |
+| `state.network.rejectCause` | non-negative integer oder null |
+| `state.signal.rssi` | 0..31 oder 99 |
+| `state.signal.ber` | 0..7 oder 99 |
+| `state.sms.textMode` | boolean |
+| `state.sms.storage` | `ME`, `SM`, `MT` |
+| `state.call.mode` | `command`, `dialing`, `online-data`, `online-command` |
+| `state.call.carrier` | boolean |
+| `state.modemLines.dtr/dsr/dcd/ri/rts/cts` | boolean |
 
 ## XML-Konfiguration
 
@@ -54,9 +91,9 @@ SIM- und Netzbetreiber-Eigenschaften sind Teil des initialen Profilzustands und 
 
 ```xml
 <initial-state>
-  <sim state="SIM_PIN_REQUIRED"
+  <sim state="READY"
        pinQueryEnabled="true"
-       pin="1234"
+       pinRef="TEST_SIM_PIN"
        pinRetries="3"
        pukRetries="10"
        imsi="262010123456789"
@@ -72,26 +109,40 @@ SIM- und Netzbetreiber-Eigenschaften sind Teil des initialen Profilzustands und 
     <sms-rate-limit maxMessages="5"
                     windowSeconds="60"
                     scope="session"
-                    rejectCmsError="310"/>
+                    rejectCmsError="500"/>
     <delays>
       <delay operation="sms-submit" minMs="500" maxMs="2500"/>
       <delay operation="dial" minMs="1000" maxMs="5000"/>
     </delays>
   </network>
+  <signal rssi="18" ber="0"/>
+  <modem-lines dtr="true" dsr="true" dcd="false" ri="false"/>
 </initial-state>
 ```
 
 Semantik:
 
-- `sim.pinQueryEnabled` legt fest, ob die SIM-PIN-Abfrage aktiv ist.
-- `sim.pin` ist die erwartete Test-PIN fuer `AT+CPIN=<pin>`. Echte produktive SIM-PINs duerfen nicht in Profilen, Logs oder Events landen.
-- Wenn `pinQueryEnabled=true` und kein expliziter `sim.state` gesetzt ist, startet die Session in `SIM_PIN_REQUIRED`; nach korrektem `AT+CPIN=<pin>` wechselt sie nach `READY`.
-- Wenn `pinQueryEnabled=false`, muss `AT+CPIN?` bei eingelegter SIM `READY` liefern, auch wenn ein Test-PIN-Wert im Profil hinterlegt ist.
-- `network.operator` modelliert die Angaben fuer Netzbetreiber-Antworten wie `AT+COPS?`; `network.stat` und `cregN` steuern weiterhin die Registrierungsantworten fuer `AT+CREG?`.
-- `network.smsRateLimit` legt fest, wie viele SMS das simulierte Netz innerhalb eines Zeitfensters akzeptiert. Nach Erreichen des Limits liefert der SMS-Submit den konfigurierten `+CMS ERROR`.
-- `network.delays` definiert zufaellige Antwortverzoegerungen pro Operation. Fuer jede Ausfuehrung wird ein Wert zwischen `minMs` und `maxMs` gezogen; `minMs=maxMs` modelliert eine feste Verzoegerung.
+- `sim.pinQueryEnabled` legt fest, ob die SIM-PIN-Abfrage modelliert wird.
+- `sim.pinRef` referenziert einen Test-Secret-Namen aus Test-/Runtime-Konfiguration. Produktive SIM-PINs duerfen nicht als Klartext im Profil stehen.
+- `sim.pin` ist nur fuer explizit als Testfixture markierte Profile erlaubt; normale Profile verwenden `pinRef`.
+- Wenn `pinQueryEnabled=true` und kein expliziter `sim.state` gesetzt ist, startet die Session in `SIM_PIN_REQUIRED`.
+- Wenn `pinQueryEnabled=false`, muss `AT+CPIN?` bei eingelegter SIM `READY` liefern.
+- `network.operator` modelliert Antworten fuer `AT+COPS?`.
+- `network.smsRateLimit` begrenzt akzeptierte SMS-Submits pro Zeitfenster.
+- `network.delays` definiert Antwortverzoegerungen pro Operation.
 
-## SIM-Zustände
+## SIM-Lock und Netzregistrierung
+
+Eine PIN-gesperrte SIM darf nicht gleichzeitig als aktuell registriert modelliert werden. Wenn `state.sim.state` nicht `READY` ist:
+
+- `AT+CPIN?` liefert den SIM-Zustand oder den passenden `+CME ERROR`.
+- Netzabhaengige Befehle liefern profilabhaengig `+CME ERROR: SIM PIN required`, `+CME ERROR: SIM failure` oder einen explizit dokumentierten Stub-Status.
+- `state.network.stat` fuer die aktive Registrierung muss `0`, `2` oder `4` sein; `1` und `5` sind ungueltig.
+- Ein Profil darf einen latenten Zielzustand fuer nach dem Unlock speichern, aber nicht als aktuelle Registrierung ausgeben.
+
+Nach erfolgreichem `AT+CPIN=<pin>` wechselt `state.sim.state` nach `READY`. Erst danach darf ein Szenario oder Makro die Registrierung auf `1` oder `5` setzen oder ein latenter Zielzustand aktiviert werden.
+
+## SIM-Zustaende
 
 | Interner Zustand | `AT+CPIN?` Beispiel | Fehlercode |
 |---|---|---|
@@ -105,7 +156,7 @@ Semantik:
 
 ## Netzwerkregistrierung mit `+CREG`
 
-Minimal unterstützte Commands:
+Minimal unterstuetzte Commands:
 
 ```text
 AT+CREG=0
@@ -116,26 +167,32 @@ AT+CREG?
 AT+CREG=?
 ```
 
-Zustände:
+`cregN` steuert den Detailgrad. In v1 werden 0 bis 3 unterstuetzt. Location-Felder (`lac`, `ci`, `act`) duerfen nur ausgegeben werden, wenn der aktuelle Status registriert ist (`stat=1` oder `stat=5`) oder ein Profil eine dokumentierte Herstellerabweichung in `deviations` eintraegt.
 
 | Interner Zustand | `stat` | Beispielantwort |
 |---|---:|---|
 | Nicht registriert, keine Suche | 0 | `+CREG: 2,0` |
 | Home Network | 1 | `+CREG: 2,1,"00C3","00001234",7` |
-| Suche läuft | 2 | `+CREG: 2,2` |
-| Registrierung abgelehnt | 3 | `+CREG: 3,3,"00C3","00001234",7,0,11` |
+| Suche laeuft | 2 | `+CREG: 2,2` |
+| Registrierung abgelehnt | 3 | `+CREG: 3,3,0,11` |
 | Kein Netz / unbekannt | 4 | `+CREG: 2,4` |
 | Roaming | 5 | `+CREG: 2,5,"00C3","00001234",7` |
+| SMS-only / CSFB / EPS-spezifisch | 6..11 | Profil muss `+CGREG`/`+CEREG`-Bezug und Ausgabeformat dokumentieren. |
 
-`cregN` steuert die URC-Ausgabe und den Detailgrad. Für v1 werden die Varianten 0 bis 3 unterstützt.
+`AccessTechnologyType` erlaubt 0..13, damit 5G/NR-orientierte Werte profilierbar sind. Profile, die solche Werte nutzen, muessen die Referenz im Coverage-Report nennen.
 
-## Signalqualität mit `+CSQ`
+## Signalqualitaet mit `+CSQ`
 
 ```text
 AT+CSQ
 +CSQ: <rssi>,<ber>
 OK
 ```
+
+Zulaessige Werte:
+
+- `rssi`: 0..31 oder 99.
+- `ber`: 0..7 oder 99.
 
 Szenarien:
 
@@ -146,27 +203,27 @@ Szenarien:
 | Schlechtes Netz | `+CREG: 2,1,"00C3","00001234",7` | `+CSQ: 2,7` |
 | Kein Netz | `+CREG: 2,4` | `+CSQ: 99,99` |
 
-## Szenario-Übergänge
+## Szenario-Uebergaenge
 
-Jeder Zustandswechsel kann URCs auslösen:
+Jeder Zustandswechsel kann URCs ausloesen. URCs werden als Scheduler-Eintraege vom `SessionActor` erzeugt.
 
 ```text
 # Voraussetzung
 AT+CREG=1
 OK
 
-# Injection: network.stat 1 -> 4
+# Injection: state.network.stat 1 -> 4
 +CREG: 4
 
-# Injection: network.stat 4 -> 1
+# Injection: state.network.stat 4 -> 1
 +CREG: 1
 ```
 
 ## Fehlerszenarien
 
-- Defekte SIM: `SIM_FAILURE`, blockiert netzabhängige Befehle je Profil.
+- Defekte SIM: `SIM_FAILURE`, blockiert netzabhaengige Befehle je Profil.
 - SIM fehlt: `SIM_NOT_INSERTED`, `+CPIN?` liefert Fehler.
 - PIN-Abfrage aktiv: `SIM_PIN_REQUIRED`, `AT+CPIN?` liefert `+CPIN: SIM PIN`; eine falsche PIN reduziert `pinRetries` und liefert profilabhaengig `+CME ERROR`.
-- Kein Netz: `stat=4`, `+CSQ: 99,99`, SMS-Versand schlägt mit `+CMS ERROR` oder Profilcode fehl.
-- Registrierung abgelehnt: `stat=3`, optional Reject Cause.
-- Netzwerk-Timeout: Antwortverzögerung, `+CME ERROR: 31` oder keine Antwort je Profil.
+- Kein Netz: `stat=4`, `+CSQ: 99,99`, SMS-Versand schlaegt mit `+CMS ERROR` oder Profilcode fehl.
+- Registrierung abgelehnt: `stat=3`, optional Reject Cause ohne Location-Felder.
+- Netzwerk-Timeout: Antwortverzoegerung, `+CME ERROR: 31` oder keine Antwort je Profil.
