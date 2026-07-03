@@ -3,12 +3,14 @@ package com.jkamsker.modemsim.testkit;
 import com.jkamsker.modemsim.validation.SchemaLocator;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 final class ForbiddenApiScanner {
     private static final List<String> NEEDLES = List.of(
@@ -91,6 +93,10 @@ final class ForbiddenApiScanner {
             scanWindowsListeners(hits);
             return;
         }
+        if (System.getProperty("os.name", "").toLowerCase().contains("mac")) {
+            scanMacListeners(hits);
+            return;
+        }
         Path proc = Path.of("/proc", Long.toString(ProcessHandle.current().pid()));
         if (Files.isDirectory(proc)) {
             scanLinuxListeners(proc, hits);
@@ -142,21 +148,38 @@ final class ForbiddenApiScanner {
     }
 
     private void scanWindowsListeners(List<String> hits) {
+        String output = processOutput("netstat", "-ano", "-p", "tcp");
+        String pid = Long.toString(ProcessHandle.current().pid());
+        for (String line : output.lines().toList()) {
+            if (line.contains("LISTENING") && line.trim().endsWith(" " + pid)) {
+                hits.add("process-listener:tcp:" + line.trim());
+            }
+        }
+    }
+
+    private void scanMacListeners(List<String> hits) {
+        String output = processOutput("lsof", "-nP", "-a", "-p",
+                Long.toString(ProcessHandle.current().pid()), "-iTCP", "-sTCP:LISTEN");
+        for (String line : output.lines().skip(1).toList()) {
+            if (line.contains("LISTEN")) {
+                hits.add("process-listener:tcp:" + line.trim());
+            }
+        }
+    }
+
+    private String processOutput(String... command) {
         try {
-            Process process = new ProcessBuilder("netstat", "-ano", "-p", "tcp").start();
-            String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+            Process process = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .start();
+            if (!process.waitFor(5, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
-                return;
+                return "";
             }
-            String pid = Long.toString(ProcessHandle.current().pid());
-            for (String line : output.lines().toList()) {
-                if (line.contains("LISTENING") && line.trim().endsWith(" " + pid)) {
-                    hits.add("process-listener:tcp:" + line.trim());
-                }
-            }
+            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            // Windows images without netstat cannot prove a listener, so keep the source/dependency scan authoritative.
+            // Missing OS tools cannot prove a listener, so keep the source/dependency scan authoritative.
+            return "";
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while inspecting TCP listeners", e);

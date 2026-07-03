@@ -93,6 +93,7 @@ final class SourceSizeGateAcceptance {
                   <groupId>com.jkamsker</groupId>
                   <artifactId>source-size-fixture</artifactId>
                   <version>1.0.0-SNAPSHOT</version>
+                  <packaging>pom</packaging>
                   <properties>
                     <maven.compiler.release>24</maven.compiler.release>
                     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

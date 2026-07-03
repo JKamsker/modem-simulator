@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.gui;
 
 import com.jkamsker.modemsim.monitor.EventType;
+import com.jkamsker.modemsim.monitor.ModemEvent;
 import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
@@ -52,10 +53,27 @@ public final class GuiAcceptanceHarness {
 
     public void liveLogFilterExport() {
         if (displayMissing() && !Boolean.getBoolean("modemsim.gui.acceptance.child")) {
-            runUnderXvfb();
+            if (System.getProperty("os.name", "").toLowerCase().contains("linux") && commandExists("xvfb-run")) {
+                runUnderXvfb();
+            } else {
+                filterExportWithoutToolkit();
+            }
             return;
         }
         liveLogFilterExportInProcess();
+    }
+
+    private void filterExportWithoutToolkit() {
+        GuiSessionController controller = controller(false);
+        List<ModemEvent> events = controller.rawDteToDce("AT\\r").events();
+        List<ModemEvent> filtered = events.stream()
+                .filter(event -> GuiLogPane.matches(event, "TX_BYTES"))
+                .toList();
+        require(events.size() > filtered.size() && filtered.size() == 1,
+                "filtered rows=" + filtered.size() + " total=" + events.size());
+        String export = controller.jsonl(filtered);
+        require(export.contains("\"eventType\":\"TX_BYTES\""), "filtered export missing TX_BYTES: " + export);
+        require(!export.contains("\"eventType\":\"RX_BYTES\""), "filtered export leaked RX_BYTES: " + export);
     }
 
     private void liveLogFilterExportInProcess() {
@@ -101,6 +119,19 @@ public final class GuiAcceptanceHarness {
     private boolean displayMissing() {
         String display = System.getenv("DISPLAY");
         return display == null || display.isBlank();
+    }
+
+    private boolean commandExists(String command) {
+        String path = System.getenv("PATH");
+        if (path == null || path.isBlank()) {
+            return false;
+        }
+        for (String entry : path.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+            if (Files.isExecutable(Path.of(entry, command))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String childClasspath() {
