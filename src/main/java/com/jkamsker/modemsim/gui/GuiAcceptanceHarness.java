@@ -13,9 +13,13 @@ import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,7 +84,7 @@ public final class GuiAcceptanceHarness {
         try {
             String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
             Process process = new ProcessBuilder("xvfb-run", "-a", java,
-                    "-Dmodemsim.gui.acceptance.child=true", "-cp", System.getProperty("java.class.path"),
+                    "-Dmodemsim.gui.acceptance.child=true", "-cp", childClasspath(),
                     GuiAcceptanceHarness.class.getName(), "live-log-filter-export")
                     .redirectErrorStream(true)
                     .start();
@@ -97,6 +101,42 @@ public final class GuiAcceptanceHarness {
     private boolean displayMissing() {
         String display = System.getenv("DISPLAY");
         return display == null || display.isBlank();
+    }
+
+    private String childClasspath() {
+        LinkedHashSet<String> entries = new LinkedHashSet<>();
+        addClasspathProperty(entries);
+        addCodeSource(entries, GuiAcceptanceHarness.class);
+        addCodeSource(entries, Platform.class);
+        addCodeSource(entries, Button.class);
+        addClassLoaderUrls(entries, Thread.currentThread().getContextClassLoader());
+        return String.join(File.pathSeparator, entries);
+    }
+
+    private void addClasspathProperty(LinkedHashSet<String> entries) {
+        String classpath = System.getProperty("java.class.path", "");
+        for (String entry : classpath.split(java.util.regex.Pattern.quote(File.pathSeparator))) {
+            if (!entry.isBlank()) {
+                entries.add(entry);
+            }
+        }
+    }
+
+    private void addClassLoaderUrls(LinkedHashSet<String> entries, ClassLoader loader) {
+        for (ClassLoader current = loader; current != null; current = current.getParent()) {
+            if (current instanceof URLClassLoader urls) {
+                for (URL url : urls.getURLs()) {
+                    entries.add(Path.of(url.getPath()).toString());
+                }
+            }
+        }
+    }
+
+    private void addCodeSource(LinkedHashSet<String> entries, Class<?> type) {
+        var source = type.getProtectionDomain().getCodeSource();
+        if (source != null) {
+            entries.add(Path.of(source.getLocation().getPath()).toString());
+        }
     }
 
     public void injection() {
