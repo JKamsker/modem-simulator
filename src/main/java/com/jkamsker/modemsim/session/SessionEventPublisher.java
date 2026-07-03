@@ -175,6 +175,22 @@ final class SessionEventPublisher {
                 mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
     }
 
+    void publishMacroEvents(List<MacroEventAction> actions, String macroId, ModemState state) {
+        for (MacroEventAction action : actions) {
+            Map<String, Object> parsed = new LinkedHashMap<>();
+            parsed.put("macroEvent", eventData(action));
+            boolean stateRedacted = stateRedactor.containsSensitiveData(state);
+            ModemState visibleState = stateRedacted ? stateRedactor.redactSensitiveData(state) : state;
+            eventSink.publish(new ModemEvent(
+                    timestamp(), clock.nowNanos(), ++sequence, sessionId, EventType.MACRO_EVENT,
+                    Direction.INTERNAL, "", null, parsed, profileId,
+                    port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
+                    macroId, null, null, 0, "MacroEngine", action.type(), null,
+                    visibleState, visibleState,
+                    mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
+        }
+    }
+
     void publishEvent(ModemEvent event) {
         eventSink.publish(event);
         sequence = Math.max(sequence, event.sequence());

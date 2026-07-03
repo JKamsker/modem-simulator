@@ -61,6 +61,7 @@
         "FAULT_TRIGGERED",
         "INJECTION",
         "MACRO_DECISION",
+        "MACRO_EVENT",
         "REPLAY_MARKER",
         "PORT_LOST",
         "RX_OVERFLOW",

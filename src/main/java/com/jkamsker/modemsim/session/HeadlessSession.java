@@ -38,20 +38,16 @@ public final class HeadlessSession implements SessionActor {
     private RawBytes pendingSmsBytes = RawBytes.empty();
     private PendingSms pendingSms;
     private ModemState pendingDialConnectedState;
-    private PendingMacroTransition pendingMacroTransition;
+    private final PendingMacroTransitions pendingMacroTransitions = new PendingMacroTransitions();
     private ModemState pendingEscapeCommandState;
     private RawBytes heldTx = RawBytes.empty();
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed) { this(sessionId, profile, sessionSeed, new InMemoryEventSink(), MacroEngine.empty()); }
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink) { this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty()); }
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, MacroEngine macroEngine) { this(sessionId, profile, sessionSeed, eventSink, macroEngine, "virtual", null, null); }
-    public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, String clockMode) {
-        this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty(), clockMode, null, null);
-    }
+    public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, String clockMode) { this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty(), clockMode, null, null); }
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, String clockMode, String port, String portRole) { this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty(), clockMode, port, portRole); }
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, MacroEngine macroEngine, String clockMode, String port, String portRole) { this(sessionId, profile, sessionSeed, eventSink, macroEngine, clockMode, port, portRole, null); }
-    public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink,
-                           MacroEngine macroEngine, String clockMode, String port, String portRole,
-                           Map<String, Object> configMetadata) {
+    public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, MacroEngine macroEngine, String clockMode, String port, String portRole, Map<String, Object> configMetadata) {
         this.profile = profile;
         this.macroEngine = macroEngine;
         this.commandRouter = commandRouter(macroEngine);
@@ -64,18 +60,13 @@ public final class HeadlessSession implements SessionActor {
         this.commandExecutor = commandExecutor(commandRouter);
         events.publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
     }
-    @Override
-    public synchronized SessionResponse receive(RawBytes bytes) {
-        return receiveTimed(bytes, clock.nowNanos(), clock.nowNanos());
-    }
+    @Override public synchronized SessionResponse receive(RawBytes bytes) { return receiveTimed(bytes, clock.nowNanos(), clock.nowNanos()); }
     public synchronized SessionResponse receiveTimed(RawBytes bytes, long firstByteMonotonicNanos, long lastByteMonotonicNanos) {
         long byteSpanNanos = Math.max(0, lastByteMonotonicNanos - firstByteMonotonicNanos);
         long firstByteNanos = Math.max(clock.nowNanos(), firstByteMonotonicNanos);
         long lastByteNanos = firstByteNanos + byteSpanNanos;
         clock.advanceTo(firstByteNanos);
-        if (pendingSms != null) {
-            return receiveSmsEntry(bytes);
-        }
+        if (pendingSms != null) { return receiveSmsEntry(bytes); }
         int start = eventCount();
         RawBytes output = RawBytes.empty();
         events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
@@ -142,8 +133,8 @@ public final class HeadlessSession implements SessionActor {
         } else if (SessionBytes.contains(raw, 26)) {
             MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
             if (decision.matched()) {
-                publishMacroDecision(decision, state);
                 ModemState macroState = commandRouter.applyEffects(state.withCall(CallRuntime.command()), decision);
+                publishMacroDecision(decision, state, macroState);
                 RawBytes macroOutput = SessionFrameRenderer.render(decision.frames(), state);
                 macroOperation = "macro-" + decision.macroId();
                 macroDelay = decision.delay(macroOperation);
@@ -203,7 +194,7 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse fireTimer(String timerId) {
         int start = eventCount(); MacroDecision decision = macroEngine.evaluateTimer(timerId, state, profile);
         if (!decision.matched()) { return response(RawBytes.empty(), start); }
-        ModemState before = state; CommandResult result = commandRouter.executeTimer(decision, state); pendingMacroTransition = commandRouter.pendingDelayedTransition(pendingMacroTransition); state = StateInvariants.normalize(result.state());
+        ModemState before = state; CommandResult result = commandRouter.executeTimer(decision, state); pendingMacroTransitions.addAll(commandRouter.pendingDelayedTransitions()); state = StateInvariants.normalize(result.state());
         var stateMacro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(stateMacro.state());
         RawBytes output = SessionFrameRenderer.render(result.frames(), state).append(stateChangeOutput(before, state)).append(stateMacro.output()); events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state, result);
         if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
@@ -215,11 +206,13 @@ public final class HeadlessSession implements SessionActor {
         state = state.withLines(state.lines().withDsr(false).withDcd(false));
         events.publishAudit(EventType.PORT_LOST, Direction.INTERNAL, null, result, RawBytes.empty(), before, state);
         scheduler.cancelAll(state);
+        pendingMacroTransitions.clear();
         return response(RawBytes.empty(), start);
     }
     public synchronized SessionResponse stop(String result) {
         int start = eventCount();
         scheduler.cancelAll(state);
+        pendingMacroTransitions.clear();
         diagnostic(EventType.SESSION_STOP, result);
         return response(RawBytes.empty(), start);
     }
@@ -230,6 +223,8 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state);
+        scheduler.cancelAll(state);
+        pendingMacroTransitions.clear();
         events.replaceMacroHash(next.hash());
         macroEngine = next; commandRouter = commandRouter(next); commandExecutor = commandExecutor(commandRouter);
         return response(RawBytes.empty(), start);
@@ -240,6 +235,7 @@ public final class HeadlessSession implements SessionActor {
         next = StateInvariants.normalize(next);
         events.publishAudit(eventType, Direction.INTERNAL, injectionType, result, RawBytes.empty(), before, next);
         scheduler.cancelAll(next);
+        pendingMacroTransitions.clear();
         pendingDialConnectedState = null;
         pendingEscapeCommandState = null;
         var macro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, next);
@@ -252,15 +248,15 @@ public final class HeadlessSession implements SessionActor {
     private RawBytes scheduleOrReturn(String operation, RawBytes payload) { return SessionDelayScheduler.schedule(scheduler, operation, payload, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, int delayMs) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delayMs, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delay, state); }
-    private RawBytes scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delay, source); }
+    private ScheduledPayload scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source) { return SessionDelayScheduler.scheduleWithMetadata(scheduler, operation, payload, delay, source); }
     private RawBytes stateChangeOutput(ModemState before, ModemState after) { RawBytes urc = SessionStateChangeMacros.registrationUrc(before, after); return urc.isEmpty() ? RawBytes.empty() : scheduler.scheduleImmediate("state-urc", urc, after); }
     private RawBytes holdTxIfNeeded(RawBytes output) { if (!output.isEmpty() && SessionFreezePolicy.holdsTx(state)) { heldTx = heldTx.append(output); return RawBytes.empty(); } return output; }
     private RawBytes releaseHeldTx(ModemState before, ModemState after) { if (SessionFreezePolicy.releasesTx(before, after)) { RawBytes released = heldTx; heldTx = RawBytes.empty(); return released; } return RawBytes.empty(); }
-    private void publishMacroDecision(MacroDecision decision, ModemState source) { events.publishMacroDecision(decision, source); publishMacroAudit(decision, source); }
-    private void publishMacroAudit(MacroDecision decision, ModemState source) {
-        if (decision.faults().isEmpty() && decision.statePatches().isEmpty()) { return; }
+    private void publishMacroDecision(MacroDecision decision, ModemState source, ModemState after) { events.publishMacroDecision(decision, source); events.publishMacroEvents(decision.events(), decision.macroId(), source); publishMacroAudit(decision, source, after); }
+    private void publishMacroAudit(MacroDecision decision, ModemState source, ModemState after) {
+        if ((decision.faults().isEmpty() && decision.statePatches().isEmpty()) || source.equals(after)) { return; }
         events.publishAudit(decision.faults().isEmpty() ? EventType.STATE_CHANGE : EventType.FAULT_TRIGGERED,
-                Direction.INTERNAL, "macro-control", "macro-" + decision.macroId(), RawBytes.empty(), source, commandRouter.applyEffects(source, decision));
+                Direction.INTERNAL, "macro-control", "macro-" + decision.macroId(), RawBytes.empty(), source, after);
     }
     private MacroCommandRouter commandRouter(MacroEngine engine) {
         return new MacroCommandRouter(profile, new DefaultCommandRouter(), engine, SessionFrameRenderer::render,
@@ -274,7 +270,7 @@ public final class HeadlessSession implements SessionActor {
         state = StateInvariants.normalize(execution.state());
         var macro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(macro.state());
         rebootTimer.arm(state); pendingSms = execution.pendingSms(); if (pendingSms != null) { pendingSmsBytes = RawBytes.empty(); }
-        pendingDialConnectedState = execution.pendingDialConnectedState(); pendingMacroTransition = execution.pendingMacroTransition();
+        pendingDialConnectedState = execution.pendingDialConnectedState(); pendingMacroTransitions.addAll(execution.pendingMacroTransitions());
         output = holdTxIfNeeded(output.append(execution.output()).append(stateChangeOutput(before, state)).append(macro.output()));
         if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
         if (markRx) { inputState.markDteRx(lastByteNanos); }
@@ -282,18 +278,20 @@ public final class HeadlessSession implements SessionActor {
     }
     private SessionResponse scheduledResponse(ScheduledAction action) {
         int start = eventCount();
-        RawBytes output = action.run();
-        output = completePendingTransitions(output, scheduler.consumeEmitted());
+        ScheduledBatch batch = action.run();
+        RawBytes output = completePendingTransitions(batch.output(), batch);
         state = rebootTimer.completeIfDue(state);
         output = holdTxIfNeeded(output);
         if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
         return response(output, start);
     }
-    private RawBytes completePendingTransitions(RawBytes output, boolean scheduledEmission) {
+    private RawBytes completePendingTransitions(RawBytes output, ScheduledBatch batch) {
+        boolean scheduledEmission = !batch.emitted().isEmpty();
         if ((scheduledEmission || !output.isEmpty()) && pendingDialConnectedState != null) { state = pendingDialConnectedState; pendingDialConnectedState = null; }
-        if ((scheduledEmission || !output.isEmpty()) && pendingMacroTransition != null) { output = output.append(commitPendingMacroTransition()); }
+        pendingMacroTransitions.removeCancelled(batch.cancelled());
+        output = output.append(pendingMacroTransitions.commitFor(batch.emitted(), this::commitPendingMacroTransition));
         if ((scheduledEmission || !output.isEmpty()) && pendingEscapeCommandState != null) { state = pendingEscapeCommandState; pendingEscapeCommandState = null; }
         return output;
     }
-    private RawBytes commitPendingMacroTransition() { PendingMacroTransition transition = pendingMacroTransition; pendingMacroTransition = null; ModemState before = state; ModemState next = StateInvariants.normalize(transition.state()); events.publishAudit(transition.eventType(), Direction.INTERNAL, "macro-control", transition.result(), RawBytes.empty(), before, next); state = next; var macro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(macro.state()); rebootTimer.arm(state); return stateChangeOutput(before, state).append(macro.output()); }
+    private RawBytes commitPendingMacroTransition(PendingMacroTransition transition) { ModemState before = state; ModemState next = StateInvariants.normalize(transition.state()); events.publishAudit(transition.eventType(), Direction.INTERNAL, "macro-control", transition.result(), RawBytes.empty(), before, next); state = next; var macro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(macro.state()); rebootTimer.arm(state); return stateChangeOutput(before, state).append(macro.output()); }
 }

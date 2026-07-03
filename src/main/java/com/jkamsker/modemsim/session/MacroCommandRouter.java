@@ -30,7 +30,7 @@ final class MacroCommandRouter {
     private final FrameRenderer renderer;
     private final MacroScheduler scheduler;
     private final DecisionSink decisionSink;
-    private PendingMacroTransition pendingDelayedTransition;
+    private List<PendingMacroTransition> pendingDelayedTransitions = List.of();
 
     MacroCommandRouter(
             Profile profile,
@@ -48,7 +48,7 @@ final class MacroCommandRouter {
     }
 
     CommandResult route(ParsedCommand command, ModemState state) {
-        pendingDelayedTransition = null;
+        pendingDelayedTransitions = List.of();
         CommandResult result = null;
         CommandResult before = commandMacro(command, state, MacroPhase.BEFORE, false);
         if (before != null) {
@@ -72,10 +72,10 @@ final class MacroCommandRouter {
         return profile;
     }
 
-    PendingMacroTransition pendingDelayedTransition(PendingMacroTransition fallback) {
-        PendingMacroTransition result = pendingDelayedTransition;
-        pendingDelayedTransition = null;
-        return result == null ? fallback : result;
+    List<PendingMacroTransition> pendingDelayedTransitions() {
+        List<PendingMacroTransition> result = pendingDelayedTransitions;
+        pendingDelayedTransitions = List.of();
+        return result;
     }
 
     private CommandResult commandMacro(
@@ -85,15 +85,24 @@ final class MacroCommandRouter {
     }
 
     private CommandResult executeMacro(MacroDecision decision, ModemState state, boolean stopLine) {
-        decisionSink.publish(decision, state);
         OrderedMacroResult ordered = ordered(decision, state);
         ModemState next = ordered.immediateState();
-        pendingDelayedTransition = ordered.pendingState() == null ? null
-                : new PendingMacroTransition(ordered.pendingState(), eventType(decision), "macro-" + decision.macroId());
+        pendingDelayedTransitions = List.of();
         RawBytes output = renderer.render(ordered.immediateFrames(), next);
-        RawBytes delayed = renderer.render(ordered.delayedFrames(), pendingDelayedTransition == null ? next : pendingDelayedTransition.state());
+        ModemState delayedState = ordered.pendingState();
+        RawBytes delayed = renderer.render(ordered.delayedFrames(), delayedState == null ? next : delayedState);
         String operation = "macro-" + decision.macroId();
-        RawBytes effective = output.append(scheduler.schedule(operation, delayed, decision.delay(operation), next));
+        ScheduledPayload scheduled = scheduler.schedule(operation, delayed, decision.delay(operation), next);
+        if (delayedState != null) {
+            if (scheduled.scheduledSequence() == null) {
+                next = delayedState;
+            } else {
+                pendingDelayedTransitions = List.of(new PendingMacroTransition(
+                        delayedState, eventType(decision), operation, scheduled.scheduledSequence()));
+            }
+        }
+        decisionSink.publish(decision, state, next);
+        RawBytes effective = output.append(scheduled.output());
         return new CommandResult(next, List.of(new RawFrame(effective)), null, "Macro:" + decision.macroId(), stopLine);
     }
 
@@ -136,7 +145,7 @@ final class MacroCommandRouter {
     }
 
     CommandResult executeTimer(MacroDecision decision, ModemState state) {
-        pendingDelayedTransition = null;
+        pendingDelayedTransitions = List.of();
         return executeMacro(decision, state, false);
     }
 
@@ -175,11 +184,11 @@ final class MacroCommandRouter {
     }
 
     interface MacroScheduler {
-        RawBytes schedule(String operation, RawBytes payload, NetworkDelay delay, ModemState state);
+        ScheduledPayload schedule(String operation, RawBytes payload, NetworkDelay delay, ModemState state);
     }
 
     interface DecisionSink {
-        void publish(MacroDecision decision, ModemState state);
+        void publish(MacroDecision decision, ModemState stateBefore, ModemState stateAfter);
     }
 
     private record OrderedMacroResult(

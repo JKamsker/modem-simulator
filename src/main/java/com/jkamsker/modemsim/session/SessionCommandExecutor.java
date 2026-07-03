@@ -36,7 +36,7 @@ final class SessionCommandExecutor {
             nvramSettings = nvramStore.load().orElse(initialState.settings());
         }
         ModemState pendingDialState = null;
-        PendingMacroTransition pendingMacroTransition = null;
+        java.util.ArrayList<PendingMacroTransition> pendingMacroTransitions = new java.util.ArrayList<>();
         PendingSms pendingSms = null;
         RawBytes output = RawBytes.empty();
         RawBytes lineOutput = RawBytes.empty();
@@ -53,7 +53,7 @@ final class SessionCommandExecutor {
             events.publishParsed(command, state);
             ModemState before = state;
             CommandResult routed = commandRouter.route(command, state);
-            pendingMacroTransition = commandRouter.pendingDelayedTransition(pendingMacroTransition);
+            pendingMacroTransitions.addAll(commandRouter.pendingDelayedTransitions());
             boolean delayedDial = command.normalizedName().equals("ATD")
                     && DialDelayPolicy.shouldDelay(routed, routed.state());
             CommandResult result = delayedDial ? delayedDialResult(command, before, routed) : routed;
@@ -86,7 +86,7 @@ final class SessionCommandExecutor {
             }
         }
         output = output.append(finishCommandLine(lineOutput, lineResult, lineDelayedDial, state));
-        return new CommandExecutionResult(state, output, pendingSms, pendingDialState, pendingMacroTransition);
+        return new CommandExecutionResult(state, output, pendingSms, pendingDialState, List.copyOf(pendingMacroTransitions));
     }
 
     private CommandResult delayedDialResult(ParsedCommand command, ModemState before, CommandResult routed) {

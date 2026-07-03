@@ -15,7 +15,6 @@ final class SessionSchedulerBridge {
     private final DeterministicScheduler scheduler;
     private final VirtualClock clock;
     private final SessionEventPublisher events;
-    private boolean emittedSinceLastCheck;
 
     SessionSchedulerBridge(long sessionSeed, VirtualClock clock, SessionEventPublisher events) {
         this.scheduler = new DeterministicScheduler(sessionSeed);
@@ -23,23 +22,27 @@ final class SessionSchedulerBridge {
         this.events = events;
     }
 
-    RawBytes advanceTime(long millis, ModemState state) {
+    ScheduledBatch advanceTime(long millis, ModemState state) {
         clock.advanceMillis(millis);
         return emitScheduled(scheduler.due(clock.nowNanos(), state.version()), state);
     }
 
-    RawBytes advanceTo(long monotonicNanos, ModemState state) {
+    ScheduledBatch advanceTo(long monotonicNanos, ModemState state) {
         clock.advanceTo(monotonicNanos);
         return emitScheduled(scheduler.due(clock.nowNanos(), state.version()), state);
     }
 
-    RawBytes drainScheduled(ModemState state) {
+    ScheduledBatch drainScheduled(ModemState state) {
         return emitScheduled(scheduler.drainAll(clock, state.version()), state);
     }
 
     RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay, ModemState source) {
+        return scheduleWithMetadata(operation, payload, delay, source).output();
+    }
+
+    ScheduledPayload scheduleWithMetadata(String operation, RawBytes payload, NetworkDelay delay, ModemState source) {
         if (delay == null || delay.maxMs() == 0) {
-            return payload;
+            return new ScheduledPayload(payload, null);
         }
         SourcePriority priority = operation != null && operation.startsWith("macro-")
                 ? SourcePriority.MACRO
@@ -47,7 +50,7 @@ final class SessionSchedulerBridge {
         ScheduledEmission emission = scheduler.enqueue(
                 clock.nowNanos(), events.nextSequence(), priority, payload, source.version(), operation, delay);
         events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, source);
-        return RawBytes.empty();
+        return new ScheduledPayload(RawBytes.empty(), emission.sequence());
     }
 
     RawBytes scheduleImmediate(String operation, RawBytes payload, ModemState source) {
@@ -55,7 +58,7 @@ final class SessionSchedulerBridge {
                 clock.nowNanos(), events.nextSequence(), SourcePriority.INTERNAL,
                 payload, source.version(), operation, new NetworkDelay(operation, 0, 0));
         events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, source);
-        return emitScheduled(scheduler.due(clock.nowNanos(), source.version()), source);
+        return emitScheduled(scheduler.due(clock.nowNanos(), source.version()), source).output();
     }
 
     void cancelAll(ModemState state) {
@@ -64,26 +67,21 @@ final class SessionSchedulerBridge {
         }
     }
 
-    boolean consumeEmitted() {
-        boolean result = emittedSinceLastCheck;
-        emittedSinceLastCheck = false;
-        return result;
-    }
-
-    private RawBytes emitScheduled(List<ScheduledEmission> emissions, ModemState state) {
-        emittedSinceLastCheck = !emissions.isEmpty();
+    private ScheduledBatch emitScheduled(List<ScheduledEmission> emissions, ModemState state) {
         RawBytes output = RawBytes.empty();
         for (ScheduledEmission emission : emissions) {
             output = output.append(emission.payload());
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state);
         }
-        publishCancelled(state);
-        return output;
+        List<ScheduledEmission> cancelled = publishCancelled(state);
+        return new ScheduledBatch(output, List.copyOf(emissions), cancelled);
     }
 
-    private void publishCancelled(ModemState state) {
-        for (ScheduledEmission emission : scheduler.cancelledSinceLastCheck()) {
+    private List<ScheduledEmission> publishCancelled(ModemState state) {
+        List<ScheduledEmission> cancelled = scheduler.cancelledSinceLastCheck();
+        for (ScheduledEmission emission : cancelled) {
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state, true);
         }
+        return cancelled;
     }
 }
