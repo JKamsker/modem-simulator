@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $Com0ComUrl = "https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download"
+$ExpectedCom0ComZipSha256 = "6E5D4359865277430D4AE88C73FB7E648A0ED8E81AEA5002478179CFCB0BB0E1"
 $ModemPort = "COM50"
 $DtePort = "COM51"
 
@@ -143,6 +144,21 @@ function Find-Setupc {
     Select-Object -First 1
 }
 
+function Assert-Sha256 {
+  param(
+    [Parameter(Mandatory = $true)][string] $Path,
+    [Parameter(Mandatory = $true)][string] $ExpectedSha256,
+    [Parameter(Mandatory = $true)][string] $Description
+  )
+
+  $actualSha256 = (Get-FileHash -Path $Path -Algorithm SHA256).Hash.ToUpperInvariant()
+  $normalizedExpectedSha256 = $ExpectedSha256.ToUpperInvariant()
+  if ($actualSha256 -ne $normalizedExpectedSha256) {
+    throw "$Description SHA-256 mismatch. Expected $normalizedExpectedSha256 but got $actualSha256."
+  }
+  Write-Host "Verified $Description SHA-256: $actualSha256"
+}
+
 $work = Join-Path $env:RUNNER_TEMP "com0com"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 
@@ -153,6 +169,7 @@ if ($LASTEXITCODE -ne 0) {
   throw "curl failed while downloading com0com with exit code $LASTEXITCODE."
 }
 Write-Host "Downloaded com0com package bytes: $((Get-Item $zip).Length)"
+Assert-Sha256 -Path $zip -ExpectedSha256 $ExpectedCom0ComZipSha256 -Description "com0com package"
 
 & tar.exe -xf $zip -C $work
 if ($LASTEXITCODE -ne 0) {
