@@ -47,10 +47,8 @@ final class ReplayCommand {
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
         String port = firstExpected(steps, ReplayEventExpectation::port, null);
         String role = firstExpected(steps, ReplayEventExpectation::portRole, null);
-        String configHash = firstExpected(steps, ReplayEventExpectation::configHash, null);
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
-                new InMemoryEventSink(), MacroEngine.empty(), clock, port, role,
-                configHash == null ? null : java.util.Map.of("configHashOverride", configHash));
+                new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
         ReplayReport report = new ReplayValidator().validateRecompute(session, steps, true);
         if (report.valid()) {
             out.println("REPLAY OK mode=" + mode + " steps=" + steps.size());
@@ -115,10 +113,8 @@ final class ReplayCommand {
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
         String port = firstExpected(steps, ReplayEventExpectation::port, null);
         String role = firstExpected(steps, ReplayEventExpectation::portRole, null);
-        String configHash = firstExpected(steps, ReplayEventExpectation::configHash, null);
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
-                new InMemoryEventSink(), MacroEngine.empty(), clock, port, role,
-                configHash == null ? null : java.util.Map.of("configHashOverride", configHash));
+                new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
         return new ReplayValidator().validateRecompute(session, steps, true);
     }
 

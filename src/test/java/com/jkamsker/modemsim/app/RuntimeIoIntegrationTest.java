@@ -56,7 +56,7 @@ class RuntimeIoIntegrationTest {
                 .run(config(List.of(sniffer())), List.of(), 1);
 
         assertThat(result.output().ascii()).isEqualTo("\r\nOK\r\n");
-        assertThat(Files.readString(result.eventLogPath())).contains("optional-port-lost:sniffer:sidecar read failed");
+        assertThat(Files.readString(result.eventLogPath())).contains("optional-port-io-failed:sniffer:sidecar read failed");
         assertThat(sidecar.reads).isEqualTo(1);
     }
 

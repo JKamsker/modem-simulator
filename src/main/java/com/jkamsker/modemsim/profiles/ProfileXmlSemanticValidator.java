@@ -47,7 +47,6 @@ final class ProfileXmlSemanticValidator {
         String kind = Dom.attr(profile, "profileKind", "cellular");
         var parents = ProfileXmlSupport.parents(profile.getAttribute("extends"));
         boolean inherited = !parents.isEmpty();
-        boolean hasKnownParent = parents.stream().anyMatch(knownIds::contains);
         boolean cellular = Set.of("cellular", "hybrid").contains(kind);
         if (cellular && !inherited) {
             requireChild(profile, initial, "sim", report);
@@ -64,7 +63,7 @@ final class ProfileXmlSemanticValidator {
             report.error(profile.getAttribute("id") + ": " + kind + " profile must not require mobile state blocks");
         }
         Element network = initial == null ? null : Dom.child(initial, "network");
-        if (cellular && !hasKnownParent && network != null && Dom.child(network, "operator") == null) {
+        if (cellular && network != null && Dom.child(network, "operator") == null) {
             report.error(profile.getAttribute("id") + ": cellular profile requires operator metadata");
         }
         validateDelayOperations(profile, network, report);

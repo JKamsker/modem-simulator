@@ -40,9 +40,6 @@ final class EventFingerprints {
 
     static String configHash(
             String profileId, String clockMode, String port, String portRole, Map<String, Object> extra) {
-        if (extra != null && extra.get("configHashOverride") instanceof String override) {
-            return override;
-        }
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("type", "headless-session");
         data.put("profile", value(profileId));

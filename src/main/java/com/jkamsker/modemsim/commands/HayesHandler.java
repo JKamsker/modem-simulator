@@ -7,6 +7,7 @@ import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.CallRuntime;
 import com.jkamsker.modemsim.state.ModemState;
 import com.jkamsker.modemsim.state.SessionSettings;
+import com.jkamsker.modemsim.state.SimState;
 
 import java.util.List;
 
@@ -33,7 +34,7 @@ public final class HayesHandler implements CommandHandler {
             case "AT&V" -> viewConfig(state);
             case "AT&D" -> setDtrPolicy(state, command.arguments());
             case "AT&C" -> setDcdPolicy(state, command.arguments());
-            case "ATD" -> dial(state, command.arguments());
+            case "ATD" -> dial(profile, state, command.arguments());
             case "ATH" -> hangup(state);
             case "ATO" -> online(state);
             default -> null;
@@ -68,7 +69,11 @@ public final class HayesHandler implements CommandHandler {
                 false);
     }
 
-    private CommandResult dial(ModemState state, String number) {
+    private CommandResult dial(Profile profile, ModemState state, String number) {
+        if (mobileProfile(profile) && (state.sim().state() != SimState.READY
+                || state.network() == null || !state.network().registeredForCircuitServices())) {
+            return new CommandResult(state, List.of(), ResultCode.NO_CARRIER, "HayesHandler", true);
+        }
         ModemState connected = state
                 .withCall(state.call().connected(number))
                 .withLines(state.lines().withDcd(true));
@@ -78,7 +83,7 @@ public final class HayesHandler implements CommandHandler {
     private CommandResult hangup(ModemState state) {
         ModemState disconnected = state
                 .withCall(state.call().disconnected())
-                .withLines(state.lines().withDcd(false));
+                .withLines(state.lines().withDcd(dcdForCarrier(state, false)));
         return CommandResult.ok(disconnected, "HayesHandler");
     }
 
@@ -105,6 +110,15 @@ public final class HayesHandler implements CommandHandler {
         }
         ModemState next = state.withSettings(state.settings().withAmpC(mode));
         return CommandResult.ok(next.withLines(next.lines().withDcd(mode == 0 || next.call().carrier())), "HayesHandler");
+    }
+
+    private boolean dcdForCarrier(ModemState state, boolean carrier) {
+        return state.settings().ampC() == 0 || carrier;
+    }
+
+    private boolean mobileProfile(Profile profile) {
+        return profile.profileKind().equals("cellular") || profile.profileKind().equals("hybrid")
+                || profile.id().equals("3gpp-27007-r18") || profile.id().equals("3gpp-27005-r16");
     }
 
     private CommandResult escapeToOnlineCommandMode(ModemState state) {

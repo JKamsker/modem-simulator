@@ -140,6 +140,8 @@ final class SessionEventPublisher {
         data.put("dueMonotonicNanos", emission.dueMonotonicNanos());
         data.put("sourceSequence", emission.sequence());
         data.put("sourcePriority", emission.sourcePriority().name().toLowerCase());
+        data.put("stateVersion", emission.stateVersion());
+        data.put("cancelOnStateChange", emission.cancelOnStateChange());
         data.put("operation", emission.operation());
         data.put("sampledDelayMs", emission.sampledDelayMs());
         data.put("cancelled", cancelled);

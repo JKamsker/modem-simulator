@@ -50,7 +50,7 @@ public final class SmsSubmitProcessor {
         if (state.sms().selectedStorageFull()) {
             return 322;
         }
-        if (pending.pduMode() && body.length() != pending.pduLength()) {
+        if (pending.pduMode() && !validPduLength(body, pending.pduLength())) {
             return 304;
         }
         SmsRateLimit limit = state.network().smsRateLimit();
@@ -101,5 +101,11 @@ public final class SmsSubmitProcessor {
             default -> "session";
         };
         return acceptedSubmitNanos.computeIfAbsent(key, ignored -> new ArrayDeque<>());
+    }
+
+    private boolean validPduLength(String body, int expectedOctets) {
+        return body.length() % 2 == 0
+                && body.length() / 2 == expectedOctets
+                && body.matches("(?i)[0-9a-f]*");
     }
 }

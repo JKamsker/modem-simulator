@@ -6,8 +6,9 @@ import java.util.regex.Pattern;
 
 public final class ValidationReport {
     private static final Pattern SENSITIVE_ATTRIBUTE = Pattern.compile(
-            "(?i)\\b(pin|puk|imsi|iccid|imei|msisdn)\\s*=\\s*\"[^\"]*\"");
+            "(?i)\\b(pin|puk|imsi|iccid|imei|msisdn|smsc|destination|destinationRegex|body|bodyRegex|rawRegex|regex)\\s*=\\s*\"[^\"]*\"");
     private static final Pattern LONG_IDENTIFIER = Pattern.compile("(?<!\\d)\\d{14,22}(?!\\d)");
+    private static final Pattern MSISDN = Pattern.compile("(?<![\\w+])\\+?\\d{6,15}(?!\\w)");
     private final List<String> errors = new ArrayList<>();
     private final List<String> warnings = new ArrayList<>();
 
@@ -52,6 +53,7 @@ public final class ValidationReport {
         }
         String redacted = SENSITIVE_ATTRIBUTE.matcher(message).replaceAll(match ->
                 match.group(1) + "=\"<redacted>\"");
-        return LONG_IDENTIFIER.matcher(redacted).replaceAll("<redacted>");
+        redacted = LONG_IDENTIFIER.matcher(redacted).replaceAll("<redacted>");
+        return MSISDN.matcher(redacted).replaceAll("<redacted>");
     }
 }

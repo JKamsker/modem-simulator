@@ -7,10 +7,11 @@ import java.util.List;
 
 final class ProfileXmlMetadataParser {
     ProfileXmlMetadata parse(Element profile) {
+        List<ProfileCommand> commands = commands(Dom.child(profile, "commands"));
         return new ProfileXmlMetadata(
-                commands(Dom.child(profile, "commands")),
+                commands,
                 registers(Dom.child(profile, "registers")),
-                coverage(Dom.child(profile, "coverage")),
+                coverage(Dom.child(profile, "coverage"), commands),
                 deviations(Dom.child(profile, "deviations")));
     }
 
@@ -46,15 +47,16 @@ final class ProfileXmlMetadataParser {
                 Dom.boolAttr(register, "persistent", false));
     }
 
-    private ProfileCoverage coverage(Element coverage) {
+    private ProfileCoverage coverage(Element coverage, List<ProfileCommand> declaredCommands) {
         if (coverage == null) {
             return null;
         }
+        List<ProfileCommand> covered = Dom.children(coverage, "command").stream().map(this::command).toList();
         return new ProfileCoverage(
                 coverage.getAttribute("source"),
                 Dom.intAttr(coverage, "commandsTotal", 0),
                 Dom.intAttr(coverage, "unknown", 0),
-                Dom.children(coverage, "command").stream().map(this::command).toList());
+                covered.isEmpty() ? declaredCommands : covered);
     }
 
     private List<ProfileDeviation> deviations(Element deviations) {

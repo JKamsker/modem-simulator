@@ -46,6 +46,7 @@
     <xs:attribute name="resetPolicy" type="ResetPolicyType" use="optional"/>
     <xs:attribute name="lineModel" type="LineModelType" use="optional"/>
     <xs:attribute name="unknownAtCommand" type="UnknownAtCommandPolicyType" use="optional" default="ERROR"/>
+    <xs:attribute name="extendedPrefixes" type="xs:string" use="optional" default="+ % # !"/>
   </xs:complexType>
 
   <xs:complexType name="InitialStateType">

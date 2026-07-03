@@ -147,7 +147,8 @@ public final class ReplayStepLoader {
         if (type.equals("SCHEDULER_ENQUEUE") || type.equals("SCHEDULER_EMIT")) {
             JsonNode scheduler = node.path("scheduler");
             require(scheduler, lineNumber, "dueMonotonicNanos", "sourceSequence",
-                    "sourcePriority", "operation", "sampledDelayMs", "cancelled");
+                    "sourcePriority", "stateVersion", "cancelOnStateChange",
+                    "operation", "sampledDelayMs", "cancelled");
         }
         requireHash(node, lineNumber, "profileHash", "configHash", "macroHash", "initialStateHash");
     }

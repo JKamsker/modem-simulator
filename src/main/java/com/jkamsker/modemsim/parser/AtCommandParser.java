@@ -7,14 +7,22 @@ import java.util.Locale;
 public final class AtCommandParser {
     private final int backspace;
     private final int terminator;
+    private final List<String> extendedPrefixes;
 
     public AtCommandParser(int backspace) {
         this(backspace, '\r');
     }
 
     public AtCommandParser(int backspace, int terminator) {
+        this(backspace, terminator, List.of("+", "%", "#", "!"));
+    }
+
+    public AtCommandParser(int backspace, int terminator, List<String> extendedPrefixes) {
         this.backspace = backspace;
         this.terminator = terminator;
+        this.extendedPrefixes = extendedPrefixes.stream()
+                .sorted((left, right) -> Integer.compare(right.length(), left.length()))
+                .toList();
     }
 
     public List<ParsedCommand> parse(RawBytes source, EntryMode mode) {
@@ -89,7 +97,7 @@ public final class AtCommandParser {
 
     private Slice nextSlice(String body, int start) {
         char first = body.charAt(start);
-        if (isExtendedPrefix(first)) {
+        if (startsWithExtendedPrefix(body, start)) {
             return extendedSlice(body, start);
         }
         if (first == '&' && start + 1 < body.length()) {
@@ -149,7 +157,7 @@ public final class AtCommandParser {
         if (slice.regionMatches(true, 0, "S", 0, 1)) {
             return sRegisterCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
         }
-        if (isExtendedPrefix(slice.charAt(0))) {
+        if (startsWithExtendedPrefix(slice, 0)) {
             return extendedCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
         }
         return basicCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
@@ -226,8 +234,8 @@ public final class AtCommandParser {
         return Math.min(question, equals);
     }
 
-    private boolean isExtendedPrefix(char ch) {
-        return ch == '+' || ch == '%' || ch == '#' || ch == '!';
+    private boolean startsWithExtendedPrefix(String text, int start) {
+        return extendedPrefixes.stream().anyMatch(prefix -> text.startsWith(prefix, start));
     }
 
     private boolean hasTerminator(String text) {

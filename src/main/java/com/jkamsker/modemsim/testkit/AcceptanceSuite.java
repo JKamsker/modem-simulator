@@ -177,7 +177,7 @@ public final class AcceptanceSuite {
     private void pduAndStorage() {
         HeadlessSession s = session();
         s.receive(RawBytes.ascii("AT+CMGF=0\r"));
-        s.receive(RawBytes.ascii("AT+CMGS=4\r"));
+        s.receive(RawBytes.ascii("AT+CMGS=2\r"));
         s.receive(RawBytes.ascii("0011\u001A"));
         s.drainScheduled();
         requireContains(s.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii(), "+CMGL");
@@ -205,7 +205,7 @@ public final class AcceptanceSuite {
             Dialect d = new Dialect(false, false, true,
                     Dialect.v250().commandTerminator(), Dialect.v250().responseTerminator(),
                     Dialect.v250().resetPolicy(), Dialect.v250().lineModel(),
-                    policy, Dialect.v250().smsPromptBytes());
+                    policy, Dialect.v250().smsPromptBytes(), Dialect.v250().extendedPrefixes());
             HeadlessSession s = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra().withDialect(d), 12345);
             String output = s.receive(RawBytes.ascii("AT+UNKNOWN\r")).outputAscii();
             switch (policy) {

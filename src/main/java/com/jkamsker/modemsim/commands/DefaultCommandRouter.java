@@ -2,6 +2,7 @@ package com.jkamsker.modemsim.commands;
 
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.profiles.Profile;
+import com.jkamsker.modemsim.profiles.ProfileCommand;
 import com.jkamsker.modemsim.profiles.UnknownAtCommandPolicy;
 import com.jkamsker.modemsim.macros.FaultAction;
 import com.jkamsker.modemsim.macros.FaultService;
@@ -22,11 +23,12 @@ public final class DefaultCommandRouter {
         if (command.normalizedName().equals("PARSE_ERROR")) {
             return new CommandResult(state, List.of(), ResultCode.ERROR, "AtCommandParser", true);
         }
-        if (!declared(profile, command)) {
+        ProfileCommand declaration = declaration(profile, command);
+        if (declaration == null || !executable(declaration)) {
             return unknown(profile, state);
         }
         for (CommandHandler handler : handlers) {
-            if (!handlerAllowed(profile, handler)) {
+            if (!handlerAllowed(profile, handler) || !handlerMatches(declaration, handler)) {
                 continue;
             }
             CommandResult result = handler.handle(profile, state, command);
@@ -69,14 +71,23 @@ public final class DefaultCommandRouter {
         };
     }
 
-    private boolean declared(Profile profile, ParsedCommand command) {
+    private ProfileCommand declaration(Profile profile, ParsedCommand command) {
         if (profile.commands().isEmpty()) {
-            return true;
+            return new ProfileCommand(command.normalizedName(), "implemented_full", null, null);
         }
         String name = command.kind() == com.jkamsker.modemsim.parser.CommandKind.S_REGISTER_READ
                 || command.kind() == com.jkamsker.modemsim.parser.CommandKind.S_REGISTER_WRITE
                 ? "ATS" : command.normalizedName();
-        return profile.commands().stream().anyMatch(candidate -> candidate.name().equals(name));
+        return profile.commands().stream().filter(candidate -> candidate.name().equals(name)).findFirst().orElse(null);
+    }
+
+    private boolean executable(ProfileCommand command) {
+        return command.status().equals("implemented_full") || command.status().equals("implemented_stub");
+    }
+
+    private boolean handlerMatches(ProfileCommand command, CommandHandler handler) {
+        return command.handler() == null || command.handler().isBlank()
+                || command.handler().equals(handler.getClass().getSimpleName());
     }
 
     private boolean noResponseFreeze(ModemState state) {

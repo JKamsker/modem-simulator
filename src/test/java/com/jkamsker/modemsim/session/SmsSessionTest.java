@@ -72,7 +72,7 @@ class SmsSessionTest {
         HeadlessSession session = unlimitedSmsSession();
         session.receive(RawBytes.ascii("AT+CMGF=0\r"));
 
-        session.receive(RawBytes.ascii("AT+CMGS=4\r"));
+        session.receive(RawBytes.ascii("AT+CMGS=2\r"));
         session.receive(RawBytes.ascii("0011\u001B"));
 
         assertThat(session.drainScheduled().outputAscii()).contains("OK");
@@ -125,12 +125,12 @@ class SmsSessionTest {
         HeadlessSession session = unlimitedSmsSession();
 
         session.receive(RawBytes.ascii("AT+CMGF=0\r"));
-        assertThat(session.receive(RawBytes.ascii("AT+CMGS=4\r")).outputHex()).isEqualTo("0D0A3E20");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGS=2\r")).outputHex()).isEqualTo("0D0A3E20");
         session.receive(RawBytes.ascii("001\u001A"));
         assertThat(session.drainScheduled().outputAscii()).contains("+CMS ERROR: 304");
         assertThat(session.snapshot().sms().messages()).isEmpty();
 
-        session.receive(RawBytes.ascii("AT+CMGS=4\r"));
+        session.receive(RawBytes.ascii("AT+CMGS=2\r"));
         session.receive(RawBytes.ascii("0011\u001A"));
         session.drainScheduled();
         assertThat(session.snapshot().sms().messages().values())

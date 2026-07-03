@@ -192,28 +192,7 @@ final class SimulatorView {
     }
 
     private Node macroPane() {
-        TextField file = ui.field("macro.file", "docs/Tasks/Initial-Spec/examples/macros.sms-error-123.xml");
-        TextField macroId = ui.field("macro.id", "smscommand-dst-error-123");
-        Label hash = ui.label("macro.hash", "sha256:");
-        Label errors = ui.label("macro.errors", "");
-        Label customResponses = ui.label("macro.customResponses", "");
-        Label enabled = ui.label("macro.enabled", "");
-        Button reload = ui.button("macro.reload", "Reload");
-        Button enable = ui.button("macro.enable", "Enable");
-        Button disable = ui.button("macro.disable", "Disable");
-        reload.setOnAction(event -> {
-            MacroSummary summary = controller.reloadMacros(Path.of(file.getText()));
-            hash.setText(summary.hash().isBlank() ? "sha256:" : summary.hash());
-            errors.setText(summary.errors());
-            customResponses.setText(summary.customResponses());
-            enabled.setText(summary.enabled());
-            handle(summary.response());
-        });
-        enable.setOnAction(event -> errors.setText(controller.macroToggleStatus("enable", macroId.getText())));
-        disable.setOnAction(event -> errors.setText(controller.macroToggleStatus("disable", macroId.getText())));
-        return new VBox(8,
-                file, macroId, hash, errors, customResponses, enabled,
-                new HBox(8, reload, enable, disable));
+        return new GuiMacroPane(ui, controller, this::handle).node();
     }
 
     private Node replayPane() {
@@ -240,7 +219,8 @@ final class SimulatorView {
             showReplay(result, hashStatus, divergences);
         });
         drive.setOnAction(event -> {
-            ReplaySummary result = controller.replay(Path.of(logFile.getText()), "drive-from-captured-input", virtualClock.isSelected());
+            ReplaySummary result = controller.replay(Path.of(logFile.getText()), "drive-from-captured-input",
+                    virtualClock.isSelected(), false, divergenceConfirm.isSelected());
             showReplay(result, hashStatus, divergences);
         });
         play.setOnAction(event -> {

@@ -110,8 +110,8 @@ final class GuiSessionController {
         });
     }
 
-    SessionResponse urc(String text, boolean ignored) {
-        return enqueue("urc", () -> { SessionResponse response = session.injectDce(RawBytes.ascii(unescape(text + "\\r\\n")), "urc-helper"); writeRuntimeDce(response.output()); return response; });
+    SessionResponse urc(String text, boolean confirmed) {
+        return rawDceToDte(text + "\\r\\n", confirmed);
     }
 
     SessionResponse applyState(GuiStatePatch patch) {
@@ -220,6 +220,8 @@ final class GuiSessionController {
                 "macro-toggle", () -> session.replaceMacroEngine(activeMacroEngine, "macro-" + action + ":" + macroId)));
         return "Macro " + macroId + " " + (enabled ? "enabled" : "disabled");
     }
+
+    String enabledMacros() { return enabledMacroIds(); }
 
     private SessionResponse enqueue(String type, java.util.function.Supplier<SessionResponse> action) {
         InMemoryEventSink beforeSink = eventSink;

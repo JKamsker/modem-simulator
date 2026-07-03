@@ -47,9 +47,10 @@ class SimulatorViewHeadlessTest {
     @Test
     void urcHelperUsesSafeGuiPath() throws Exception {
         startToolkit();
-        Parent root = fx(() -> new SimulatorView().root());
+        Parent root = fx(() -> new SimulatorView(true).root());
 
         String output = fx(() -> {
+            ((CheckBox) find(root, "inject.safetyConfirm")).setSelected(true);
             ((Button) find(root, "inject.sendUrc")).fire();
             return ((TextArea) find(root, "session.output")).getText();
         });

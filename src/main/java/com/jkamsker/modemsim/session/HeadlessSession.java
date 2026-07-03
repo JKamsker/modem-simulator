@@ -104,7 +104,7 @@ public final class HeadlessSession implements SessionActor {
         if (state.settings().echo()) { output = output.append(bytes); }
         List<ParsedCommand> commands;
         try {
-            commands = new AtCommandParser(state.settings().s5(), state.settings().s3()).parse(effective, SessionEntryMode.from(state.call().mode()));
+            commands = new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(effective, SessionEntryMode.from(state.call().mode()));
         } catch (com.jkamsker.modemsim.parser.AtParseException e) {
             return SessionParseFailure.response(events, inputState, lastByteNanos, state, output, start);
         }
@@ -182,7 +182,7 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state);
-        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5(), state.settings().s3())
+        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes())
                 .parse(bytes, SessionEntryMode.from(state.call().mode()));
         return commands.isEmpty() ? response(RawBytes.empty(), start)
                 : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);

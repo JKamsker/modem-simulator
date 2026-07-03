@@ -257,7 +257,7 @@ final class ModemRuntime {
                 sidecars.add(new RuntimeSidecar(binding, endpoint));
             } catch (SerialException e) {
                 endpoint.close();
-                session.diagnostic(EventType.PORT_LOST, "optional-port-open-failed:" + binding.id() + ":" + e.getMessage());
+                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-open-failed:" + binding.id() + ":" + e.getMessage());
                 if (config.strictOptionalPorts()) {
                     throw e;
                 }

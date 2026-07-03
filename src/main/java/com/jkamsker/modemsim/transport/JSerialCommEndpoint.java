@@ -78,18 +78,18 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
 
     @Override
     public ModemLines readLines() {
-        return new ModemLines(port.getDTR(), port.getDSR(), port.getDCD(), false, port.getRTS(), port.getCTS());
+        return new ModemLines(port.getDSR(), true, port.getDCD(), false, port.getCTS(), true);
     }
 
     @Override
     public void writeLines(ModemLines lines) {
-        // jSerialComm exposes DTR/RTS setters only; map DCE output signals onto those controls.
-        if (lines.dtr() || lines.dsr() || lines.dcd() || lines.ri()) {
+        // jSerialComm exposes only local DTR/RTS setters. Use them as the minimal DCE outputs: DCD and CTS.
+        if (lines.dcd()) {
             port.setDTR();
         } else {
             port.clearDTR();
         }
-        if (lines.rts() || lines.cts()) {
+        if (lines.cts()) {
             port.setRTS();
         } else {
             port.clearRTS();

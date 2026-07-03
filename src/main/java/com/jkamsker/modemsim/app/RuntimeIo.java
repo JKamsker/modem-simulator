@@ -8,9 +8,11 @@ import com.jkamsker.modemsim.session.SessionResponse;
 import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.ModemLifecycle;
 import com.jkamsker.modemsim.state.ModemLines;
+import com.jkamsker.modemsim.state.ModemState;
 import com.jkamsker.modemsim.transport.HeadlessEndpoint;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
 import com.jkamsker.modemsim.transport.SerialOverflowException;
+import com.jkamsker.modemsim.transport.SerialPortLostException;
 import com.jkamsker.modemsim.transport.SerialRead;
 
 import java.io.IOException;
@@ -39,9 +41,9 @@ final class RuntimeIo {
         var next = switch (current.settings().ampD()) {
             case 1 -> current.withCall(current.call().withMode(CallMode.ONLINE_COMMAND)).withLines(current.lines().withDtr(false));
             case 3 -> current.withModem(current.modem().withLifecycle(ModemLifecycle.REBOOTING))
-                    .withLines(current.lines().withDtr(false).withDcd(false));
+                    .withLines(current.lines().withDtr(false).withDcd(dcdAfterDisconnect(current)));
             default -> current.call().carrier()
-                    ? current.withCall(current.call().disconnected()).withLines(current.lines().withDtr(false).withDcd(false))
+                    ? current.withCall(current.call().disconnected()).withLines(current.lines().withDtr(false).withDcd(dcdAfterDisconnect(current)))
                     : current.withLines(current.lines().withDtr(false));
         };
         SessionResponse response = session.applyState(next, "dtr-drop");
@@ -62,8 +64,12 @@ final class RuntimeIo {
             } catch (SerialOverflowException e) {
                 session.diagnostic(EventType.RX_OVERFLOW, "optional-rx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
                 continue;
-            } catch (IOException e) {
+            } catch (SerialPortLostException e) {
                 session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
+                sidecar.retire();
+                continue;
+            } catch (IOException e) {
+                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
                 continue;
             }
@@ -136,11 +142,18 @@ final class RuntimeIo {
             } catch (SerialOverflowException e) {
                 session.diagnostic(EventType.TX_OVERFLOW, "optional-tx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
-            } catch (IOException e) {
+            } catch (SerialPortLostException e) {
                 session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
+                sidecar.retire();
+            } catch (IOException e) {
+                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             }
         }
+    }
+
+    private boolean dcdAfterDisconnect(ModemState state) {
+        return state.settings().ampC() == 0;
     }
 
     private void write(SerialEndpoint endpoint, RawBytes output) throws IOException {

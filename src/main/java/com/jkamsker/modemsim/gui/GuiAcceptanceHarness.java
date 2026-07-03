@@ -24,8 +24,9 @@ public final class GuiAcceptanceHarness {
                 .anyMatch(event -> event.injectionType() != null));
         require(controller.parsedCommand("AT+CSQ").events().stream()
                 .noneMatch(event -> event.eventType() == EventType.RX_BYTES));
-        require(controller.urc("+CREG: 4", false).events().stream()
-                .anyMatch(event -> "urc-helper".equals(event.injectionType())));
+        requireThrows(() -> controller.urc("+CREG: 4", false));
+        require(controller(true).urc("+CREG: 4", true).events().stream()
+                .anyMatch(event -> "raw-dce-to-dte".equals(event.injectionType())));
         require(controller.applyState(GuiStatePatchFactory.fromText("network.stat=4")).events().stream()
                 .anyMatch(event -> event.eventType() == EventType.STATE_CHANGE));
         requireThrows(() -> controller.rawDceToDte("+CREG: 4\\r\\n", false));

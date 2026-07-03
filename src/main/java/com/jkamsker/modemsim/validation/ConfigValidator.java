@@ -17,6 +17,7 @@ public final class ConfigValidator {
         }
         JsonNode root = schemaValidator.readYaml(configPath);
         validatePorts(root, report);
+        validateClockMode(root, report);
         return report;
     }
 
@@ -49,6 +50,17 @@ public final class ConfigValidator {
         for (String field : new String[] {"baudRate", "parity", "dataBits", "stopBits", "flowControl"}) {
             if (port.has(field)) {
                 report.error("serialLine field must not be configured per port: " + field);
+            }
+        }
+    }
+
+    private void validateClockMode(JsonNode root, ValidationReport report) {
+        if (!root.path("clockMode").asText("monotonic").equals("virtual")) {
+            return;
+        }
+        for (JsonNode port : root.path("ports")) {
+            if (port.path("enabled").asBoolean(false) && port.path("type").asText().equals("serial")) {
+                report.error("clockMode virtual is only valid for headless/replay ports; serial ports require monotonic");
             }
         }
     }

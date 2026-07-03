@@ -164,6 +164,16 @@
     "scheduler": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "dueMonotonicNanos",
+        "sourceSequence",
+        "sourcePriority",
+        "stateVersion",
+        "cancelOnStateChange",
+        "operation",
+        "sampledDelayMs",
+        "cancelled"
+      ],
       "properties": {
         "dueMonotonicNanos": {
           "type": "integer",
@@ -175,12 +185,19 @@
         },
         "sourcePriority": {
           "enum": [
+            "internal",
+            "replay",
             "rx",
             "gui",
-            "macro",
-            "replay",
-            "internal"
+            "macro"
           ]
+        },
+        "stateVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancelOnStateChange": {
+          "type": "boolean"
         },
         "sampledDelayMs": {
           "type": "integer",
@@ -251,5 +268,27 @@
     "replayDivergent": {
       "type": "boolean"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "SCHEDULER_ENQUEUE",
+              "SCHEDULER_EMIT"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "scheduler"
+        ]
+      }
+    }
+  ]
 }

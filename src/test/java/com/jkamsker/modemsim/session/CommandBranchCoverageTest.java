@@ -23,7 +23,7 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT&W\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("A/")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("NO CARRIER");
-        assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputHex()).isEqualTo("4154443535350D");
+        assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputHex()).isEmpty();
         assertThat(session.drainScheduled().outputAscii()).contains("CONNECT");
         session.advanceTime(1_000);
         assertThat(session.receive(RawBytes.ascii("+++")).outputHex()).isEmpty();

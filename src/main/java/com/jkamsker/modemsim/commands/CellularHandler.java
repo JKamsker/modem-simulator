@@ -73,6 +73,9 @@ public final class CellularHandler implements CommandHandler {
             return new CommandResult(state, List.of(new TextFrame("+CSQ: (0-31,99),(0-7,99)")),
                     ResultCode.OK, "CellularHandler", false);
         }
+        if (!command.kind().name().endsWith("EXEC")) {
+            return CommandResult.error(state, "CellularHandler");
+        }
         return new CommandResult(
                 state,
                 List.of(new TextFrame("+CSQ: " + state.signal().rssi() + "," + state.signal().ber())),

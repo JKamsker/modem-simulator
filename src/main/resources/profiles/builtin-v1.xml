@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modem-simulator version="1.0">
+  <profile id="generic-hayes-v250" vendor="ITU-T" status="normative-base" profileKind="base"
+           modelFamily="Hayes V.250" manualVersion="generic-hayes-v250" manualDate="2024-02-01">
+    <identity manufacturer="Generic" model="Hayes V.250"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
+    <commands>
+      <command name="AT" status="implemented_full" handler="HayesHandler"/>
+      <command name="A/" status="implemented_full" handler="HayesHandler"/>
+      <command name="+++" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATE" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATQ" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATV" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATZ" status="implemented_full" handler="HayesHandler"/>
+      <command name="AT&amp;F" status="implemented_full" handler="HayesHandler"/>
+      <command name="AT&amp;W" status="implemented_full" handler="HayesHandler"/>
+      <command name="AT&amp;V" status="implemented_full" handler="HayesHandler"/>
+      <command name="AT&amp;D" status="implemented_full" handler="HayesHandler"/>
+      <command name="AT&amp;C" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATD" status="implemented_stub" handler="HayesHandler"/>
+      <command name="ATH" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATO" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATS" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATI" status="implemented_full" handler="HayesHandler"/>
+    </commands>
+    <registers>
+      <register name="S0" default="0" min="0" max="255"/>
+      <register name="S2" default="43" min="0" max="127"/>
+      <register name="S3" default="13" min="0" max="127"/>
+      <register name="S4" default="10" min="0" max="127"/>
+      <register name="S5" default="8" min="0" max="127"/>
+      <register name="S6" default="2" min="0" max="255"/>
+      <register name="S7" default="60" min="1" max="255"/>
+      <register name="S8" default="2" min="0" max="255"/>
+      <register name="S12" default="50" min="0" max="255"/>
+    </registers>
+    <coverage source="references/snapshots/itu-v250.md" commandsTotal="17" unknown="0"/>
+  </profile>
+
+  <profile id="3gpp-27007-r18" vendor="3GPP" status="normative-base" profileKind="base"
+           extends="generic-hayes-v250" modelFamily="TS 27.007 Release 18"
+           manualVersion="3gpp-27007-r18" manualDate="2024-01-01">
+    <identity manufacturer="3GPP" model="TS 27.007 Release 18" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
+    <initial-state>
+      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pinRetries="3"
+           pukRetries="10" imsi="262010123456789" iccid="8949020000000000000"/>
+      <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
+        <operator selectionMode="automatic" format="long" longName="Telekom.de"
+                  shortName="TDG" numeric="26201" mcc="262" mnc="01"/>
+        <sms-rate-limit maxMessages="5" windowSeconds="60" scope="session" rejectCmsError="500"/>
+        <delays>
+          <delay operation="sms-submit" minMs="500" maxMs="2500"/>
+          <delay operation="dial" minMs="1000" maxMs="5000"/>
+        </delays>
+      </network>
+      <signal rssi="18" ber="0"/>
+      <sms textMode="true" smsc="+491710760000"/>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
+    <commands>
+      <command name="+CREG" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CGREG" status="implemented_stub" handler="CellularHandler"/>
+      <command name="+CEREG" status="implemented_stub" handler="CellularHandler"/>
+      <command name="+CSQ" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CPIN" status="implemented_full" handler="CellularHandler"/>
+      <command name="+COPS" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CMEE" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CGMI" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CGMM" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CGMR" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CGSN" status="implemented_full" handler="CellularHandler"/>
+      <command name="+CCLK" status="implemented_stub" handler="CellularHandler"/>
+      <command name="+CFUN" status="implemented_stub" handler="CellularHandler"/>
+    </commands>
+    <coverage source="references/snapshots/3gpp-27007.md" commandsTotal="30" unknown="0"/>
+  </profile>
+
+  <profile id="3gpp-27005-r16" vendor="3GPP" status="normative-base" profileKind="base"
+           extends="generic-hayes-v250" modelFamily="TS 27.005 Release 16"
+           manualVersion="3gpp-27005-r16" manualDate="2024-01-01">
+    <identity manufacturer="3GPP" model="TS 27.005 Release 16" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
+    <initial-state>
+      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pinRetries="3"
+           pukRetries="10" imsi="262010123456789" iccid="8949020000000000000"/>
+      <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
+        <operator selectionMode="automatic" format="long" longName="Telekom.de"
+                  shortName="TDG" numeric="26201" mcc="262" mnc="01"/>
+        <sms-rate-limit maxMessages="5" windowSeconds="60" scope="session" rejectCmsError="500"/>
+        <delays>
+          <delay operation="sms-submit" minMs="500" maxMs="2500"/>
+          <delay operation="dial" minMs="1000" maxMs="5000"/>
+        </delays>
+      </network>
+      <signal rssi="18" ber="0"/>
+      <sms textMode="true" smsc="+491710760000"/>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
+    <commands>
+      <command name="+CMGF" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CMGS" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CMGR" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CMGL" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CMGD" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CNMI" status="implemented_stub" handler="SmsHandler"/>
+      <command name="+CPMS" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CSCA" status="implemented_full" handler="SmsHandler"/>
+      <command name="+CSCS" status="implemented_stub" handler="SmsHandler"/>
+    </commands>
+    <coverage source="references/snapshots/3gpp-27005.md" commandsTotal="26" unknown="0"/>
+  </profile>
+
+  <profile id="sierra-common" vendor="Sierra Wireless / Semtech" status="manufacturer-base"
+           profileKind="cellular" extends="generic-hayes-v250 3gpp-27007-r18 3gpp-27005-r16"
+           modelFamily="Common" manualVersion="sierra-hl6-hl8-v20" manualDate="2024-02-01">
+    <identity manufacturer="Sierra Wireless" model="Common" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
+    <commands>
+      <command name="+KCNXCFG" status="unsupported_declared" reason="Sierra vendor-specific packet profile command is tracked but out of v0.2 runtime scope"/>
+      <command name="+KCNXTIMER" status="unsupported_declared" reason="Sierra vendor-specific retry timer command is tracked but out of v0.2 runtime scope"/>
+      <command name="+WDSI" status="unsupported_declared" reason="Sierra device-services indication command is tracked but out of v0.2 runtime scope"/>
+      <command name="+WDSR" status="unsupported_declared" reason="Sierra device-services reply command is tracked but out of v0.2 runtime scope"/>
+      <command name="+KSIMSLOT" status="unsupported_declared" reason="Sierra SIM slot selection is tracked but out of v0.2 runtime scope"/>
+    </commands>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="44" unknown="0"/>
+  </profile>
+
+  <profile id="sierra-hl6-hl8-v20" vendor="Sierra Wireless / Semtech" status="device-family"
+           profileKind="cellular" extends="sierra-common" modelFamily="HL6/HL8"
+           manualVersion="sierra-hl6-hl8-v20" manualDate="2024-02-01">
+    <identity manufacturer="Sierra Wireless" model="HL8548" revision="SIM-HL6HL8-v20" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="44" unknown="0"/>
+  </profile>
+
+  <profile id="westermo-common" vendor="Westermo" status="manufacturer-base" profileKind="base"
+           extends="generic-hayes-v250" modelFamily="Common" manualVersion="common" manualDate="2023-01-01">
+    <identity manufacturer="Westermo" model="Common" revision="common"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250"
+             unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="17" unknown="0"/>
+  </profile>
+
+  <profile id="westermo-td22-6177-2203" vendor="Westermo" status="device-target" profileKind="pstn"
+           extends="westermo-common" modelFamily="TD-22" manualVersion="6177-2203" manualDate="2023-01-01">
+    <identity manufacturer="Westermo" model="TD-22" revision="6177-2203"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250"
+             unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="17" unknown="0"/>
+  </profile>
+
+  <profile id="westermo-td36-6618-2202" vendor="Westermo" status="device-target" profileKind="pstn"
+           extends="westermo-common" modelFamily="TD-36" manualVersion="6618-2202" manualDate="2023-01-01">
+    <identity manufacturer="Westermo" model="TD-36" revision="6618-2202"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250"
+             unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <coverage source="references/snapshots/westermo-td36.md" commandsTotal="17" unknown="0"/>
+  </profile>
+
+  <profile id="westermo-gd01-6196-2220" vendor="Westermo" status="device-target" profileKind="hybrid"
+           extends="westermo-common 3gpp-27007-r18 3gpp-27005-r16" modelFamily="GD-01"
+           manualVersion="6196-2220" manualDate="2023-01-01">
+    <identity manufacturer="Westermo" model="GD-01" revision="6196-2220" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250"
+             unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <commands>
+      <command name="+WIND" status="unsupported_declared" reason="Westermo/Wavecom indication control is tracked but out of v0.2 runtime scope"/>
+      <command name="+WIOR" status="unsupported_declared" reason="Westermo/Wavecom GPIO read is tracked but out of v0.2 runtime scope"/>
+      <command name="+WIOW" status="unsupported_declared" reason="Westermo/Wavecom GPIO write is tracked but out of v0.2 runtime scope"/>
+      <command name="+STSF" status="unsupported_declared" reason="SIM toolkit configuration is tracked but out of v0.2 runtime scope"/>
+      <command name="+CCED" status="unsupported_declared" reason="Cell environment diagnostics are tracked but out of v0.2 runtime scope"/>
+    </commands>
+    <coverage source="references/snapshots/westermo-gd01.md" commandsTotal="44" unknown="0"/>
+  </profile>
+
+  <profile id="westermo-gdw11-6615-2220" vendor="Westermo" status="device-target" profileKind="hybrid"
+           extends="westermo-common 3gpp-27007-r18 3gpp-27005-r16" modelFamily="GDW-11"
+           manualVersion="6615-2220" manualDate="2023-01-01">
+    <identity manufacturer="Westermo" model="GDW-11" revision="6615-2220" imei="359762080000001"/>
+    <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
+             resetPolicy="nvram-on-atz" lineModel="minimal-v250"
+             unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <commands>
+      <command name="+WIND" status="unsupported_declared" reason="Westermo/Wavecom indication control is tracked but out of v0.2 runtime scope"/>
+      <command name="+WIOR" status="unsupported_declared" reason="Westermo/Wavecom GPIO read is tracked but out of v0.2 runtime scope"/>
+      <command name="+WIOW" status="unsupported_declared" reason="Westermo/Wavecom GPIO write is tracked but out of v0.2 runtime scope"/>
+      <command name="+STSF" status="unsupported_declared" reason="SIM toolkit configuration is tracked but out of v0.2 runtime scope"/>
+      <command name="+CCED" status="unsupported_declared" reason="Cell environment diagnostics are tracked but out of v0.2 runtime scope"/>
+    </commands>
+    <coverage source="references/snapshots/westermo-gdw11.md" commandsTotal="44" unknown="0"/>
+  </profile>
+</modem-simulator>
