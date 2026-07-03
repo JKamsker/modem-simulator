@@ -13,8 +13,32 @@ class ReadOnlyPolicyTest {
                 .allSatisfy(control -> assertThat(control.enabled()).isFalse());
         assertThat(controls).filteredOn(control -> control.id().startsWith("inject."))
                 .allSatisfy(control -> assertThat(control.enabled()).isFalse());
+        assertThat(controls).filteredOn(control -> control.id().startsWith("fault."))
+                .allSatisfy(control -> assertThat(control.enabled()).isFalse());
+        assertThat(controls).filteredOn(control -> control.id().equals("macro.reload")
+                        || control.id().equals("macro.enable")
+                        || control.id().equals("macro.disable")
+                        || control.id().equals("replay.playToDte")
+                        || control.id().equals("session.reconnect"))
+                .allSatisfy(control -> assertThat(control.enabled()).isFalse());
         assertThat(controls).filteredOn(control -> control.id().equals("log.table")
                         || control.id().equals("export.jsonl"))
                 .allSatisfy(control -> assertThat(control.enabled()).isTrue());
+    }
+
+    @Test
+    void catalogContainsAutomationIdsForRequiredGuiAreas() {
+        assertThat(new GuiControlCatalog().controls()).extracting(GuiControl::id)
+                .contains(
+                        "session.mainPort",
+                        "session.snifferPort",
+                        "log.table",
+                        "state.simState",
+                        "state.lines",
+                        "inject.rawDteToDce",
+                        "fault.networkOutage",
+                        "macro.reload",
+                        "replay.mode",
+                        "export.jsonl");
     }
 }
