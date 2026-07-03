@@ -135,8 +135,8 @@ coverage verify --profiles v1-targets
 test --suite acceptance --case <case-id|all>
 test --tags <tag> --case <alias>
 replay <jsonl|yaml-log> --mode validate-recompute [--profile <profile-id|profile.xml>] [--seed <long>]
-replay <jsonl> --mode drive-from-captured-input [--profile <profile-id|profile.xml>] [--seed <long>]
-replay <jsonl> --mode play-to-dte [--endpoint serial|headless] [--port <port>] [--baud <rate>] [--timing none|recorded]
+replay <jsonl> --mode drive-from-captured-input [--profile <profile-id|profile.xml>] [--seed <long>] [--confirm-divergence]
+replay <jsonl> --mode play-to-dte [--endpoint serial|headless] [--port <port>] [--baud <rate>] [--timing none|recorded] [--confirm-divergence]
 list-ports
 headless --profile <profile-id|profile.xml> --script <transcript.jsonl|transcript.yaml> [--seed <long>]
 ```
@@ -155,9 +155,9 @@ Useful examples:
 ./mvnw -q exec:java -Dexec.args="headless --profile sierra-hl6-hl8-v20 --script src/test/resources/replay/basic-at.jsonl"
 ```
 
-The `test` command currently accepts implemented acceptance IDs (`A01` through `A25`) and spec-oriented aliases such as `creg`, `text-cmgs`, `deterministic-delays`, `live-log`, `injection`, `data-mode-lines`, and `unknown-at-command-policy`. The v0.5 spec matrix extends the target gate set through `A32`; those newer gates cover parser errors/`ATA`, timer-aware macro reload, audit backpressure, transport diagnostics, source-size gating, golden YAML transcripts, and profiled S-register bounds.
+The `test` command accepts implemented acceptance IDs (`A01` through `A32`) and spec-oriented aliases such as `creg`, `profile-macro-negatives`, `text-cmgs`, `deterministic-delays`, `live-log`, `macro-hot-reload-timers`, `audit-backpressure`, `diagnostics`, `golden-yaml-loader`, and `s-register-bounds`.
 
-`play-to-dte` validates replay metadata before transmitting: required fingerprints must be present, TX bytes must match the captured event stream, timing metadata is checked, and logs with redacted replay bytes are rejected. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
+`drive-from-captured-input` and `play-to-dte` validate replay metadata before continuing. Hash or metadata divergence requires `--confirm-divergence`; hard replay failures such as redacted replay bytes or captured `replayDivergent=true` events are rejected even with confirmation. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
 
 ## Implemented Acceptance Surface
 
@@ -172,6 +172,7 @@ The checked-in acceptance suite covers the v1 cases from `docs/Tasks/Initial-Spe
 - Profile, schema, coverage, config, and XML-hardening checks
 - GUI control policy model, shared runtime event streaming, macro reload validation, replay/export panes, and unsafe-DCE transmit guardrails
 - Unknown-command policies for `OK`, `ERR`, `ERROR`, and restart behavior
+- Parser error/`ATA`, macro hot-reload timer, audit backpressure, transport diagnostics, source-size, golden YAML, and profiled S-register bounds gates
 
 Run them with:
 

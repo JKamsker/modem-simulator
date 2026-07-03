@@ -61,7 +61,13 @@ final class ModemRuntime {
             HeadlessSession session = new HeadlessSession(
                     "main", profile, config.sessionSeed(), eventLog.sink(), macros, config.clockMode().name().toLowerCase(),
                     modemPort.id(), modemPort.role().configName(), RuntimeFingerprints.config(config));
-            modemEndpoint.open(config.serialLine());
+            try {
+                modemEndpoint.open(config.serialLine());
+            } catch (SerialException e) {
+                session.diagnostic(EventType.PORT_OPEN_FAILED,
+                        e.diagnosticCode() + ":main-port-open-failed:" + modemPort.id() + ":" + e.getMessage());
+                throw e;
+            }
             modemEndpoint.writeLines(session.snapshot().lines());
             sessionReady.accept(session);
             openSidecars(config, session, sidecars);

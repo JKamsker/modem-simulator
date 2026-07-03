@@ -75,7 +75,7 @@ public final class ReplayValidator {
             requireHash(stepNumber, event, "initialStateHash", event.initialStateHash(), report);
             requireHash(stepNumber, event, "macroHash", event.macroHash(), report);
             if (event.replayDivergent()) {
-                report.divergence("step " + stepNumber + " replay divergent event " + event.eventType());
+                report.hardFailure("step " + stepNumber + " replay divergent event " + event.eventType());
             }
             if (event.sessionSeed() == null) {
                 report.divergence("step " + stepNumber + " missing sessionSeed on " + event.eventType());
@@ -121,7 +121,7 @@ public final class ReplayValidator {
             requireExpected(stepNumber, "clockMode", expectation.clockMode(), report);
             requireExpected(stepNumber, "redaction.applied", expectation.redacted(), report);
             if (Boolean.TRUE.equals(expectation.replayDivergent())) {
-                report.divergence("step " + stepNumber + " expected replay divergent event "
+                report.hardFailure("step " + stepNumber + " expected replay divergent event "
                         + expectation.eventType());
             }
             if (expectation.eventType() == com.jkamsker.modemsim.monitor.EventType.SCHEDULER_ENQUEUE

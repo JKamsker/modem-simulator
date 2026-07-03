@@ -105,10 +105,10 @@ public final class ReplayPlayback {
 
     private void validateEvent(int stepNumber, ReplayEventExpectation event, ReplayReport report) {
         if (Boolean.TRUE.equals(event.rawPayloadRedacted())) {
-            report.divergence("step " + stepNumber + " contains redacted replay bytes " + event.eventType());
+            report.hardFailure("step " + stepNumber + " contains redacted replay bytes " + event.eventType());
         }
         if (Boolean.TRUE.equals(event.replayDivergent())) {
-            report.divergence("step " + stepNumber + " contains replay divergent event " + event.eventType());
+            report.hardFailure("step " + stepNumber + " contains replay divergent event " + event.eventType());
         }
         requireHash(stepNumber, "profileHash", event.profileHash(), report);
         requireHash(stepNumber, "configHash", event.configHash(), report);

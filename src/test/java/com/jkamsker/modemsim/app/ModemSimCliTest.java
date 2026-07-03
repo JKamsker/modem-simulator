@@ -132,6 +132,22 @@ class ModemSimCliTest {
     }
 
     @Test
+    void replayConfirmationDoesNotOverrideHardReplayDivergentEvents() throws Exception {
+        Path log = hardReplayDivergentLog();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        assertThat(runner.run(new String[] {
+                "replay", log.toString(), "--mode", "drive-from-captured-input", "--confirm-divergence"}))
+                .isEqualTo(1);
+
+        assertThat(out.toString()).doesNotContain("DIVERGENCE CONFIRMED");
+        assertThat(err.toString()).contains("replay divergent");
+    }
+
+    @Test
     void headlessCommandRunsGoldenTranscriptScript() throws Exception {
         Path script = tempDir.resolve("script.yaml");
         Files.writeString(script, """
@@ -159,6 +175,14 @@ class ModemSimCliTest {
         Files.writeString(log, """
                 {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":0,"sequence":1,"sessionId":"main","eventType":"RX_BYTES","source":"rx","direction":"DTE_TO_DCE","rawHex":"41540D","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
                 {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":1,"sequence":2,"sessionId":"main","eventType":"TX_BYTES","source":"tx","direction":"DCE_TO_DTE","rawHex":"0D0A4552524F520D0A","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                """);
+        return log;
+    }
+
+    private Path hardReplayDivergentLog() throws Exception {
+        Path log = tempDir.resolve("hard-divergent-events.jsonl");
+        Files.writeString(log, """
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":0,"sequence":1,"sessionId":"main","eventType":"RX_OVERFLOW","source":"transport","direction":"DTE_TO_DCE","rawHex":"","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","replayDivergent":true,"redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
                 """);
         return log;
     }

@@ -42,7 +42,7 @@ final class GuiReplayService {
             HeadlessSession session, List<ReplayStep> steps, boolean virtualClock, boolean divergenceConfirmed,
             Profile profile, long seed, String port, MacroEngine macros) {
         ReplayReport report = validationReport(steps, virtualClock, profile, seed, port, macros);
-        if (!report.valid() && !divergenceConfirmed) {
+        if (!report.valid() && (report.hasHardFailures() || !divergenceConfirmed)) {
             return summary(report, "DIVERGENCE: " + String.join("; ", report.divergences()), emptyResponse());
         }
         String hashStatus = report.valid() ? "hashes valid" : "replay divergence confirmed";
@@ -57,7 +57,7 @@ final class GuiReplayService {
             throw new IllegalStateException("Unsafe DCE transmit is disabled");
         }
         ReplayReport hashReport = metadataReport(steps, virtualClock, profile, seed, port, macros);
-        if (!hashReport.valid() && !divergenceConfirmed) {
+        if (!hashReport.valid() && (hashReport.hasHardFailures() || !divergenceConfirmed)) {
             return new ReplaySummary("hash divergence",
                     "DIVERGENCE: " + String.join("; ", hashReport.divergences()), emptyResponse());
         }
