@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
 import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.parser.RawBytes;
+import com.jkamsker.modemsim.app.RuntimePortGroupAcceptance;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Dialect;
 import com.jkamsker.modemsim.profiles.Profile;
@@ -192,6 +193,7 @@ public final class AcceptanceSuite {
         require(validator.validate(spec("src/test/resources/config/valid.yaml")).valid());
         require(!validator.validate(spec("src/test/resources/config/invalid-port-override.yaml")).valid());
         require(!validator.validate(spec("src/test/resources/config/invalid-manual-dce-permission.yaml")).valid());
+        new RuntimePortGroupAcceptance().run();
     }
 
     private void customResponse() {
