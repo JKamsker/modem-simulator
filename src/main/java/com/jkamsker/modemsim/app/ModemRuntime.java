@@ -54,7 +54,7 @@ final class ModemRuntime {
         profile = profile.withInitialState(scenarios.apply(scenario, profile.initialState()));
         List<InitialScenarioStep> scenarioSteps = scenarios.delayedSteps(scenario);
         MacroEngine macros = config.macros() == null ? MacroEngine.empty()
-                : new MacroEngine(new MacroLoader(timerIds(config.macroTimers())).load(config.macros()));
+                : new MacroEngine(new MacroLoader(timerIds(config.macroTimers()), true).load(config.macros()));
         SerialEndpoint modemEndpoint = endpointFactory.create(modemPort);
         List<RuntimeSidecar> sidecars = new ArrayList<>();
         try (RuntimeEventLog eventLog = RuntimeEventLog.open(config.eventLogPath(), eventSink); modemEndpoint) {

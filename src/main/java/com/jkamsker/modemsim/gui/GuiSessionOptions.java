@@ -1,11 +1,15 @@
 package com.jkamsker.modemsim.gui;
 
 import com.jkamsker.modemsim.app.RuntimeSessionLauncher;
+import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.transport.FlowControl;
 import com.jkamsker.modemsim.transport.Parity;
 import com.jkamsker.modemsim.transport.SerialConfig;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 record GuiSessionOptions(
         String profile,
@@ -14,8 +18,13 @@ record GuiSessionOptions(
         String manualDcePort,
         Path initialScenario,
         long seed,
-        SerialConfig serialLine
+        SerialConfig serialLine,
+        List<RuntimeTimer> macroTimers
 ) {
+    GuiSessionOptions {
+        macroTimers = macroTimers == null ? List.of() : List.copyOf(macroTimers);
+    }
+
     static GuiSessionOptions of(
             String profile, String mainPort, String snifferPort, String manualDcePort, String scenario,
             String seed, String baudRate, String dataBits, String stopBits, String parity, String flowControl) {
@@ -31,16 +40,27 @@ record GuiSessionOptions(
                         integer(dataBits, 8),
                         integer(stopBits, 1),
                         Parity.valueOf(blank(parity) ? "NONE" : parity.trim()),
-                        FlowControl.valueOf(blank(flowControl) ? "NONE" : flowControl.trim())));
+                        FlowControl.valueOf(blank(flowControl) ? "NONE" : flowControl.trim())),
+                List.of());
     }
 
     static GuiSessionOptions headless() {
         return of("sierra-hl6-hl8-v20", "headless", "", "", "", "12345", "115200", "8", "1", "NONE", "NONE");
     }
 
+    GuiSessionOptions withMacroTimers(List<RuntimeTimer> value) {
+        return new GuiSessionOptions(profile, mainPort, snifferPort, manualDcePort,
+                initialScenario, seed, serialLine, value);
+    }
+
     RuntimeSessionLauncher.Options runtimeOptions(boolean allowUnsafeDceTransmit) {
         return new RuntimeSessionLauncher.Options(
-                profile, mainPort, snifferPort, manualDcePort, initialScenario, serialLine, seed, allowUnsafeDceTransmit);
+                profile, mainPort, snifferPort, manualDcePort, initialScenario, serialLine, seed,
+                allowUnsafeDceTransmit, macroTimers);
+    }
+
+    Set<String> macroTimerIds() {
+        return macroTimers.stream().map(RuntimeTimer::id).collect(Collectors.toSet());
     }
 
     boolean startsRuntime() {

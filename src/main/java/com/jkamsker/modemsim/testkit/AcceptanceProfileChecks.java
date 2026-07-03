@@ -1,13 +1,18 @@
 package com.jkamsker.modemsim.testkit;
 
 import com.jkamsker.modemsim.monitor.ModemEventJson;
+import com.jkamsker.modemsim.macros.MacroLoader;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.session.HeadlessSession;
+import com.jkamsker.modemsim.validation.SchemaLocator;
+import com.jkamsker.modemsim.validation.ValidationReport;
+import com.jkamsker.modemsim.validation.XmlSecurity;
 
 import java.nio.file.Path;
+import java.util.Map;
 
 final class AcceptanceProfileChecks {
     private final Path sampleProfile;
@@ -28,6 +33,27 @@ final class AcceptanceProfileChecks {
         String jsonl = ModemEventJson.toJsonLines(new HeadlessSession("profile-redaction", profile, 12345)
                 .receive(RawBytes.ascii("AT+CPIN=\"9876\"\r")).events());
         require(!jsonl.contains("9876") && jsonl.contains("<redacted>"), "PIN leaked into event log");
+        runNegatives();
+    }
+
+    void runNegatives() {
+        ProfileXmlLoader loader = new ProfileXmlLoader();
+        Map<String, String> profiles = Map.of(
+                "profile.pin-and-pinref.xml", "pin and pinRef",
+                "profile.puk-and-pukref.xml", "puk and pukRef",
+                "profile.sim-puk-required-without-puk.xml", "SIM_PUK_REQUIRED requires",
+                "profile.delay-min-gt-max.xml", "delay minMs",
+                "profile.operator-numeric-mismatch.xml", "operator numeric");
+        profiles.forEach((file, expected) -> {
+            Path path = negative(file);
+            XmlSecurity.validate(path, SchemaLocator.schemaPath("modem-profile.schema.xsd"));
+            ValidationReport report = loader.validate(path);
+            require(!report.valid() && contains(report, expected), file + " did not fail for " + expected);
+        });
+        Path macro = negative("macros.jitter-without-session-seed.xml");
+        XmlSecurity.validate(macro, SchemaLocator.schemaPath("macro-schema-draft.xsd"));
+        ValidationReport report = new MacroLoader().validate(macro);
+        require(!report.valid() && contains(report, "requires sessionSeed"), "macro jitter fixture did not fail");
     }
 
     void runBuiltins() {
@@ -85,6 +111,14 @@ final class AcceptanceProfileChecks {
         return profile.profileKind().equals("cellular")
                 || profile.profileKind().equals("hybrid")
                 || profile.id().equals("3gpp-27005-r16");
+    }
+
+    private Path negative(String file) {
+        return SchemaLocator.projectPath("docs/Tasks/Initial-Spec/examples/negative/" + file);
+    }
+
+    private boolean contains(ValidationReport report, String text) {
+        return report.errors().stream().anyMatch(error -> error.contains(text));
     }
 
     private void require(boolean condition, String message) {

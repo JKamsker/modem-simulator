@@ -61,6 +61,7 @@ final class GuiSessionController {
             activeProfile = profileWithScenario(resolveProfile(options.profile()), options.initialScenario());
             activeSeed = options.seed();
             activePort = options.eventPort();
+            macroTimerIds = options.macroTimerIds();
             activeMacroEngine = new MacroEngine(effectiveMacroSet());
             session = newHeadlessSession();
             if (options.startsRuntime()) {
@@ -182,7 +183,7 @@ final class GuiSessionController {
     }
 
     MacroSummary reloadMacros(Path path) {
-        MacroLoader loader = new MacroLoader(macroTimerIds);
+        MacroLoader loader = new MacroLoader(macroTimerIds, true);
         ValidationReport report = loader.validate(path);
         if (!report.valid()) {
             String errors = String.join("; ", report.errors());

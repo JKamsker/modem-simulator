@@ -1,4 +1,4 @@
 package com.jkamsker.modemsim.app;
 
-record RuntimeTimer(String id, long atMs) {
+public record RuntimeTimer(String id, long atMs) {
 }

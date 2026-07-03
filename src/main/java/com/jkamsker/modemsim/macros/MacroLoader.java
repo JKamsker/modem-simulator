@@ -14,21 +14,26 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class MacroLoader {
     private final MacroXmlSemanticValidator xmlSemanticValidator;
 
     public MacroLoader() {
-        this(false);
+        this(Set.of(), false);
     }
 
     public MacroLoader(boolean timerDefinitionsAvailable) {
-        this.xmlSemanticValidator = new MacroXmlSemanticValidator(timerDefinitionsAvailable);
+        this(timerDefinitionsAvailable ? java.util.Set.of("*") : java.util.Set.of(), false);
     }
 
     public MacroLoader(java.util.Set<String> timerIds) {
-        this.xmlSemanticValidator = new MacroXmlSemanticValidator(timerIds);
+        this(timerIds, false);
+    }
+
+    public MacroLoader(java.util.Set<String> timerIds, boolean sessionSeedAvailable) {
+        this.xmlSemanticValidator = new MacroXmlSemanticValidator(timerIds, sessionSeedAvailable);
     }
 
     public MacroSet load(Path path) {

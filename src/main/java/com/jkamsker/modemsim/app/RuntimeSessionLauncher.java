@@ -6,6 +6,7 @@ import com.jkamsker.modemsim.session.HeadlessSession;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -61,7 +62,7 @@ public final class RuntimeSessionLauncher {
                 null,
                 options.initialScenario(),
                 null,
-                List.of(),
+                options.macroTimers(),
                 options.serialLine(),
                 ports(options));
     }
@@ -90,10 +91,19 @@ public final class RuntimeSessionLauncher {
             Path initialScenario,
             SerialConfig serialLine,
             long seed,
-            boolean allowUnsafeDceTransmit
+            boolean allowUnsafeDceTransmit,
+            List<RuntimeTimer> macroTimers
     ) {
+        public Options {
+            macroTimers = macroTimers == null ? List.of() : List.copyOf(macroTimers);
+        }
+
         boolean hasMainPort() {
             return mainPort != null && !mainPort.isBlank() && !mainPort.equalsIgnoreCase("headless");
+        }
+
+        public Set<String> macroTimerIds() {
+            return macroTimers.stream().map(RuntimeTimer::id).collect(java.util.stream.Collectors.toSet());
         }
     }
 

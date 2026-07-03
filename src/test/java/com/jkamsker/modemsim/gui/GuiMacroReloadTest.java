@@ -1,12 +1,12 @@
 package com.jkamsker.modemsim.gui;
 
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,7 +28,8 @@ class GuiMacroReloadTest {
 
         assertThat(controller.reloadMacros(timer).errors()).contains("runtime timer definition");
 
-        controller.macroTimerIds(Set.of("heartbeat"));
+        controller.start(GuiSessionOptions.headless()
+                .withMacroTimers(java.util.List.of(new RuntimeTimer("heartbeat", 1000))));
         MacroSummary summary = controller.reloadMacros(timer);
 
         assertThat(summary.errors()).isBlank();

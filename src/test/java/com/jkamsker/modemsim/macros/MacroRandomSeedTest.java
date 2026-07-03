@@ -18,7 +18,7 @@ class MacroRandomSeedTest {
 
     @Test
     void macroRandomSeedParticipatesInDelaySamplingKey() throws Exception {
-        MacroSet macros = new MacroLoader().load(write("""
+        MacroSet macros = new MacroLoader(java.util.Set.of(), true).load(write("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <macros version="1.0" randomSeed="42">
                   <macro id="seeded" priority="100" phase="replace">
@@ -41,7 +41,7 @@ class MacroRandomSeedTest {
     }
 
     @Test
-    void jitterRequiresMacroRandomSeed() throws Exception {
+    void jitterRequiresRuntimeSessionSeed() throws Exception {
         Path path = write("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <macros version="1.0">
@@ -56,7 +56,8 @@ class MacroRandomSeedTest {
                 """);
 
         assertThat(new MacroLoader().validate(path).errors())
-                .contains("unseeded: delay jitterMs requires macros/@randomSeed");
+                .contains("unseeded: delay jitterMs requires sessionSeed");
+        assertThat(new MacroLoader(java.util.Set.of(), true).validate(path).valid()).isTrue();
     }
 
     private Path write(String content) throws Exception {

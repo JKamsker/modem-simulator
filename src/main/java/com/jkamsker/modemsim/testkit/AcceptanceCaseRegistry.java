@@ -7,6 +7,7 @@ final class AcceptanceCaseRegistry {
     static String defaultCaseForSuite(String suite) {
         return switch (suite) {
             case "hayes" -> "A02";
+            case "validation" -> "A05";
             case "cellular" -> "A03";
             case "sms" -> "A09";
             case "scheduler" -> "A11";
@@ -28,6 +29,7 @@ final class AcceptanceCaseRegistry {
     static String normalize(String caseId) {
         return switch (caseId) {
             case "creg" -> "A03";
+            case "profile-macro-negatives" -> "A05";
             case "csq" -> "A04";
             case "cpin" -> "A06";
             case "cops" -> "A07";

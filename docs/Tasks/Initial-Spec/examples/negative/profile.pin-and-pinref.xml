@@ -20,7 +20,15 @@
            pin="1234"
            pinRef="TEST_SIM_PIN"
            pinRetries="3"/>
-      <network cregN="0" stat="0"/>
+      <network cregN="0" stat="0">
+        <operator selectionMode="automatic"
+                  format="long"
+                  longName="Telekom.de"
+                  shortName="TDG"
+                  numeric="26201"
+                  mcc="262"
+                  mnc="01"/>
+      </network>
       <signal rssi="99" ber="99"/>
       <sms textMode="true"/>
       <call mode="command" carrier="false"/>

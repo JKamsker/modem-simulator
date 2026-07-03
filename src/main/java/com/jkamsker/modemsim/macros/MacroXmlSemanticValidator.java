@@ -11,22 +11,27 @@ import java.util.Set;
 
 final class MacroXmlSemanticValidator {
     private final Set<String> timerIds;
+    private final boolean sessionSeedAvailable;
 
     MacroXmlSemanticValidator() {
-        this(Set.of());
+        this(Set.of(), false);
     }
 
     MacroXmlSemanticValidator(boolean timerDefinitionsAvailable) {
-        this(timerDefinitionsAvailable ? Set.of("*") : Set.of());
+        this(timerDefinitionsAvailable ? Set.of("*") : Set.of(), false);
     }
 
     MacroXmlSemanticValidator(Set<String> timerIds) {
+        this(timerIds, false);
+    }
+
+    MacroXmlSemanticValidator(Set<String> timerIds, boolean sessionSeedAvailable) {
         this.timerIds = Set.copyOf(timerIds);
+        this.sessionSeedAvailable = sessionSeedAvailable;
     }
 
     void validate(Element root, ValidationReport report) {
         Set<String> ids = new java.util.HashSet<>();
-        boolean randomSeedAvailable = !Dom.attr(root, "randomSeed", "").isBlank();
         for (Element child : Dom.children(root, null)) {
             String id = child.getAttribute("id");
             if (!ids.add(id)) {
@@ -35,7 +40,7 @@ final class MacroXmlSemanticValidator {
             if (child.getTagName().equals("custom-response")) {
                 validateCustomResponse(child, report);
             } else {
-                validateMacroElement(child, report, randomSeedAvailable);
+                validateMacroElement(child, report);
             }
         }
     }
@@ -51,7 +56,7 @@ final class MacroXmlSemanticValidator {
         }
     }
 
-    private void validateMacroElement(Element macro, ValidationReport report, boolean randomSeedAvailable) {
+    private void validateMacroElement(Element macro, ValidationReport report) {
         String id = macro.getAttribute("id");
         Element match = Dom.child(macro, "match");
         MacroPhase macroPhase = phase(macro.getAttribute("phase"));
@@ -70,7 +75,7 @@ final class MacroXmlSemanticValidator {
             } else if (action.getTagName().equals("fault")) {
                 applyFault(action, knownState);
             }
-            validateAction(id, action, report, randomSeedAvailable);
+            validateAction(id, action, report);
         }
         validateCombinedState(id, knownState, report);
     }
@@ -133,7 +138,7 @@ final class MacroXmlSemanticValidator {
         }
     }
 
-    private void validateAction(String id, Element action, ValidationReport report, boolean randomSeedAvailable) {
+    private void validateAction(String id, Element action, ValidationReport report) {
         switch (action.getTagName()) {
             case "emit" -> validatePayloadAction(id, action, "emit", report);
             case "set" -> {
@@ -142,7 +147,7 @@ final class MacroXmlSemanticValidator {
                 }
                 addStateValueError(id, action.getAttribute("path"), action.getAttribute("value"), report);
             }
-            case "delay" -> validateDelayAction(id, action, report, randomSeedAvailable);
+            case "delay" -> validateDelayAction(id, action, report);
             case "fault" -> validateFaultAction(id, action, report);
             default -> {
             }
@@ -150,10 +155,10 @@ final class MacroXmlSemanticValidator {
     }
 
     private void validateDelayAction(
-            String id, Element action, ValidationReport report, boolean randomSeedAvailable) {
+            String id, Element action, ValidationReport report) {
         int jitterMs = Dom.intAttr(action, "jitterMs", 0);
-        if (jitterMs > 0 && !randomSeedAvailable) {
-            report.error(id + ": delay jitterMs requires macros/@randomSeed");
+        if (jitterMs > 0 && !sessionSeedAvailable) {
+            report.error(id + ": delay jitterMs requires sessionSeed");
         }
     }
 

@@ -1,13 +1,13 @@
 package com.jkamsker.modemsim.gui;
 
 import com.jkamsker.modemsim.monitor.EventType;
+import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 
 public final class GuiAcceptanceHarness {
     public void liveLog() {
@@ -41,8 +41,8 @@ public final class GuiAcceptanceHarness {
             GuiSessionController controller = controller(false);
             Path valid = timerMacro("heartbeat");
             Path invalid = timerMacro("unknown");
-            require(!controller.reloadMacros(valid).errors().isBlank());
-            controller.macroTimerIds(Set.of("heartbeat"));
+            controller.start(GuiSessionOptions.headless()
+                    .withMacroTimers(List.of(new RuntimeTimer("heartbeat", 1000))));
             require(controller.reloadMacros(valid).errors().isBlank());
             controller.macroToggleStatus("disable", "timer-urc");
             String enabledBefore = controller.enabledMacros();
