@@ -30,7 +30,11 @@ final class SessionStateChangeMacros {
                 || before.network().stat() == after.network().stat() || after.network().cregN() == 0) {
             return RawBytes.empty();
         }
-        return new ResponseFormatter(after).line("+CREG: " + after.network().stat());
+        String line = "+CREG: " + after.network().stat();
+        if (after.network().registeredForCircuitServices() && after.network().cregN() >= 2) {
+            line += ",\"" + after.network().lac() + "\",\"" + after.network().ci() + "\"," + after.network().act();
+        }
+        return new ResponseFormatter(after).line(line);
     }
 
     record Result(ModemState state, RawBytes output) {

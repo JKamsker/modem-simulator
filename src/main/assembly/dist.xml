@@ -36,6 +36,22 @@
       <source>README.md</source>
       <outputDirectory>.</outputDirectory>
     </file>
+    <file>
+      <source>pom.xml</source>
+      <outputDirectory>.</outputDirectory>
+    </file>
+    <file>
+      <source>mvnw</source>
+      <outputDirectory>.</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>mvnw.cmd</source>
+      <outputDirectory>.</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>dos</lineEnding>
+    </file>
   </files>
   <fileSets>
     <fileSet>
@@ -67,6 +83,19 @@
     <fileSet>
       <directory>${project.basedir}/src/test/resources</directory>
       <outputDirectory>src/test/resources</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/scripts</directory>
+      <outputDirectory>scripts</outputDirectory>
+      <fileMode>0755</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/.mvn</directory>
+      <outputDirectory>.mvn</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/tests/golden</directory>
+      <outputDirectory>tests/golden</outputDirectory>
     </fileSet>
   </fileSets>
 </assembly>

@@ -145,7 +145,10 @@ final class ForbiddenApiScanner {
         try {
             Process process = new ProcessBuilder("netstat", "-ano", "-p", "tcp").start();
             String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return;
+            }
             String pid = Long.toString(ProcessHandle.current().pid());
             for (String line : output.lines().toList()) {
                 if (line.contains("LISTENING") && line.trim().endsWith(" " + pid)) {

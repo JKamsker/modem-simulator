@@ -49,7 +49,7 @@ final class SessionBytes {
         return -1;
     }
 
-    static boolean isEscapeSequence(RawBytes bytes, int terminator, int escapeChar) {
+    static boolean isEscapeSequence(RawBytes bytes, int escapeChar) {
         String text = bytes.ascii();
         String escape = String.valueOf((char) escapeChar).repeat(3);
         return text.equals(escape);

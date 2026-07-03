@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.gui;
 
+import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.ModemEvent;
 import com.jkamsker.modemsim.monitor.ModemEventJson;
 
@@ -14,7 +15,7 @@ final class GuiEventExport {
 
     String transcript(List<ModemEvent> events) {
         return events.stream()
-                .filter(event -> event.eventType().name().equals("RX_BYTES") || event.eventType().name().equals("TX_BYTES"))
+                .filter(event -> event.eventType() == EventType.RX_BYTES || event.eventType() == EventType.TX_BYTES)
                 .filter(event -> !event.rawHex().isBlank())
                 .map(event -> event.direction() + " " + event.rawHex())
                 .reduce((a, b) -> a + "\n" + b)
@@ -30,7 +31,7 @@ final class GuiEventExport {
     }
 
     String replayReport(List<ModemEvent> events) {
-        long replayMarkers = events.stream().filter(event -> event.eventType().name().equals("REPLAY_MARKER")).count();
+        long replayMarkers = events.stream().filter(event -> event.eventType() == EventType.REPLAY_MARKER).count();
         long schedulerEvents = events.stream().filter(event -> event.eventType().name().startsWith("SCHEDULER_")).count();
         return "events=" + events.size() + "\nreplayMarkers=" + replayMarkers + "\nschedulerEvents=" + schedulerEvents;
     }

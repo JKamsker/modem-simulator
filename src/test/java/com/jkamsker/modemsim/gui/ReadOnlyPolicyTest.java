@@ -9,22 +9,9 @@ class ReadOnlyPolicyTest {
     void readOnlyDisablesMutatingControlsButKeepsLogAndExportEnabled() {
         var controls = new ReadOnlyPolicy().apply(new GuiControlCatalog().controls(), true);
 
-        assertThat(controls).filteredOn(control -> control.id().startsWith("state."))
+        assertThat(controls).filteredOn(GuiControl::mutating)
                 .allSatisfy(control -> assertThat(control.enabled()).isFalse());
-        assertThat(controls).filteredOn(control -> control.id().startsWith("inject."))
-                .allSatisfy(control -> assertThat(control.enabled()).isFalse());
-        assertThat(controls).filteredOn(control -> control.id().startsWith("fault."))
-                .allSatisfy(control -> assertThat(control.enabled()).isFalse());
-        assertThat(controls).filteredOn(control -> control.id().equals("macro.reload")
-                        || control.id().equals("macro.enable")
-                        || control.id().equals("macro.disable")
-                        || control.id().equals("replay.runSelected")
-                        || control.id().equals("replay.driveFromCapturedInput")
-                        || control.id().equals("replay.playToDte")
-                        || control.id().equals("session.reconnect"))
-                .allSatisfy(control -> assertThat(control.enabled()).isFalse());
-        assertThat(controls).filteredOn(control -> control.id().equals("log.table")
-                        || control.id().equals("export.jsonl"))
+        assertThat(controls).filteredOn(control -> !control.mutating())
                 .allSatisfy(control -> assertThat(control.enabled()).isTrue());
     }
 

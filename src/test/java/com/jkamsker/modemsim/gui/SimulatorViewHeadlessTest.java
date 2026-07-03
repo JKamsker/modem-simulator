@@ -60,9 +60,13 @@ class SimulatorViewHeadlessTest {
 
     private static void startToolkit() throws Exception {
         if (STARTED.compareAndSet(false, true)) {
-            FutureTask<Void> task = new FutureTask<>(() -> null);
-            Platform.startup(task);
-            task.get();
+            try {
+                FutureTask<Void> task = new FutureTask<>(() -> null);
+                Platform.startup(task);
+                task.get();
+            } catch (IllegalStateException ignored) {
+                // JavaFX toolkit can be initialized by another GUI test class in this JVM.
+            }
         }
     }
 

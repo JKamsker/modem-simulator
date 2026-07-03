@@ -73,6 +73,9 @@ public final class HayesHandler implements CommandHandler {
     }
 
     private CommandResult dial(Profile profile, ModemState state, String number) {
+        if (number == null || number.isBlank()) {
+            return CommandResult.error(state, "HayesHandler");
+        }
         if (mobileProfile(profile) && (state.sim().state() != SimState.READY
                 || state.network() == null || !state.network().registeredForCircuitServices())) {
             return new CommandResult(state, List.of(), ResultCode.NO_CARRIER, "HayesHandler", true);

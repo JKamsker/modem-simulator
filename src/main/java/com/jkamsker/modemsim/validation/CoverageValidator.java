@@ -91,10 +91,17 @@ public final class CoverageValidator {
     }
 
     private void validateCoverageFile(Path path, ValidationReport report, Set<String> seen) {
-        ValidationReport fileReport = validate(path);
+        ValidationReport fileReport;
+        try {
+            fileReport = validate(path);
+        } catch (ValidationException e) {
+            report.error(path.getFileName() + ": " + e.getMessage());
+            return;
+        }
         report.merge(fileReport);
         if (fileReport.valid()) {
-            String profile = schemaValidator.readJson(path).path("profile").asText();
+            JsonNode root = schemaValidator.readJson(path);
+            String profile = root.path("profile").asText();
             if (!V1_TARGETS.contains(profile)) {
                 report.error("Unexpected v1 coverage report for " + profile);
             }
@@ -113,7 +120,8 @@ public final class CoverageValidator {
             String status = command.path("status").asText();
             counts.put(status, counts.getOrDefault(status, 0) + 1);
         });
-        for (String status : Set.of("implemented_full", "implemented_stub", "unsupported_declared", "not_applicable")) {
+        for (String status : Set.of("implemented_full", "implemented_stub",
+                "unsupported_declared", "not_applicable", "unknown")) {
             if (root.has(status) && root.path(status).asInt() != counts.getOrDefault(status, 0)) {
                 report.error(status + " count must equal commands with that status");
             }

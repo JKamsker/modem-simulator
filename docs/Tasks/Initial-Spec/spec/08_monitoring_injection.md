@@ -97,7 +97,7 @@ Mindest-Mapping fuer Eventquellen:
 
 `latencyMs` ist fuer Handler-, Macro- und Injection-Ergebnisse eine gemessene Latenz, nicht ein konstanter Platzhalter. Sie misst die Zeit vom sequenzierten Eingang des `SessionCommand` bis zum erzeugten Ergebnis-Event; bei virtueller Clock wird die virtuelle Monotonzeit verwendet. Events ohne bearbeitete Operation duerfen `null` setzen.
 
-Wenn Backpressure normale, nicht audit-kritische Events dropt, muss der naechste persistierte Event den kumulierten `droppedEventCount` tragen und ein separates `DROPPED_EVENTS`-Event mit derselben Zahl erzeugen. Audit-kritische Events aus Kapitel 14 duerfen nie in diese Drop-Policy fallen.
+Wenn Backpressure normale, nicht audit-kritische Events dropt, muss der naechste persistierte Event den aktuellen `droppedEventCount` tragen und ein separates `DROPPED_EVENTS`-Event mit derselben Zahl erzeugen. Danach wird der Drop-Zaehler wieder auf `0` gesetzt. Audit-kritische Events aus Kapitel 14 duerfen nie in diese Drop-Policy fallen.
 
 ## GUI-Workflows
 

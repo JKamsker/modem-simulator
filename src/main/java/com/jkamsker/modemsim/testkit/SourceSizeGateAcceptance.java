@@ -5,6 +5,7 @@ import com.jkamsker.modemsim.validation.SchemaLocator;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -29,9 +30,10 @@ final class SourceSizeGateAcceptance {
 
     private void directScriptRejectsOversizedSource() throws java.io.IOException {
         Path dir = Files.createTempDirectory("modemsim-size-gate-direct");
+        Files.createDirectories(dir.resolve("scripts"));
+        Files.copy(SchemaLocator.projectPath("scripts/check-code-size.sh"), dir.resolve("scripts/check-code-size.sh"));
         Files.writeString(dir.resolve("TooLarge.java"), oversizedJava(), StandardCharsets.UTF_8);
-        ProcessResult result = runProcess("bash",
-                SchemaLocator.projectPath("scripts/check-code-size.sh").toString(), dir.toString());
+        ProcessResult result = runProcess(dir, "bash", "scripts/check-code-size.sh", ".");
         require(result.exitCode() != 0 && result.output().contains("TooLarge.java"),
                 "direct size script did not reject oversized source: " + result.output());
     }
@@ -43,22 +45,35 @@ final class SourceSizeGateAcceptance {
         Files.copy(SchemaLocator.projectPath("scripts/check-code-size.sh"), project.resolve("scripts/check-code-size.sh"));
         Files.writeString(project.resolve("src/main/java/TooLarge.java"), oversizedJava(), StandardCharsets.UTF_8);
         Files.writeString(project.resolve("pom.xml"), fixturePom(), StandardCharsets.UTF_8);
-        ProcessResult result = runProcess(SchemaLocator.projectPath("mvnw").toAbsolutePath().toString(),
+        ProcessResult result = runProcess(SchemaLocator.projectPath("."),
+                SchemaLocator.projectPath(wrapperName()).toAbsolutePath().toString(),
                 "-f", project.resolve("pom.xml").toString(), "verify");
         require(result.exitCode() != 0 && result.output().contains("TooLarge.java"),
                 "maven verify did not reject oversized source: " + result.output());
     }
 
-    private ProcessResult runProcess(String... command) throws java.io.IOException {
+    private String wrapperName() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win") ? "mvnw.cmd" : "mvnw";
+    }
+
+    private ProcessResult runProcess(Path workingDirectory, String... command) throws java.io.IOException {
+        Path outputFile = Files.createTempFile("modemsim-size-gate-process", ".log");
         try {
             Process process = new ProcessBuilder(command)
+                    .directory(workingDirectory.toAbsolutePath().normalize().toFile())
                     .redirectErrorStream(true)
+                    .redirectOutput(outputFile.toFile())
                     .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            return new ProcessResult(process.waitFor(), output);
+            if (!process.waitFor(60, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return new ProcessResult(124, Files.readString(outputFile, StandardCharsets.UTF_8));
+            }
+            return new ProcessResult(process.exitValue(), Files.readString(outputFile, StandardCharsets.UTF_8));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("source-size acceptance interrupted", e);
+        } finally {
+            Files.deleteIfExists(outputFile);
         }
     }
 

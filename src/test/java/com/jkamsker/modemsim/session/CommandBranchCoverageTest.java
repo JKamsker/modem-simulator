@@ -6,7 +6,12 @@ import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.NetworkRuntime;
 import com.jkamsker.modemsim.state.SignalRuntime;
 import com.jkamsker.modemsim.state.SimState;
+import com.jkamsker.modemsim.state.SmsMessage;
+import com.jkamsker.modemsim.state.SmsRuntime;
+import com.jkamsker.modemsim.state.SmsStorage;
 import org.junit.jupiter.api.Test;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,6 +29,7 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT&W\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("A/")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("NO CARRIER");
+        assertThat(session.receive(RawBytes.ascii("ATD\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputHex()).isEmpty();
         assertThat(session.drainScheduled().outputAscii()).contains("CONNECT");
         session.advanceTime(1_000);
@@ -53,6 +59,9 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CREG\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CGREG=1\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("+CREG: 3,1");
+        var base = session.snapshot();
+        assertThat(session.applyState(base.withNetwork(base.network().withCregN(2).withRegistration(5)), "state-change")
+                .outputAscii()).contains("+CREG: 5,\"00C3\",\"00001234\",7");
         assertThat(session.receive(RawBytes.ascii("AT+CSQ=?\r")).outputAscii()).contains("(0-31,99)");
         assertThat(session.receive(RawBytes.ascii("AT+COPS=?\r")).outputAscii()).contains("(0,1,2,3,4)");
         assertThat(session.receive(RawBytes.ascii("AT+COPS=0\r")).outputAscii()).contains("OK");
@@ -159,6 +168,9 @@ class CommandBranchCoverageTest {
         assertThat(malformedIndex.outputAscii()).contains("ERROR");
         assertThat(malformedIndex.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
         assertThat(session.receive(RawBytes.ascii("AT+CMGD=99\r")).outputAscii()).contains("+CMS ERROR: 321");
+        assertThat(inboundSmsSession().receive(RawBytes.ascii("AT+CMGR=1\r")).outputAscii())
+                .contains("+CMGR: \"REC UNREAD\",\"+491709999999\"")
+                .contains("incoming");
     }
 
     @Test
@@ -184,6 +196,17 @@ class CommandBranchCoverageTest {
                 .withNetwork(base.network().withRegistration(0))
                 .withSignal(SignalRuntime.unknown());
         return new HeadlessSession("locked", BuiltinProfiles.acceptanceSierra().withInitialState(state), 12345);
+    }
+
+    private HeadlessSession inboundSmsSession() {
+        var base = BuiltinProfiles.acceptanceSierra().initialState();
+        SmsMessage message = new SmsMessage(1, SmsStorage.ME, "REC UNREAD", "+491709999999", null, null,
+                "incoming", null);
+        SmsRuntime sms = base.sms().withStorage(SmsStorage.ME);
+        sms = new SmsRuntime(sms.textMode(), sms.smsc(), sms.cnmi(), sms.storage(),
+                sms.writeStorage(), sms.receiveStorage(), sms.nextMessageReference(), Map.of(1, message));
+        return new HeadlessSession("sms-inbound",
+                BuiltinProfiles.acceptanceSierra().withInitialState(base.withSms(sms)), 12345);
     }
 
     private void assertPinState(SimState simState, String expected) {

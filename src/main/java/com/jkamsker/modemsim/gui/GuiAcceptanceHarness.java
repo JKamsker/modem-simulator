@@ -126,7 +126,7 @@ public final class GuiAcceptanceHarness {
         for (ClassLoader current = loader; current != null; current = current.getParent()) {
             if (current instanceof URLClassLoader urls) {
                 for (URL url : urls.getURLs()) {
-                    entries.add(Path.of(url.getPath()).toString());
+                    entries.add(urlPath(url));
                 }
             }
         }
@@ -135,7 +135,7 @@ public final class GuiAcceptanceHarness {
     private void addCodeSource(LinkedHashSet<String> entries, Class<?> type) {
         var source = type.getProtectionDomain().getCodeSource();
         if (source != null) {
-            entries.add(Path.of(source.getLocation().getPath()).toString());
+            entries.add(urlPath(source.getLocation()));
         }
     }
 
@@ -203,9 +203,21 @@ public final class GuiAcceptanceHarness {
 
     private static void startToolkit() throws Exception {
         if (STARTED.compareAndSet(false, true)) {
-            FutureTask<Void> task = new FutureTask<>(() -> null);
-            Platform.startup(task);
-            task.get();
+            try {
+                FutureTask<Void> task = new FutureTask<>(() -> null);
+                Platform.startup(task);
+                task.get();
+            } catch (IllegalStateException ignored) {
+                // JavaFX toolkit can be initialized by another GUI acceptance probe in this JVM.
+            }
+        }
+    }
+
+    private String urlPath(URL url) {
+        try {
+            return Path.of(url.toURI()).toString();
+        } catch (java.net.URISyntaxException e) {
+            return Path.of(url.getPath()).toString();
         }
     }
 

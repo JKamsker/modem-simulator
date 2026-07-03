@@ -208,12 +208,12 @@ class HeadlessSessionCoreTest {
         session.advanceTime(1_000);
 
         session.receive(RawBytes.ascii("+"));
-        session.advanceTime(49);
+        session.advanceTime(999);
         session.receive(RawBytes.ascii("+"));
-        session.advanceTime(49);
+        session.advanceTime(999);
         session.receive(RawBytes.ascii("+"));
 
-        assertThat(session.advanceTime(50).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.advanceTime(1_000).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_COMMAND);
     }
 
@@ -224,7 +224,7 @@ class HeadlessSessionCoreTest {
         session.drainScheduled();
         session.advanceTime(1_000);
 
-        session.receiveTimed(RawBytes.ascii("+++"), 1_000_000_000L, 1_100_000_000L);
+        session.receiveTimed(RawBytes.ascii("+++"), 1_000_000_000L, 2_100_000_000L);
 
         assertThat(session.advanceTime(1_000).outputHex()).isEmpty();
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
@@ -242,7 +242,7 @@ class HeadlessSessionCoreTest {
         session.receiveTimed(RawBytes.ascii("+++"), first, last);
 
         assertThat(session.advanceTo(first + 50_000_000L).outputHex()).isEmpty();
-        assertThat(session.advanceTo(last + 50_000_000L).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.advanceTo(last + 1_000_000_000L).outputAscii()).isEqualTo("\r\nOK\r\n");
     }
 
     @Test

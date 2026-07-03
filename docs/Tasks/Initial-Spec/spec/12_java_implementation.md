@@ -171,7 +171,7 @@ enum PortRole {
 
 Bytes vom `MANUAL_DCE_INJECTION`-Port werden als `raw-dce-to-dte` Injection an den Hauptport gesendet. Der `SNIFFER`-Port ist read-only gegenueber der Session: Eingaben werden ignoriert und als Diagnose geloggt, aber nicht an Parser, State oder Hauptport weitergegeben.
 
-Open-Time-Fehler des Transport-Layers tragen eine maschinenlesbare Kategorie (`PORT_NOT_FOUND`, `PORT_BUSY`, `UNSUPPORTED_PARAMETERS`). Laufzeitfehler tragen getrennte Kategorien (`PORT_LOST`, `RX_OVERFLOW`, `TX_OVERFLOW`). Die Runtime mappt diese Kategorien in Eventlog-Diagnosen, Start-/Sidecar-Fehler und Fail-Closed-Verhalten statt nur eine generische Exception-Message zu zeigen.
+Open-Time-Fehler des Transport-Layers tragen eine maschinenlesbare Kategorie (`PORT_NOT_FOUND`, `PORT_BUSY`, `PORT_PERMISSION_DENIED`, `UNSUPPORTED_PARAMETERS`). Laufzeitfehler tragen getrennte Kategorien (`PORT_LOST`, `RX_OVERFLOW`, `TX_OVERFLOW`). Die Runtime mappt diese Kategorien in Eventlog-Diagnosen, Start-/Sidecar-Fehler und Fail-Closed-Verhalten statt nur eine generische Exception-Message zu zeigen.
 
 ## Event-Publisher
 

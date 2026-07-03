@@ -89,7 +89,7 @@ public final class HeadlessSession implements SessionActor {
             ModemState commandState = state.withCall(state.call().withMode(CallMode.ONLINE_COMMAND));
             RawBytes ok = commandState.settings().quiet() ? RawBytes.empty()
                     : new ResponseFormatter(commandState).result(commandState.settings().verbose() ? "OK" : "0", commandState.settings().verbose());
-            RawBytes delayedOk = scheduleOrReturn("escape", ok, commandState.settings().s12());
+            RawBytes delayedOk = scheduleOrReturn("escape", ok, commandState.settings().s12() * 20);
             if (delayedOk.isEmpty() && commandState.settings().s12() > 0) {
                 pendingEscapeCommandState = commandState;
             } else {

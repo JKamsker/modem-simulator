@@ -80,6 +80,33 @@ class ConfigCoverageScenarioValidationTest {
     }
 
     @Test
+    void coverageDirectoryReportsMalformedFilesAndContinues() throws Exception {
+        Path source = Path.of("src/main/resources/coverage/v1-targets");
+        try (var files = Files.list(source)) {
+            files.forEach(path -> {
+                try {
+                    Files.copy(path, tempDir.resolve(path.getFileName().toString()));
+                } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+            });
+        }
+        Files.writeString(tempDir.resolve("broken.json"), "{not-json");
+
+        ValidationReport report = new CoverageValidator().verifyV1Targets(tempDir);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("Cannot read document"));
+        assertThat(report.errors()).noneSatisfy(error -> assertThat(error).contains("Missing v1 coverage report"));
+    }
+
+    @Test
+    void incomingNumberIsAcceptedAsNullableStateValue() {
+        assertThat(StateValueValidator.validate("state.call.incomingNumber", "")).isNull();
+        assertThat(StateValueValidator.validate("state.call.incomingNumber", "+491709999999")).isNull();
+    }
+
+    @Test
     void validatesScenarioExample() {
         ValidationReport report = new ScenarioValidator()
                 .validate(Path.of("docs/Tasks/Initial-Spec/examples/scenario.no-network.xml"));

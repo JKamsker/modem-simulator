@@ -39,7 +39,7 @@ record GuiStatePatch(
         SimRuntime sim = state.sim();
         return state.withSim(new SimRuntime(
                 simState == null ? sim.state() : simState, sim.pinQueryEnabled(), sim.pinRef(), sim.testPin(),
-                pinRetries == null ? sim.pinRetries() : pinRetries,
+                sim.pukRef(), sim.testPuk(), pinRetries == null ? sim.pinRetries() : pinRetries,
                 pukRetries == null ? sim.pukRetries() : pukRetries, sim.imsi(), sim.iccid()));
     }
 

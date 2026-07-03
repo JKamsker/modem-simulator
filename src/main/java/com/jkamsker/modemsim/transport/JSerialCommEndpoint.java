@@ -30,8 +30,7 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
         }
         port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 100);
         if (!port.openPort()) {
-            String code = portPresent() ? "PORT_BUSY" : "PORT_NOT_FOUND";
-            throw new SerialException("Cannot open serial port: " + portName, code);
+            throw new SerialException("Cannot open serial port: " + portName, openFailureCode());
         }
         port.addDataListener(disconnectListener());
     }
@@ -79,7 +78,7 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
 
     @Override
     public ModemLines readLines() {
-        return new ModemLines(port.getDSR(), true, port.getDCD(), false, port.getCTS(), true);
+        return new ModemLines(port.getDSR(), true, port.getDCD(), port.getRI(), port.getCTS(), true);
     }
 
     @Override
@@ -157,5 +156,13 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
 
     private boolean matches(String expected, String actual) {
         return expected != null && expected.equals(actual);
+    }
+
+    private String openFailureCode() {
+        if (!portPresent()) {
+            return "PORT_NOT_FOUND";
+        }
+        int error = port.getLastErrorCode();
+        return error == 5 || error == 13 ? "PORT_PERMISSION_DENIED" : "PORT_BUSY";
     }
 }

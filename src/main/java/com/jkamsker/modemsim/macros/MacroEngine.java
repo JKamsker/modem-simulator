@@ -137,6 +137,13 @@ public final class MacroEngine {
     }
 
     private int integer(String value) {
-        return value == null ? 0 : Integer.parseInt(value);
+        if (value == null) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("Invalid macro delay value: " + value, e);
+        }
     }
 }

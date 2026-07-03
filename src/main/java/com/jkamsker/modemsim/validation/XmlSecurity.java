@@ -13,11 +13,15 @@ import javax.xml.validation.SchemaFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 public final class XmlSecurity {
     private static final long MAX_BYTES = 1_000_000;
     private static final int MAX_DEPTH = 64;
     private static final int MAX_TEXT_LENGTH = 50_000;
+    private static final Pattern SCHEMA_LOCATION_ATTR = Pattern.compile(
+            "(?is)schemaLocation\\s*=\\s*(['\"])([^'\"]*)\\1");
+    private static final Pattern URI_SCHEME = Pattern.compile("(?i)^[a-z][a-z0-9+.-]*://");
 
     private XmlSecurity() {
     }
@@ -124,15 +128,16 @@ public final class XmlSecurity {
 
     private static void rejectExternalSchemaReferenceText(Path xmlPath) throws IOException {
         String content = Files.readString(xmlPath);
-        String schemaLocation = "schema" + "Location";
-        if (content.matches("(?is).*" + schemaLocation
-                + "\\s*=\\s*['\"][^'\"]*[a-z][a-z0-9+.-]*://.*")) {
-            throw new ValidationException("XML external schema references are not allowed");
+        var matcher = SCHEMA_LOCATION_ATTR.matcher(content);
+        while (matcher.find()) {
+            if (hasUriScheme(matcher.group(2))) {
+                throw new ValidationException("XML external schema references are not allowed");
+            }
         }
     }
 
     private static boolean hasUriScheme(String value) {
-        return value.matches("(?i).*[a-z][a-z0-9+.-]*://.*");
+        return URI_SCHEME.matcher(value.stripLeading()).find();
     }
 
     private static final class SilentErrorHandler implements ErrorHandler {

@@ -79,7 +79,7 @@ final class SessionInputState {
 
     boolean onlineEscapeSatisfied(
             RawBytes bytes, long idleBeforeRxNanos, long byteSpanNanos, SessionSettings settings) {
-        if (SessionBytes.isEscapeSequence(bytes, settings.s3(), settings.s2())
+        if (SessionBytes.isEscapeSequence(bytes, settings.s2())
                 && guardSatisfied(idleBeforeRxNanos, settings)
                 && byteSpanNanos < guardNanos(settings)) {
             escapePlusCount = 0; return true;
@@ -109,6 +109,6 @@ final class SessionInputState {
     }
 
     private long guardNanos(SessionSettings settings) {
-        return settings.s12() * 1_000_000L;
+        return settings.s12() * 20_000_000L;
     }
 }

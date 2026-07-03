@@ -223,8 +223,7 @@ final class GuiSessionController {
         boolean enabled = action.equalsIgnoreCase("enable");
         macroOverrides.put(macroId, enabled);
         activeMacroEngine = new MacroEngine(effectiveMacroSet());
-        queue.submit(new GuiSessionCommand(
-                "macro-toggle", () -> session.replaceMacroEngine(activeMacroEngine, "macro-" + action + ":" + macroId)));
+        enqueue("macro-toggle", () -> session.replaceMacroEngine(activeMacroEngine, "macro-" + action + ":" + macroId));
         return "Macro " + macroId + " " + (enabled ? "enabled" : "disabled");
     }
 

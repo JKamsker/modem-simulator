@@ -38,12 +38,23 @@ public final class JsonSchemaValidator {
 
     private ValidationReport validate(Path documentPath, Path schemaPath, ObjectMapper mapper) {
         ValidationReport report = ValidationReport.ok();
+        JsonNode schemaNode;
         try {
-            JsonNode schemaNode = JSON.readTree(schemaPath.toFile());
+            schemaNode = JSON.readTree(schemaPath.toFile());
+        } catch (Exception e) {
+            throw new ValidationException("Cannot read JSON schema: " + schemaPath, e);
+        }
+        try {
             JsonNode documentNode = mapper.readTree(documentPath.toFile());
             var factory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012);
             var schema = factory.getSchema(schemaNode);
             schema.validate(documentNode).forEach(error -> report.error(error.getMessage()));
+            return report;
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            report.error("Cannot read document: " + documentPath + ": " + e.getOriginalMessage());
+            return report;
+        } catch (java.io.IOException e) {
+            report.error("Cannot read document: " + documentPath + ": " + e.getMessage());
             return report;
         } catch (Exception e) {
             throw new ValidationException("JSON schema validation failed", e);

@@ -57,7 +57,7 @@ public final class AcceptanceSuite {
                     new AcceptanceProfileChecks(SAMPLE_PROFILE).runBuiltins();
                 }
                 case "A17" -> require(!new ProfileXmlLoader()
-                        .validate(Path.of("src/test/resources/profiles/xxe-profile.xml")).valid());
+                        .validate(spec("src/test/resources/profiles/xxe-profile.xml")).valid());
                 case "A18" -> replay();
                 case "A19" -> dataMode();
                 case "A20" -> pduAndStorage();

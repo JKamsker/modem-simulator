@@ -184,9 +184,9 @@ public final class SmsHandler implements CommandHandler {
                     new TextFrame(message.pdu()));
         }
         String text = message.text() == null ? "" : message.text();
-        String recipient = message.recipient() == null ? "" : message.recipient();
+        String address = message.sender() == null ? message.recipient() : message.sender();
         return List.of(
-                new TextFrame(header + "\"" + message.status() + "\",\"" + recipient + "\""),
+                new TextFrame(header + "\"" + message.status() + "\",\"" + (address == null ? "" : address) + "\""),
                 new TextFrame(text));
     }
 

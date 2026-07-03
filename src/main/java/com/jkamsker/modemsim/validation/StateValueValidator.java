@@ -58,6 +58,7 @@ public final class StateValueValidator {
                         throw new IllegalArgumentException(path);
                     }
                 }
+                case "state.call.incomingNumber" -> { }
                 case "state.modem.lifecycle" -> ModemLifecycle.valueOf(value);
                 case "state.modem.freezeMode" -> FreezeMode.valueOf(value);
                 case "state.modem.bootDelayMs" -> range(path, value, 0, Integer.MAX_VALUE);
