@@ -40,6 +40,25 @@ class MacroRandomSeedTest {
         assertThat(decision.delay("macro-seeded").operation()).isEqualTo("macro-seeded:seed=42");
     }
 
+    @Test
+    void jitterRequiresMacroRandomSeed() throws Exception {
+        Path path = write("""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="unseeded" priority="100" phase="replace">
+                    <match command="+UNSEEDED"/>
+                    <then>
+                      <delay ms="10" jitterMs="5"/>
+                      <emit line="+UNSEEDED"/>
+                    </then>
+                  </macro>
+                </macros>
+                """);
+
+        assertThat(new MacroLoader().validate(path).errors())
+                .contains("unseeded: delay jitterMs requires macros/@randomSeed");
+    }
+
     private Path write(String content) throws Exception {
         Path path = tempDir.resolve("macros.xml");
         Files.writeString(path, content);

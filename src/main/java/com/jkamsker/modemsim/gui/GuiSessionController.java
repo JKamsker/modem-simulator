@@ -7,7 +7,6 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.macros.FaultAction;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
-import com.jkamsker.modemsim.macros.MacroRule;
 import com.jkamsker.modemsim.macros.MacroSet;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.parser.RawBytes;
@@ -24,7 +23,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 final class GuiSessionController {
     private HeadlessSession session;
@@ -42,6 +41,7 @@ final class GuiSessionController {
     private int eventCursor;
     private String runtimeStatus = "Headless session";
     private final Map<String, Boolean> macroOverrides = new LinkedHashMap<>();
+    private Set<String> macroTimerIds = Set.of();
 
     GuiSessionController(HeadlessSession session) {
         this(session, false);
@@ -182,7 +182,7 @@ final class GuiSessionController {
     }
 
     MacroSummary reloadMacros(Path path) {
-        MacroLoader loader = new MacroLoader();
+        MacroLoader loader = new MacroLoader(macroTimerIds);
         ValidationReport report = loader.validate(path);
         if (!report.valid()) {
             String errors = String.join("; ", report.errors());
@@ -190,15 +190,17 @@ final class GuiSessionController {
                     () -> session.diagnostic(EventType.VALIDATION_ERROR, "macro-reload-failed:" + path + ":" + errors));
             return new MacroSummary("", errors, "", "", response);
         }
-        activeMacroSet = loader.load(path);
-        var ids = activeMacroSet.rules().stream().map(MacroRule::id).collect(Collectors.toSet());
-        macroOverrides.keySet().retainAll(ids);
-        activeMacroEngine = new MacroEngine(effectiveMacroSet());
-        SessionResponse response = enqueue("macro-reload", () -> session.replaceMacroEngine(activeMacroEngine, "reload:" + path));
-        String customResponses = activeMacroSet.rules().stream()
-                .filter(this::isCustomResponse)
-                .map(MacroRule::id)
-                .collect(Collectors.joining(", "));
+        MacroSet loaded = loader.load(path);
+        Map<String, Boolean> nextOverrides = new LinkedHashMap<>(macroOverrides);
+        var ids = loaded.rules().stream().map(rule -> rule.id()).collect(java.util.stream.Collectors.toSet());
+        nextOverrides.keySet().retainAll(ids);
+        MacroEngine nextEngine = new MacroEngine(GuiMacroSupport.effective(loaded, nextOverrides));
+        SessionResponse response = enqueue("macro-reload", () -> session.replaceMacroEngine(nextEngine, "reload:" + path));
+        activeMacroSet = loaded;
+        macroOverrides.clear();
+        macroOverrides.putAll(nextOverrides);
+        activeMacroEngine = nextEngine;
+        String customResponses = GuiMacroSupport.customResponses(loaded);
         return new MacroSummary(activeMacroSet.hash(), "", customResponses, enabledMacroIds(), response);
     }
 
@@ -223,6 +225,10 @@ final class GuiSessionController {
 
     String enabledMacros() { return enabledMacroIds(); }
 
+    void macroTimerIds(Set<String> timerIds) {
+        macroTimerIds = Set.copyOf(timerIds);
+    }
+
     private SessionResponse enqueue(String type, java.util.function.Supplier<SessionResponse> action) {
         InMemoryEventSink beforeSink = eventSink;
         int start = eventSink == null ? eventCursor : Math.min(eventCursor, eventSink.eventCount());
@@ -242,23 +248,12 @@ final class GuiSessionController {
                 "virtual", activePort, "modem-simulation");
     }
 
-    private boolean isCustomResponse(MacroRule rule) {
-        return rule.actions().stream().anyMatch(action -> action.type().equals("send"));
-    }
-
     private MacroSet effectiveMacroSet() {
-        List<MacroRule> rules = activeMacroSet.rules().stream()
-                .map(rule -> macroOverrides.containsKey(rule.id())
-                        ? new MacroRule(rule.id(), rule.priority(), rule.order(), rule.phase(), macroOverrides.get(rule.id()),
-                        rule.condition(), rule.match(), rule.actions())
-                        : rule)
-                .toList();
-        return new MacroSet(MacroSet.effectiveHash(activeMacroSet.randomSeed(), rules), activeMacroSet.randomSeed(), rules);
+        return GuiMacroSupport.effective(activeMacroSet, macroOverrides);
     }
 
     private String enabledMacroIds() {
-        return effectiveMacroSet().rules().stream().filter(MacroRule::enabled)
-                .map(MacroRule::id).collect(Collectors.joining(", "));
+        return GuiMacroSupport.enabled(activeMacroSet, macroOverrides);
     }
 
     private Profile profileWithScenario(Profile profile, Path scenario) {

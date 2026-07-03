@@ -113,7 +113,7 @@ class MacroEngineTest {
     void conditionsStatePatchesJitterAndDecisionEventsAreApplied() throws Exception {
         MacroSet macros = new MacroLoader().load(write("conditions.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
-                <macros version="1.0">
+                <macros version="1.0" randomSeed="42">
                   <macro id="conditional-at" priority="100" phase="replace">
                     <match command="AT"/>
                     <when>
