@@ -4,6 +4,8 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
+import javafx.collections.FXCollections;
+import javafx.collections.transformation.FilteredList;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,6 +21,21 @@ public final class GuiAcceptanceHarness {
                 EventType.HANDLER_RESULT, EventType.TX_BYTES)));
         require(response.events().stream().anyMatch(event -> event.parsedCommand() != null));
         require(response.events().stream().anyMatch(event -> "HayesHandler".equals(event.handler())));
+    }
+
+    public void liveLogFilterExport() {
+        GuiSessionController controller = controller(false);
+        var events = FXCollections.observableArrayList(controller.rawDteToDce("AT\\r").events());
+        FilteredList<com.jkamsker.modemsim.monitor.ModemEvent> filtered =
+                new FilteredList<>(events, event -> true);
+        int total = filtered.size();
+        filtered.setPredicate(event -> GuiLogPane.matches(event, "TX_BYTES"));
+        require(total > filtered.size() && filtered.size() == 1);
+        String export = controller.jsonl(List.copyOf(filtered));
+        require(export.contains("\"eventType\":\"TX_BYTES\""));
+        require(!export.contains("\"eventType\":\"RX_BYTES\""));
+        filtered.setPredicate(event -> GuiLogPane.matches(event, "HayesHandler"));
+        require(filtered.size() == 1 && "HayesHandler".equals(filtered.getFirst().handler()));
     }
 
     public void injection() {

@@ -20,6 +20,7 @@ import java.util.List;
 final class GuiAcceptanceChecks {
     void liveLog() {
         new GuiAcceptanceHarness().liveLog();
+        new GuiAcceptanceHarness().liveLogFilterExport();
         var controls = new GuiControlCatalog().controls();
         require(controls.stream().anyMatch(c -> c.id().equals("log.table")));
         require(controls.stream().anyMatch(c -> c.id().equals("log.export")));

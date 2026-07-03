@@ -24,13 +24,10 @@ import com.jkamsker.modemsim.state.CallRuntime;
 import com.jkamsker.modemsim.state.ModemLines;
 import com.jkamsker.modemsim.validation.SchemaLocator;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 final class AcceptanceExtendedChecks {
     void parserAndAta() {
@@ -68,21 +65,7 @@ final class AcceptanceExtendedChecks {
     }
 
     void sourceSizeGate() {
-        try {
-            Path dir = Files.createTempDirectory("modemsim-size-gate");
-            Files.writeString(dir.resolve("TooLarge.java"), oversizedJava(), StandardCharsets.UTF_8);
-            Process process = new ProcessBuilder(
-                    "bash", SchemaLocator.projectPath("scripts/check-code-size.sh").toString(), dir.toString())
-                    .redirectErrorStream(true)
-                    .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            require(process.waitFor() != 0 && output.contains("TooLarge.java"));
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException("source-size acceptance check failed", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("source-size acceptance interrupted", e);
-        }
+        new SourceSizeGateAcceptance().run();
     }
 
     void goldenYamlLoader() {
@@ -123,12 +106,6 @@ final class AcceptanceExtendedChecks {
         Profile updated = base.withRegisters(registers);
         return updated.withInitialState(updated.initialState().withSettings(
                 ProfileRegisterCatalog.applyDefaults(updated.initialState().settings(), registers)));
-    }
-
-    private String oversizedJava() {
-        return IntStream.range(0, 300)
-                .mapToObj(index -> "// line " + index)
-                .collect(Collectors.joining(System.lineSeparator(), "", System.lineSeparator()));
     }
 
     private HeadlessSession session() {

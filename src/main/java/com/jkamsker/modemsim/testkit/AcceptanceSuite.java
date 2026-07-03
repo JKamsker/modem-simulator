@@ -1,17 +1,15 @@
 package com.jkamsker.modemsim.testkit;
 
+import com.jkamsker.modemsim.app.ReplayAcceptance;
+import com.jkamsker.modemsim.app.RuntimePortGroupAcceptance;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
-import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.parser.RawBytes;
-import com.jkamsker.modemsim.app.RuntimePortGroupAcceptance;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Dialect;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.profiles.UnknownAtCommandPolicy;
-import com.jkamsker.modemsim.replay.ReplayStepLoader;
-import com.jkamsker.modemsim.replay.ReplayValidator;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.ModemLifecycle;
@@ -22,8 +20,6 @@ import com.jkamsker.modemsim.validation.SchemaLocator;
 import com.jkamsker.modemsim.validation.ScenarioValidator;
 
 import java.nio.file.Path;
-import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.List;
 
 public final class AcceptanceSuite {
@@ -155,27 +151,7 @@ public final class AcceptanceSuite {
     }
 
     private void replay() {
-        var steps = new ReplayStepLoader().load(spec("src/test/resources/replay/basic-at-events.jsonl"));
-        var report = new ReplayValidator().validateRecompute(session(), steps, true);
-        require(report.valid(), String.join("; ", report.divergences()));
-        require(schedulerReplayValid());
-    }
-
-    private boolean schedulerReplayValid() {
-        try {
-            HeadlessSession capture = session();
-            var events = new ArrayList<>(capture.receive(RawBytes.ascii("ATD123\r")).events());
-            events.addAll(capture.drainScheduled().events());
-            Path log = Files.createTempFile("modemsim-scheduler-replay", ".jsonl");
-            Files.writeString(log, ModemEventJson.toJsonLines(events));
-            var report = new ReplayValidator().validateRecompute(session(), new ReplayStepLoader().load(log), true);
-            if (!report.valid()) {
-                throw new IllegalStateException(String.join("; ", report.divergences()));
-            }
-            return true;
-        } catch (Exception e) {
-            throw new IllegalStateException("scheduler replay failed: " + e.getMessage(), e);
-        }
+        new ReplayAcceptance().run();
     }
 
     private void dataMode() {
