@@ -165,7 +165,8 @@ public final class SmsHandler implements CommandHandler {
             String destination = unquote(arguments);
             return arguments.trim().startsWith("\"") && destination.matches("\\+?[0-9]{3,20}");
         }
-        return parseInt(arguments, -1) >= 0;
+        String pduLength = arguments.trim();
+        return pduLength.matches("[0-9]+") && parseInt(pduLength, -1) >= 0;
     }
 
     private List<ResponseFrame> messageFrames(String prefix, SmsMessage message, boolean list) {

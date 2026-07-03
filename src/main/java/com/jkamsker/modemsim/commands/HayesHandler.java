@@ -144,7 +144,7 @@ public final class HayesHandler implements CommandHandler {
     private CommandResult readRegister(Profile profile, ModemState state, ParsedCommand command) {
         int register = register(command);
         if (ProfileRegisterCatalog.find(profile, register) == null) {
-            return CommandResult.error(state, "HayesHandler");
+            return CommandResult.invalidParameter(state, "HayesHandler");
         }
         return new CommandResult(
                 state,
@@ -159,10 +159,10 @@ public final class HayesHandler implements CommandHandler {
         ProfileRegister spec = ProfileRegisterCatalog.find(profile, register);
         Integer value = parseNumber(command.arguments());
         if (spec == null || value == null || !spec.writable()) {
-            return CommandResult.error(state, "HayesHandler");
+            return CommandResult.invalidParameter(state, "HayesHandler");
         }
         if (!ProfileRegisterCatalog.accepts(spec, value)) {
-            return CommandResult.error(state, "HayesHandler");
+            return CommandResult.invalidParameter(state, "HayesHandler");
         }
         return CommandResult.ok(state.withSettings(state.settings().withRegister(register, value)), "HayesHandler");
     }

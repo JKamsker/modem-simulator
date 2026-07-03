@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.session;
 
+import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.NetworkRuntime;
@@ -118,6 +119,18 @@ class SmsSessionTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMGS=not-a-phone\r")).outputAscii())
                 .isEqualTo("\r\nERROR\r\n");
         assertThat(session.snapshot().call().mode().name()).isEqualTo("COMMAND");
+    }
+
+    @Test
+    void pduModeCmgsRejectsQuotedLengthWithoutEnteringPduMode() {
+        HeadlessSession session = unlimitedSmsSession();
+        session.receive(RawBytes.ascii("AT+CMGF=0\r"));
+
+        SessionResponse response = session.receive(RawBytes.ascii("AT+CMGS=\"2\"\r"));
+
+        assertThat(response.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(response.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
     }
 
     @Test

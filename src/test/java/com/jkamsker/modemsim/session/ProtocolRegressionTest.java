@@ -135,7 +135,9 @@ class ProtocolRegressionTest {
         HeadlessSession defaulted = new HeadlessSession(
                 "defaulted-registers", withS7(BuiltinProfiles.acceptanceSierra(), 70, 120, true), 12345);
 
-        assertThat(strict.receive(RawBytes.ascii("ATS7=90\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+        SessionResponse strictReject = strict.receive(RawBytes.ascii("ATS7=90\r"));
+        assertThat(strictReject.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(strictReject.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
         assertThat(strict.snapshot().settings().s7()).isEqualTo(60);
         assertThat(relaxed.receive(RawBytes.ascii("ATS7=90\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(relaxed.snapshot().settings().s7()).isEqualTo(90);
