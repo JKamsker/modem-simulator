@@ -1,8 +1,8 @@
 {
   "profile": "sierra-hl6-hl8-v20",
   "source": "references/snapshots/sierra-hl6-hl8-v20.md",
-  "commands_total": 44,
-  "implemented_full": 32,
+  "commands_total": 45,
+  "implemented_full": 33,
   "implemented_stub": 7,
   "unsupported_declared": 5,
   "not_applicable": 0,
@@ -20,6 +20,7 @@
     {"command": "AT&V", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "AT&D", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "AT&C", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATA", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "ATD", "status": "implemented_stub", "handler": "HayesHandler"},
     {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},

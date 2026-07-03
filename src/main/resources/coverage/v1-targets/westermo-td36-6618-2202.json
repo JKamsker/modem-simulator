@@ -1,8 +1,8 @@
 {
   "profile": "westermo-td36-6618-2202",
   "source": "references/snapshots/westermo-td36.md",
-  "commands_total": 17,
-  "implemented_full": 16,
+  "commands_total": 18,
+  "implemented_full": 17,
   "implemented_stub": 1,
   "unsupported_declared": 0,
   "not_applicable": 0,
@@ -20,6 +20,7 @@
     {"command": "AT&V", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "AT&D", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "AT&C", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATA", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "ATD", "status": "implemented_stub", "handler": "HayesHandler"},
     {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},

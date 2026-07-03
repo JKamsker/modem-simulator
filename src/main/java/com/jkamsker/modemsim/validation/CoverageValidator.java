@@ -11,8 +11,8 @@ import java.util.Set;
 
 public final class CoverageValidator {
     private static final Set<String> HAYES = Set.of(
-            "AT", "A/", "+++", "ATE", "ATQ", "ATV", "ATZ", "AT&F", "AT&W", "AT&V",
-            "AT&D", "AT&C", "ATD", "ATH", "ATO", "ATS", "ATI");
+        "AT", "A/", "+++", "ATE", "ATQ", "ATV", "ATZ", "AT&F", "AT&W", "AT&V",
+            "AT&D", "AT&C", "ATA", "ATD", "ATH", "ATO", "ATS", "ATI");
     private static final Set<String> CELLULAR = Set.of(
             "+CGMI", "+CGMM", "+CGMR", "+CGSN", "+CPIN", "+CMEE", "+CREG", "+CGREG",
             "+CEREG", "+CSQ", "+COPS", "+CCLK", "+CFUN");
