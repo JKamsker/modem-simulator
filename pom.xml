@@ -9,6 +9,35 @@
   <version>1.0.0-SNAPSHOT</version>
   <name>Modem Simulator</name>
   <description>Java COM modem simulator implementing the Initial-Spec v1 acceptance surface.</description>
+  <url>https://github.com/JKamsker/modem-simulator</url>
+
+  <organization>
+    <name>JKamsker</name>
+    <url>https://github.com/JKamsker</url>
+  </organization>
+
+  <developers>
+    <developer>
+      <id>JKamsker</id>
+      <name>JKamsker</name>
+      <url>https://github.com/JKamsker</url>
+      <roles>
+        <role>owner</role>
+      </roles>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/JKamsker/modem-simulator.git</connection>
+    <developerConnection>scm:git:https://github.com/JKamsker/modem-simulator.git</developerConnection>
+    <url>https://github.com/JKamsker/modem-simulator</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/JKamsker/modem-simulator/issues</url>
+  </issueManagement>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -160,6 +189,22 @@
         <version>3.5.1</version>
         <configuration>
           <mainClass>com.jkamsker.modemsim.app.ModemSimCli</mainClass>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Implementation-Title>${project.name}</Implementation-Title>
+              <Implementation-Version>${project.version}</Implementation-Version>
+              <Implementation-Vendor>JKamsker</Implementation-Vendor>
+              <Implementation-URL>${project.url}</Implementation-URL>
+              <Built-By>JKamsker</Built-By>
+            </manifestEntries>
+          </archive>
         </configuration>
       </plugin>
       <plugin>

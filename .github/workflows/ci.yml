@@ -127,6 +127,12 @@ jobs:
         run: |
           test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui' -type f | head -n 1)"
           test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui.cmd' -type f | head -n 1)"
+      - name: Verify packaged native access flags
+        shell: bash
+        run: |
+          grep -R -- '--enable-native-access=ALL-UNNAMED' target/dist-smoke/*/bin/modemsim*
+          jar_file=$(find target/dist-smoke -path '*/lib/modem-simulator-*.jar' -type f | head -n 1)
+          unzip -p "$jar_file" META-INF/MANIFEST.MF | grep -- 'Implementation-Vendor: JKamsker'
 
   serial-it:
     name: Serial integration tests

@@ -66,6 +66,29 @@ unzip -l target/modem-simulator-*-dist.zip
 
 The distribution contains CLI launchers (`bin/modemsim`, `bin/modemsim.cmd`) and GUI launchers (`bin/modemsim-gui`, `bin/modemsim-gui.cmd`). All launchers use `--enable-native-access=ALL-UNNAMED`, which is required for classpath use of jSerialComm on Java 24.
 
+## Installed ZIP Quick Start
+
+After unpacking a release ZIP, run the launchers directly from the extracted directory:
+
+```bash
+unzip modem-simulator-*-dist.zip -d modem-simulator
+cd modem-simulator/modem-simulator-*
+bin/modemsim test --suite acceptance --case A01
+bin/modemsim validate-config src/test/resources/config/valid.yaml
+bin/modemsim validate-profile docs/Tasks/Initial-Spec/examples/modem-profile.sample.xml
+bin/modemsim coverage verify --profiles v1-targets
+bin/modemsim replay src/test/resources/replay/basic-at-events.jsonl --mode validate-recompute
+```
+
+On Windows, use the `.cmd` launchers:
+
+```bat
+bin\modemsim.cmd test --suite acceptance --case A01
+bin\modemsim-gui.cmd
+```
+
+The ZIP is self-contained for runtime dependencies. You still need JDK 24 on `PATH` or `JAVA_HOME`, and serial access depends on OS permissions and any virtual COM-pair driver you use.
+
 Run the full acceptance suite:
 
 ```bash

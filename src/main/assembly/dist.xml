@@ -57,6 +57,7 @@
       <outputDirectory>docs</outputDirectory>
       <excludes>
         <exclude>Tasks/Initial-Spec/references/downloads/**</exclude>
+        <exclude>Tasks/Initial-Spec/Review/**</exclude>
       </excludes>
     </fileSet>
     <fileSet>
