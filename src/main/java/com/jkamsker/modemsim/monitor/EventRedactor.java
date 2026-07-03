@@ -19,6 +19,16 @@ public final class EventRedactor {
             RawBytes raw,
             ParsedCommand command,
             boolean smsBodyEntry) {
+        return redactRaw(type, direction, raw, command, smsBodyEntry, raw);
+    }
+
+    public RedactedPayload redactRaw(
+            EventType type,
+            Direction direction,
+            RawBytes raw,
+            ParsedCommand command,
+            boolean smsBodyEntry,
+            RawBytes redactionContext) {
         if (raw.isEmpty()) {
             return original(raw);
         }
@@ -28,10 +38,10 @@ public final class EventRedactor {
         if (type == EventType.TX_BYTES && direction == Direction.DCE_TO_DTE && containsSmsStorageBody(raw)) {
             return fullyRedacted("rawHex", "textEscaped", "sms-body");
         }
-        if (isSensitiveCpinSet(command) || rawLooksLikeCpinSet(raw)) {
-            return fullyRedacted("rawHex", "textEscaped", cpinClasses(command, raw));
+        if (isSensitiveCpinSet(command) || rawLooksLikeCpinSet(redactionContext)) {
+            return fullyRedacted("rawHex", "textEscaped", cpinClasses(command, redactionContext));
         }
-        List<String> identifierClasses = identifierClasses(raw.ascii(), command);
+        List<String> identifierClasses = identifierClasses(redactionContext.ascii(), command);
         if (!identifierClasses.isEmpty()) {
             return fullyRedacted("rawHex", "textEscaped", identifierClasses);
         }

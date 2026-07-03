@@ -2,8 +2,12 @@ package com.jkamsker.modemsim.validation;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public final class ValidationReport {
+    private static final Pattern SENSITIVE_ATTRIBUTE = Pattern.compile(
+            "(?i)\\b(pin|puk|imsi|iccid|imei|msisdn)\\s*=\\s*\"[^\"]*\"");
+    private static final Pattern LONG_IDENTIFIER = Pattern.compile("(?<!\\d)\\d{14,22}(?!\\d)");
     private final List<String> errors = new ArrayList<>();
     private final List<String> warnings = new ArrayList<>();
 
@@ -12,11 +16,11 @@ public final class ValidationReport {
     }
 
     public void error(String message) {
-        errors.add(message);
+        errors.add(sanitize(message));
     }
 
     public void warning(String message) {
-        warnings.add(message);
+        warnings.add(sanitize(message));
     }
 
     public boolean valid() {
@@ -40,5 +44,14 @@ public final class ValidationReport {
         if (!valid()) {
             throw new ValidationException(String.join("; ", errors));
         }
+    }
+
+    private String sanitize(String message) {
+        if (message == null) {
+            return "";
+        }
+        String redacted = SENSITIVE_ATTRIBUTE.matcher(message).replaceAll(match ->
+                match.group(1) + "=\"<redacted>\"");
+        return LONG_IDENTIFIER.matcher(redacted).replaceAll("<redacted>");
     }
 }

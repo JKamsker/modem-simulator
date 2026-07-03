@@ -56,6 +56,18 @@ class SmsSessionTest {
     }
 
     @Test
+    void quietModeSuppressesSmsSubmitCompletion() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        session.receive(RawBytes.ascii("ATQ1\r"));
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        session.receive(RawBytes.ascii("silent\u001A"));
+
+        assertThat(session.drainScheduled().outputHex()).isEmpty();
+        assertThat(session.snapshot().sms().messages()).hasSize(1);
+    }
+
+    @Test
     void pduModeCmgsEscAbortsWithoutStoringMessage() {
         HeadlessSession session = unlimitedSmsSession();
         session.receive(RawBytes.ascii("AT+CMGF=0\r"));

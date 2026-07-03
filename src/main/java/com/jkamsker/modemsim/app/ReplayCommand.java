@@ -51,7 +51,7 @@ final class ReplayCommand {
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role,
                 configHash == null ? null : java.util.Map.of("configHashOverride", configHash));
-        ReplayReport report = new ReplayValidator().validateRecompute(session, steps, mode.equals("validate-recompute"));
+        ReplayReport report = new ReplayValidator().validateRecompute(session, steps, true);
         if (report.valid()) {
             out.println("REPLAY OK mode=" + mode + " steps=" + steps.size());
             return 0;
@@ -85,9 +85,14 @@ final class ReplayCommand {
         PortBinding binding = new PortBinding("replay-dte", endpointType, PortRole.MANUAL_DCE_INJECTION,
                 port, true, null, "tagged-text");
         boolean timing = option(args, "--timing", "none").equals("recorded");
-        try (SerialEndpoint endpoint = DefaultEndpointFactory.create(binding)) {
+        Path auditLog = Path.of(option(args, "--audit-log", "runtime/replay/play-to-dte.jsonl"));
+        try (RuntimeEventLog eventLog = RuntimeEventLog.open(auditLog, null);
+             SerialEndpoint endpoint = DefaultEndpointFactory.create(binding)) {
+            HeadlessSession audit = auditSession(args, steps, eventLog);
+            audit.diagnostic(com.jkamsker.modemsim.monitor.EventType.REPLAY_MARKER, "play-to-dte-start");
             RawBytes written = playback.play(endpoint, serialConfig(args), steps, timing);
-            out.println("REPLAY PLAY_TO_DTE steps=" + steps.size() + " outputHex=" + written.toHex());
+            audit.diagnostic(com.jkamsker.modemsim.monitor.EventType.REPLAY_MARKER, "play-to-dte-stop");
+            out.println("REPLAY PLAY_TO_DTE steps=" + steps.size() + " outputHex=" + written.toHex() + " auditLog=" + auditLog);
             return 0;
         } catch (IOException e) {
             err.println("Replay write failed: " + e.getMessage());
@@ -114,7 +119,15 @@ final class ReplayCommand {
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role,
                 configHash == null ? null : java.util.Map.of("configHashOverride", configHash));
-        return new ReplayValidator().validateRecompute(session, steps, mode.equals("validate-recompute"));
+        return new ReplayValidator().validateRecompute(session, steps, true);
+    }
+
+    private HeadlessSession auditSession(String[] args, List<ReplayStep> steps, RuntimeEventLog eventLog) {
+        String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
+        long seed = longOption(args, "--seed", 12345L);
+        String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
+        return new HeadlessSession("replay-play", new ProfileResolver().resolve(profile), seed,
+                eventLog.sink(), MacroEngine.empty(), clock, "replay-dte", "manual-dce-injection");
     }
 
     private SerialConfig serialConfig(String[] args) {

@@ -34,6 +34,7 @@ public final class ReplayPlayback {
             HeadlessSession session, List<ReplayStep> steps, boolean recordedTiming) {
         RawBytes output = RawBytes.empty();
         var events = new ArrayList<com.jkamsker.modemsim.monitor.ModemEvent>();
+        events.addAll(session.diagnostic(EventType.REPLAY_MARKER, "play-to-dte-start").events());
         for (ReplayStep step : steps) {
             List<ReplayEventExpectation> tx = txEvents(step);
             if (tx.isEmpty()) {
@@ -51,6 +52,7 @@ public final class ReplayPlayback {
                 events.addAll(response.events());
             }
         }
+        events.addAll(session.diagnostic(EventType.REPLAY_MARKER, "play-to-dte-stop").events());
         return new SessionResponse(output, events);
     }
 

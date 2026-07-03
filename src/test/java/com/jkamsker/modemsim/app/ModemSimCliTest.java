@@ -90,16 +90,19 @@ class ModemSimCliTest {
     }
 
     @Test
-    void replayCommandSupportsDriveAndPlayModes() {
+    void replayCommandSupportsDriveAndPlayModes() throws Exception {
         Path log = Path.of("src/test/resources/replay/basic-at-events.jsonl");
+        Path audit = tempDir.resolve("play-audit.jsonl");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
                 new PrintStream(out), new PrintStream(err));
 
         assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "drive-from-captured-input"})).isZero();
-        assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "play-to-dte"})).isZero();
+        assertThat(runner.run(new String[] {
+                "replay", log.toString(), "--mode", "play-to-dte", "--audit-log", audit.toString()})).isZero();
         assertThat(out.toString()).contains("mode=drive-from-captured-input").contains("PLAY_TO_DTE");
+        assertThat(Files.readString(audit)).contains("REPLAY_MARKER").contains("play-to-dte-start");
         assertThat(err.toString()).isEmpty();
     }
 

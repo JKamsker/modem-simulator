@@ -82,6 +82,10 @@ final class SessionEventPublisher {
         publish(type, direction, raw, command, before, after, result, false);
     }
 
+    void publishRx(RawBytes raw, RawBytes redactionContext, ModemState state) {
+        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, raw, null, null, state, null, false, redactionContext);
+    }
+
     void publish(
             EventType type,
             Direction direction,
@@ -91,7 +95,20 @@ final class SessionEventPublisher {
             ModemState after,
             CommandResult result,
             boolean smsBodyEntry) {
-        RedactedPayload payload = redactor.redactRaw(type, direction, raw, command, smsBodyEntry);
+        publish(type, direction, raw, command, before, after, result, smsBodyEntry, raw);
+    }
+
+    private void publish(
+            EventType type,
+            Direction direction,
+            RawBytes raw,
+            ParsedCommand command,
+            ModemState before,
+            ModemState after,
+            CommandResult result,
+            boolean smsBodyEntry,
+            RawBytes redactionContext) {
+        RedactedPayload payload = redactor.redactRaw(type, direction, raw, command, smsBodyEntry, redactionContext);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
         RedactionInfo redaction = mergeRedaction(

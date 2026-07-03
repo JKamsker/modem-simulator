@@ -180,6 +180,24 @@ class EventLogTest {
         assertThat(tx.redaction().fields()).doesNotContain("rawHex", "textEscaped");
     }
 
+    @Test
+    void splitSensitiveRxUsesBufferedCommandContextForRedaction() {
+        HeadlessSession locked = new HeadlessSession("split-pin", lockedProfile(), 12345);
+
+        locked.receive(RawBytes.ascii("AT+CP"));
+        SessionResponse pin = locked.receive(RawBytes.ascii("IN=\"9876\"\r"));
+
+        assertNoEventLeak(pin.events(), "9876", "39383736");
+        assertThat(event(pin.events(), EventType.RX_BYTES).rawHex()).isEqualTo("<redacted>");
+
+        HeadlessSession dial = new HeadlessSession("split-dial", BuiltinProfiles.acceptanceSierra(), 12345);
+        dial.receive(RawBytes.ascii("ATD+49"));
+        SessionResponse number = dial.receive(RawBytes.ascii("1701234567\r"));
+
+        assertNoEventLeak(number.events(), "+491701234567", RawBytes.ascii("+491701234567").toHex());
+        assertThat(event(number.events(), EventType.RX_BYTES).redaction().classes()).contains("msisdn");
+    }
+
     private Profile lockedProfile() {
         Profile base = BuiltinProfiles.acceptanceSierra();
         SimRuntime sim = base.initialState().sim();

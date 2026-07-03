@@ -72,18 +72,19 @@ final class GuiReplayService {
             List<ReplayStep> steps, boolean virtualClock, Profile profile, long seed, String port, MacroEngine macros) {
         var replaySession = new HeadlessSession("gui-replay", profile, seed,
                 new InMemoryEventSink(), macros, virtualClock ? "virtual" : "monotonic", port, "modem-simulation");
-        return new ReplayValidator().validateRecompute(replaySession, steps, !steps.isEmpty()
-                && !steps.getFirst().expectedEvents().isEmpty());
+        return new ReplayValidator().validateRecompute(replaySession, steps, true);
     }
 
     private SessionResponse driveSteps(HeadlessSession session, List<ReplayStep> steps) {
         RawBytes output = RawBytes.empty();
         var events = new ArrayList<com.jkamsker.modemsim.monitor.ModemEvent>();
+        events.addAll(session.diagnostic(com.jkamsker.modemsim.monitor.EventType.REPLAY_MARKER, "drive-start").events());
         for (ReplayStep step : steps) {
             SessionResponse response = session.injectDte(step.input(), "replay");
             output = output.append(response.output());
             events.addAll(response.events());
         }
+        events.addAll(session.diagnostic(com.jkamsker.modemsim.monitor.EventType.REPLAY_MARKER, "drive-stop").events());
         return new SessionResponse(output, events);
     }
 

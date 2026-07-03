@@ -70,7 +70,8 @@ public final class HeadlessSession implements SessionActor {
         if (pendingSms != null) { return receiveSmsEntry(bytes); }
         int start = eventCount();
         RawBytes output = RawBytes.empty();
-        events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        RawBytes effective = inputState.effectiveCommandLine(bytes);
+        events.publishRx(bytes, effective, state);
         if (SessionFreezePolicy.ignoresRx(state)) { inputState.markDteRx(lastByteNanos); return response(RawBytes.empty(), start); }
         long idleBeforeRxNanos = inputState.idleBeforeRx(firstByteNanos);
         if (state.call().mode() == CallMode.ONLINE_DATA && pendingEscapeCommandState != null && !bytes.isEmpty()) {
@@ -102,7 +103,6 @@ public final class HeadlessSession implements SessionActor {
         if (state.settings().echo()) {
             output = output.append(bytes);
         }
-        RawBytes effective = inputState.effectiveCommandLine(bytes);
         List<ParsedCommand> commands;
         try {
             commands = new AtCommandParser(state.settings().s5(), state.settings().s3()).parse(effective, SessionEntryMode.from(state.call().mode()));
@@ -150,9 +150,10 @@ public final class HeadlessSession implements SessionActor {
         ModemState before = state;
         state = StateInvariants.normalize(result.state());
         pendingSms = null;
+        RawBytes submitResponse = state.settings().quiet() ? RawBytes.empty() : result.response();
         RawBytes output = macroOperation == null
-                ? scheduleOrReturn("sms-submit", result.response())
-                : scheduleOrReturn(macroOperation, result.response(), macroDelay);
+                ? scheduleOrReturn("sms-submit", submitResponse)
+                : scheduleOrReturn(macroOperation, submitResponse, macroDelay);
         String handler = macroOperation == null ? "SmsSubmitProcessor" : "Macro:" + macroOperation.substring("macro-".length());
         events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
                 new CommandResult(state, List.of(), null, handler, false), true);
