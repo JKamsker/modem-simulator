@@ -31,6 +31,16 @@ class HeadlessSessionCoreTest {
     }
 
     @Test
+    void quietModeSuppressesLaterHandlerOutputInSameCommandLine() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.receive(RawBytes.ascii("ATQ1+CSQ\r"));
+
+        assertThat(response.outputHex()).isEmpty();
+        assertThat(session.snapshot().settings().quiet()).isTrue();
+    }
+
+    @Test
     void readsRegistrationAndSignalFromState() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 
@@ -63,6 +73,7 @@ class HeadlessSessionCoreTest {
         assertThat(session.receive(RawBytes.ascii("ATD123\r")).outputAscii()).isEqualTo("\r\nCONNECT\r\n");
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
         assertThat(session.snapshot().lines().dcd()).isTrue();
+        session.advanceTime(1_000);
         assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.receive(RawBytes.ascii("ATH\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().lines().dcd()).isFalse();
@@ -82,11 +93,36 @@ class HeadlessSessionCoreTest {
     }
 
     @Test
+    void onlineDataModeRequiresGuardTimeBeforeEscapeSequence() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        session.receive(RawBytes.ascii("ATD123\r"));
+
+        assertThat(session.receive(RawBytes.ascii("+++\r")).outputHex()).isEmpty();
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
+        session.advanceTime(1_000);
+        assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_COMMAND);
+    }
+
+    @Test
     void parserUsesActiveS3CommandTerminatorFromSessionState() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 
         session.receive(RawBytes.ascii("ATS3=59\r"));
 
         assertThat(session.receive(RawBytes.ascii("AT;")).outputAscii()).isEqualTo(";\nOK;\n");
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputHex()).isEmpty();
+    }
+
+    @Test
+    void ampersandLineSettingsAreParsedAndApplied() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT&D2&C0\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+
+        assertThat(session.snapshot().settings().ampD()).isEqualTo(2);
+        assertThat(session.snapshot().settings().ampC()).isZero();
+        assertThat(session.snapshot().lines().dcd()).isTrue();
     }
 }

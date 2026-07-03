@@ -27,12 +27,10 @@ final class SessionBytes {
 
     static boolean isEscapeSequence(RawBytes bytes, int terminator) {
         String text = bytes.ascii();
-        int end = text.length();
-        while (end > 0 && (text.charAt(end - 1) == terminator
-                || text.charAt(end - 1) == '\r'
-                || text.charAt(end - 1) == '\n')) {
-            end--;
+        if (text.equals("+++")) {
+            return true;
         }
-        return text.substring(0, end).equals("+++");
+        int end = text.indexOf((char) terminator);
+        return end >= 0 && text.substring(0, end).equals("+++");
     }
 }

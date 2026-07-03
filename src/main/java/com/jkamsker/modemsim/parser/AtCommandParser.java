@@ -18,12 +18,16 @@ public final class AtCommandParser {
     }
 
     public List<ParsedCommand> parse(RawBytes source, EntryMode mode) {
-        String line = stripTerminators(applyBackspace(source.toByteArray()));
+        String edited = applyBackspace(source.toByteArray());
+        String line = beforeTerminator(edited);
         if (line.equals("A/")) {
             return List.of(special(source, line, "A/", CommandKind.SPECIAL_REPEAT, mode));
         }
         if (line.equals("+++")) {
             return List.of(special(source, line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
+        }
+        if (!hasTerminator(edited)) {
+            return List.of();
         }
         if (!line.regionMatches(true, 0, "AT", 0, 2)) {
             throw new AtParseException("AT command line must start with AT");
@@ -61,7 +65,11 @@ public final class AtCommandParser {
             return extendedSlice(body, start);
         }
         if (first == '&' && start + 1 < body.length()) {
-            return new Slice(body.substring(start, start + 2), start + 2);
+            int end = start + 2;
+            if (end < body.length() && Character.isDigit(body.charAt(end))) {
+                end++;
+            }
+            return new Slice(body.substring(start, end), end);
         }
         if (first == 'S' || first == 's') {
             return sRegisterSlice(body, start);
@@ -153,7 +161,8 @@ public final class AtCommandParser {
             case 'O' -> "ATO";
             case 'Z' -> "ATZ";
             case 'I' -> "ATI";
-            default -> upper.startsWith("&") ? "AT" + upper : "AT" + upper.charAt(0);
+            default -> upper.startsWith("&") ? "AT" + upper.substring(0, Math.min(2, upper.length()))
+                    : "AT" + upper.charAt(0);
         };
         String args = upper.startsWith("&") ? upper.substring(2) : upper.substring(1);
         return command(source, rawLine, name, CommandKind.BASIC, args, index, mode);
@@ -180,16 +189,13 @@ public final class AtCommandParser {
         return ch == '+' || ch == '%' || ch == '#' || ch == '!';
     }
 
-    private String stripTerminators(String text) {
-        int end = text.length();
-        while (end > 0 && isTerminator(text.charAt(end - 1))) {
-            end--;
-        }
-        return text.substring(0, end);
+    private String beforeTerminator(String text) {
+        int end = text.indexOf((char) terminator);
+        return end < 0 ? text : text.substring(0, end);
     }
 
-    private boolean isTerminator(char value) {
-        return value == terminator || value == '\r' || value == '\n';
+    private boolean hasTerminator(String text) {
+        return text.indexOf((char) terminator) >= 0;
     }
 
     private String applyBackspace(byte[] bytes) {

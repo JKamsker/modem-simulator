@@ -44,6 +44,14 @@ public record SessionSettings(
         };
     }
 
+    public SessionSettings withAmpD(int value) {
+        return new SessionSettings(echo, quiet, verbose, cmee, s3, s4, s5, s7, s12, value, ampC);
+    }
+
+    public SessionSettings withAmpC(int value) {
+        return new SessionSettings(echo, quiet, verbose, cmee, s3, s4, s5, s7, s12, ampD, value);
+    }
+
     public int register(int number) {
         return switch (number) {
             case 3 -> s3;

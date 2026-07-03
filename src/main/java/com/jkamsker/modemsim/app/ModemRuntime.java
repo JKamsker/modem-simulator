@@ -35,7 +35,8 @@ final class ModemRuntime {
         SerialEndpoint modemEndpoint = endpointFactory.create(modemPort);
         List<RuntimeSidecar> sidecars = new ArrayList<>();
         try (JsonlEventSink eventSink = new JsonlEventSink(config.eventLogPath()); modemEndpoint) {
-            HeadlessSession session = new HeadlessSession("main", profile, config.sessionSeed(), eventSink);
+            HeadlessSession session = new HeadlessSession(
+                    "main", profile, config.sessionSeed(), eventSink, config.clockMode().name().toLowerCase());
             modemEndpoint.open(config.serialLine());
             openSidecars(config, session, sidecars);
             enqueueHeadlessInputs(modemEndpoint, headlessInputs);

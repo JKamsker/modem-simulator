@@ -25,7 +25,7 @@ public final class ModemEvents {
             RawBytes raw,
             ModemState before,
             ModemState after) {
-        return audit(sequence, sessionId, profile, type, direction, injectionType, null, raw, before, after);
+        return audit(sequence, sessionId, profile, type, direction, injectionType, null, raw, before, after, "virtual");
     }
 
     public static ModemEvent audit(
@@ -39,6 +39,21 @@ public final class ModemEvents {
             RawBytes raw,
             ModemState before,
             ModemState after) {
+        return audit(sequence, sessionId, profile, type, direction, injectionType, result, raw, before, after, "virtual");
+    }
+
+    public static ModemEvent audit(
+            long sequence,
+            String sessionId,
+            String profile,
+            EventType type,
+            Direction direction,
+            String injectionType,
+            String result,
+            RawBytes raw,
+            ModemState before,
+            ModemState after,
+            String clockMode) {
         EventRedactor rawRedactor = new EventRedactor();
         RedactedPayload payload = rawRedactor.redactRaw(type, direction, raw, null, false);
         EventStateRedactor stateRedactor = new EventStateRedactor();
@@ -64,7 +79,7 @@ public final class ModemEvents {
                 null,
                 sha256(String.valueOf(before)),
                 12345L,
-                "virtual",
+                clockMode,
                 null,
                 null,
                 injectionType,

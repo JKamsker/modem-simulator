@@ -8,6 +8,7 @@ import com.jkamsker.modemsim.monitor.EventStateRedactor;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.ModemEvents;
 import com.jkamsker.modemsim.monitor.RedactedPayload;
 import com.jkamsker.modemsim.monitor.RedactionInfo;
 import com.jkamsker.modemsim.parser.ParsedCommand;
@@ -33,6 +34,7 @@ final class SessionEventPublisher {
     private final String profileHash;
     private final String configHash;
     private final String initialStateHash;
+    private final String clockMode;
     private final VirtualClock clock;
     private final EventSink eventSink;
     private final InMemoryEventSink memorySink;
@@ -46,13 +48,15 @@ final class SessionEventPublisher {
             long sessionSeed,
             ModemState initialState,
             VirtualClock clock,
-            EventSink eventSink) {
+            EventSink eventSink,
+            String clockMode) {
         this.sessionId = sessionId;
         this.profileId = profileId;
         this.sessionSeed = sessionSeed;
         this.profileHash = sha256(profileId);
         this.configHash = sha256("headless-session:" + profileId);
         this.initialStateHash = sha256(initialState.toString());
+        this.clockMode = clockMode;
         this.clock = clock;
         this.eventSink = eventSink;
         this.memorySink = eventSink instanceof InMemoryEventSink sink ? sink : null;
@@ -86,7 +90,7 @@ final class SessionEventPublisher {
         eventSink.publish(new ModemEvent(
                 OffsetDateTime.now(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), parsed(command), profileId,
-                null, null, profileHash, configHash, null, initialStateHash, sessionSeed, "virtual",
+                null, null, profileHash, configHash, null, initialStateHash, sessionSeed, clockMode,
                 null, null, null, 0,
                 result == null ? null : result.handler(),
                 result == null || result.finalResult() == null ? null : result.finalResult().name(),
@@ -111,10 +115,17 @@ final class SessionEventPublisher {
         eventSink.publish(new ModemEvent(
                 OffsetDateTime.now(), clock.nowNanos(), ++sequence, sessionId, type,
                 Direction.INTERNAL, "", null, null, profileId,
-                null, null, profileHash, configHash, null, initialStateHash, sessionSeed, "virtual",
+                null, null, profileHash, configHash, null, initialStateHash, sessionSeed, clockMode,
                 null, null, null, 0, null, null, data, null,
                 stateRedacted ? stateRedactor.redactSensitiveData(state) : state,
                 mergeRedaction(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
+    }
+
+    void publishAudit(
+            EventType type, Direction direction, String injectionType, String result,
+            RawBytes raw, ModemState before, ModemState after) {
+        publishEvent(ModemEvents.audit(
+                nextSequence(), sessionId, profileId, type, direction, injectionType, result, raw, before, after, clockMode));
     }
 
     void publishEvent(ModemEvent event) {

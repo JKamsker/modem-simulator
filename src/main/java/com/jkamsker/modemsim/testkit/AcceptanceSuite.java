@@ -157,6 +157,7 @@ public final class AcceptanceSuite {
         HeadlessSession s = session();
         requireContains(s.receive(RawBytes.ascii("ATD123\r")).outputAscii(), "CONNECT");
         require(s.snapshot().lines().dcd());
+        s.advanceTime(1_000);
         requireContains(s.receive(RawBytes.ascii("+++\r")).outputAscii(), "OK");
         requireContains(s.receive(RawBytes.ascii("ATH\r")).outputAscii(), "OK");
         require(!s.snapshot().lines().dcd());

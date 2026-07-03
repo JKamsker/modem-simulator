@@ -50,4 +50,21 @@ class AtCommandParserTest {
 
         assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT");
     }
+
+    @Test
+    void ignoresUnterminatedCommandLineAndDoesNotTreatLfAsDefaultTerminator() {
+        assertThat(parser.parse(RawBytes.ascii("AT"), EntryMode.COMMAND)).isEmpty();
+        assertThat(parser.parse(RawBytes.ascii("AT\n"), EntryMode.COMMAND)).isEmpty();
+        assertThat(parser.parse(RawBytes.ascii("AT\r\n"), EntryMode.COMMAND))
+                .extracting(ParsedCommand::normalizedName)
+                .containsExactly("AT");
+    }
+
+    @Test
+    void parsesAmpersandCommandsWithNumericArguments() {
+        var commands = parser.parse(RawBytes.ascii("AT&D2&C1\r"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT&D", "AT&C");
+        assertThat(commands).extracting(ParsedCommand::arguments).containsExactly("2", "1");
+    }
 }

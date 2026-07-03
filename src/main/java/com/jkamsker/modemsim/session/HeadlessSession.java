@@ -12,7 +12,6 @@ import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEvent;
-import com.jkamsker.modemsim.monitor.ModemEvents;
 import com.jkamsker.modemsim.parser.AtCommandParser;
 import com.jkamsker.modemsim.parser.EntryMode;
 import com.jkamsker.modemsim.parser.ParsedCommand;
@@ -30,7 +29,6 @@ import com.jkamsker.modemsim.state.NetworkDelay;
 import java.util.List;
 
 public final class HeadlessSession implements SessionActor {
-    private final String sessionId;
     private final Profile profile;
     private final DefaultCommandRouter router = new DefaultCommandRouter();
     private final MacroEngine macroEngine;
@@ -43,6 +41,7 @@ public final class HeadlessSession implements SessionActor {
     private ModemState state;
     private RawBytes lastCommandLine = RawBytes.empty();
     private RawBytes pendingSmsBytes = RawBytes.empty();
+    private long lastDteRxNanos = Long.MIN_VALUE;
     private PendingSms pendingSms;
 
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed) {
@@ -55,12 +54,21 @@ public final class HeadlessSession implements SessionActor {
 
     public HeadlessSession(
             String sessionId, Profile profile, long sessionSeed, EventSink eventSink, MacroEngine macroEngine) {
-        this.sessionId = sessionId;
+        this(sessionId, profile, sessionSeed, eventSink, macroEngine, "virtual");
+    }
+
+    public HeadlessSession(String sessionId, Profile profile, long sessionSeed, EventSink eventSink, String clockMode) {
+        this(sessionId, profile, sessionSeed, eventSink, MacroEngine.empty(), clockMode);
+    }
+
+    private HeadlessSession(
+            String sessionId, Profile profile, long sessionSeed, EventSink eventSink,
+            MacroEngine macroEngine, String clockMode) {
         this.profile = profile;
         this.macroEngine = macroEngine;
         this.scheduler = new DeterministicScheduler(sessionSeed);
         this.state = profile.initialState();
-        this.events = new SessionEventPublisher(sessionId, profile.id(), sessionSeed, state, clock, eventSink);
+        this.events = new SessionEventPublisher(sessionId, profile.id(), sessionSeed, state, clock, eventSink, clockMode);
         events.publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
     }
 
@@ -72,8 +80,12 @@ public final class HeadlessSession implements SessionActor {
         int start = eventCount();
         RawBytes output = RawBytes.empty();
         events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        long idleBeforeRxNanos = lastDteRxNanos == Long.MIN_VALUE
+                ? Long.MAX_VALUE
+                : clock.nowNanos() - lastDteRxNanos;
         if (state.call().mode() == CallMode.ONLINE_DATA
-                && !SessionBytes.isEscapeSequence(bytes, state.settings().s3())) {
+                && (!SessionBytes.isEscapeSequence(bytes, state.settings().s3()) || !guardSatisfied(idleBeforeRxNanos))) {
+            markDteRx();
             return response(RawBytes.empty(), start);
         }
         if (state.settings().echo()) {
@@ -92,7 +104,9 @@ public final class HeadlessSession implements SessionActor {
             MacroDecision decision = macroEngine.evaluateCommand(command, state, profile);
             CommandResult result = decision.matched() ? executeMacro(decision) : router.route(profile, state, command);
             state = result.state();
-            output = output.append(renderFrames(result.frames()));
+            if (!state.settings().quiet()) {
+                output = output.append(renderFrames(result.frames()));
+            }
             if (command.normalizedName().equals("+CMGS") && result.finalResult() == null) {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
                 pendingSmsBytes = RawBytes.empty();
@@ -109,6 +123,7 @@ public final class HeadlessSession implements SessionActor {
         if (!output.isEmpty()) {
             events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
+        markDteRx();
         return response(output, start);
     }
 
@@ -187,9 +202,7 @@ public final class HeadlessSession implements SessionActor {
 
     public SessionResponse injectDce(RawBytes bytes, String injectionType) {
         int start = eventCount();
-        events.publishEvent(ModemEvents.audit(
-                events.nextSequence(), sessionId, profile.id(), EventType.INJECTION, Direction.DCE_TO_DTE,
-                injectionType, bytes, state, state));
+        events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, state, state);
         events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
         return response(bytes, start);
     }
@@ -209,17 +222,13 @@ public final class HeadlessSession implements SessionActor {
     }
 
     public void diagnostic(EventType eventType, String result) {
-        events.publishEvent(ModemEvents.audit(
-                events.nextSequence(), sessionId, profile.id(), eventType, Direction.INTERNAL,
-                null, result, RawBytes.empty(), state, state));
+        events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state);
     }
 
     private SessionResponse applyState(ModemState next, String injectionType, String result, EventType eventType) {
         int start = eventCount();
         ModemState before = state;
-        events.publishEvent(ModemEvents.audit(
-                events.nextSequence(), sessionId, profile.id(), eventType, Direction.INTERNAL,
-                injectionType, result, RawBytes.empty(), before, next));
+        events.publishAudit(eventType, Direction.INTERNAL, injectionType, result, RawBytes.empty(), before, next);
         state = next;
         return response(RawBytes.empty(), start);
     }
@@ -280,6 +289,11 @@ public final class HeadlessSession implements SessionActor {
     }
 
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
+
+    private boolean guardSatisfied(long idleBeforeRxNanos) { return idleBeforeRxNanos >= state.settings().s12() * 1_000_000L; }
+    private void markDteRx() {
+        lastDteRxNanos = clock.nowNanos();
+    }
 
     private int eventCount() { return events.eventCount(); }
 }

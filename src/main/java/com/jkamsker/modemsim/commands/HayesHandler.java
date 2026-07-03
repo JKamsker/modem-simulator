@@ -31,6 +31,8 @@ public final class HayesHandler implements CommandHandler {
             case "ATZ", "AT&F" -> CommandResult.ok(resetVolatile(state), "HayesHandler");
             case "AT&W" -> CommandResult.ok(state, "HayesHandler");
             case "AT&V" -> viewConfig(state);
+            case "AT&D" -> setDtrPolicy(state, command.arguments());
+            case "AT&C" -> setDcdPolicy(state, command.arguments());
             case "ATD" -> dial(state, command.arguments());
             case "ATH" -> hangup(state);
             case "ATO" -> online(state);
@@ -57,7 +59,8 @@ public final class HayesHandler implements CommandHandler {
                                 + " Q" + (settings.quiet() ? 1 : 0)
                                 + " V" + (settings.verbose() ? 1 : 0)),
                         new TextFrame("S3=" + settings.s3() + " S4=" + settings.s4()
-                                + " S5=" + settings.s5() + " S7=" + settings.s7())),
+                                + " S5=" + settings.s5() + " S7=" + settings.s7()
+                                + " &D" + settings.ampD() + " &C" + settings.ampC())),
                 ResultCode.OK,
                 "HayesHandler",
                 false);
@@ -83,6 +86,23 @@ public final class HayesHandler implements CommandHandler {
         }
         return new CommandResult(state.withCall(state.call().withMode(CallMode.ONLINE_DATA)),
                 List.of(), ResultCode.CONNECT, "HayesHandler", false);
+    }
+
+    private CommandResult setDtrPolicy(ModemState state, String value) {
+        int mode = parseNumber(value, 0);
+        if (mode < 0 || mode > 3) {
+            return CommandResult.error(state, "HayesHandler");
+        }
+        return CommandResult.ok(state.withSettings(state.settings().withAmpD(mode)), "HayesHandler");
+    }
+
+    private CommandResult setDcdPolicy(ModemState state, String value) {
+        int mode = parseNumber(value, 0);
+        if (mode < 0 || mode > 1) {
+            return CommandResult.error(state, "HayesHandler");
+        }
+        ModemState next = state.withSettings(state.settings().withAmpC(mode));
+        return CommandResult.ok(mode == 0 ? next.withLines(next.lines().withDcd(true)) : next, "HayesHandler");
     }
 
     private CommandResult escapeToOnlineCommandMode(ModemState state) {
