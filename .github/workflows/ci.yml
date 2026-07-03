@@ -8,8 +8,8 @@ on:
       - 'codex/**'
   workflow_dispatch:
     inputs:
-      run_serial_it:
-        description: Run serial-it tagged tests when external loopback fixtures are available
+      run_windows_serial_it:
+        description: Run Windows serial-it against MODEMSIM_WINDOWS_SERIAL_* secrets or runner env
         required: false
         default: 'false'
 
@@ -36,7 +36,8 @@ jobs:
         shell: bash
         run: |
           git diff --check
-          if grep -RIn --exclude-dir=.git --exclude-dir=target 'alegs3' .; then
+          forbidden='alegs''3'
+          if git grep -n "$forbidden" -- .; then
             exit 1
           fi
       - name: Log native access target
@@ -167,3 +168,27 @@ jobs:
             kill "$(cat target/serial-it/socat.pid)" || true
             cat target/serial-it/socat.log || true
           fi
+
+  serial-it-windows:
+    name: Serial integration tests (Windows hardware/com0com)
+    if: github.event_name == 'workflow_dispatch' && inputs.run_windows_serial_it == 'true'
+    runs-on: windows-2025
+    env:
+      MODEMSIM_SERIAL_MODEM_PORT: ${{ secrets.MODEMSIM_WINDOWS_SERIAL_MODEM_PORT }}
+      MODEMSIM_SERIAL_DTE_PORT: ${{ secrets.MODEMSIM_WINDOWS_SERIAL_DTE_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - name: Require Windows serial fixture
+        shell: pwsh
+        run: |
+          if (-not $env:MODEMSIM_SERIAL_MODEM_PORT -or -not $env:MODEMSIM_SERIAL_DTE_PORT) {
+            throw "Set MODEMSIM_WINDOWS_SERIAL_MODEM_PORT and MODEMSIM_WINDOWS_SERIAL_DTE_PORT secrets for this manual lane."
+          }
+      - name: Serial lane
+        shell: pwsh
+        run: .\mvnw.cmd -B -DexcludedGroups= -Dgroups=serial-it test
