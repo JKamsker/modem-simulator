@@ -110,8 +110,8 @@ final class GuiSessionController {
         });
     }
 
-    SessionResponse urc(String text, boolean allowed) {
-        return rawDceToDte(text + "\\r\\n", allowed);
+    SessionResponse urc(String text, boolean ignored) {
+        return enqueue("urc", () -> { SessionResponse response = session.injectDce(RawBytes.ascii(unescape(text + "\\r\\n")), "urc-helper"); writeRuntimeDce(response.output()); return response; });
     }
 
     SessionResponse applyState(GuiStatePatch patch) {

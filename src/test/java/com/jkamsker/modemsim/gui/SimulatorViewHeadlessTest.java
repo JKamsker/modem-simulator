@@ -3,7 +3,9 @@ package com.jkamsker.modemsim.gui;
 import javafx.application.Platform;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TabPane;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ class SimulatorViewHeadlessTest {
                     find(root, "inject.sendDte").isDisabled(),
                     find(root, "fault.networkOutage").isDisabled(),
                     find(root, "macro.reload").isDisabled(),
+                    find(root, "replay.runSelected").isDisabled(),
                     find(root, "replay.driveFromCapturedInput").isDisabled(),
                     find(root, "replay.playToDte").isDisabled(),
                     find(root, "log.export").isDisabled(),
@@ -38,7 +41,20 @@ class SimulatorViewHeadlessTest {
 
         assertThat(find(root, "session.initialScenario")).isNotNull();
         assertThat(find(root, "macro.id")).isNotNull();
-        assertThat(disabled).containsExactly(true, true, true, true, true, true, false, false);
+        assertThat(disabled).containsExactly(true, true, true, true, true, true, true, false, false);
+    }
+
+    @Test
+    void urcHelperUsesSafeGuiPath() throws Exception {
+        startToolkit();
+        Parent root = fx(() -> new SimulatorView().root());
+
+        String output = fx(() -> {
+            ((Button) find(root, "inject.sendUrc")).fire();
+            return ((TextArea) find(root, "session.output")).getText();
+        });
+
+        assertThat(output).contains("+CREG: 4");
     }
 
     private static void startToolkit() throws Exception {

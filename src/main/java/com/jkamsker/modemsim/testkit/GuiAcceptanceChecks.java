@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.testkit;
 
 import com.jkamsker.modemsim.gui.GuiControlCatalog;
+import com.jkamsker.modemsim.gui.GuiAcceptanceHarness;
 import com.jkamsker.modemsim.gui.GuiControl;
 import com.jkamsker.modemsim.gui.ReadOnlyPolicy;
 import com.jkamsker.modemsim.monitor.EventType;
@@ -14,6 +15,7 @@ import java.util.List;
 
 final class GuiAcceptanceChecks {
     void liveLog() {
+        new GuiAcceptanceHarness().liveLog();
         var controls = new GuiControlCatalog().controls();
         require(controls.stream().anyMatch(c -> c.id().equals("log.table")));
         require(controls.stream().anyMatch(c -> c.id().equals("log.export")));
@@ -37,6 +39,7 @@ final class GuiAcceptanceChecks {
     }
 
     void injection() {
+        new GuiAcceptanceHarness().injection();
         var catalog = new GuiControlCatalog().controls();
         require(catalog.stream().filter(c -> c.id().startsWith("inject.")).anyMatch(GuiControl::enabled));
         readOnly();

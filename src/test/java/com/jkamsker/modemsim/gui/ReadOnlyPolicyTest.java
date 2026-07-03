@@ -18,6 +18,7 @@ class ReadOnlyPolicyTest {
         assertThat(controls).filteredOn(control -> control.id().equals("macro.reload")
                         || control.id().equals("macro.enable")
                         || control.id().equals("macro.disable")
+                        || control.id().equals("replay.runSelected")
                         || control.id().equals("replay.driveFromCapturedInput")
                         || control.id().equals("replay.playToDte")
                         || control.id().equals("session.reconnect"))

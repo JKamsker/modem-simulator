@@ -47,6 +47,7 @@ final class SimulatorView {
 
     Parent root() {
         output.setEditable(false);
+        output.setId("session.output");
         output.setPrefRowCount(4);
         export.setEditable(false);
         export.setId("export.preview");
