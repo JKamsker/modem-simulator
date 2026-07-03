@@ -50,6 +50,7 @@ function Invoke-TimedProcess {
   param(
     [Parameter(Mandatory = $true)][string] $FilePath,
     [string[]] $ArgumentList = @(),
+    [string] $WorkingDirectory,
     [Parameter(Mandatory = $true)][int] $TimeoutSeconds,
     [Parameter(Mandatory = $true)][string] $Description
   )
@@ -60,13 +61,20 @@ function Invoke-TimedProcess {
   $argumentText = $ArgumentList -join " "
   Write-Host "Running $Description`: $FilePath $argumentText"
 
-  $process = Start-Process `
-    -FilePath $FilePath `
-    -ArgumentList $ArgumentList `
-    -NoNewWindow `
-    -PassThru `
-    -RedirectStandardOutput $stdout `
-    -RedirectStandardError $stderr
+  $startProcessArguments = @{
+    FilePath = $FilePath
+    ArgumentList = $ArgumentList
+    NoNewWindow = $true
+    PassThru = $true
+    RedirectStandardOutput = $stdout
+    RedirectStandardError = $stderr
+  }
+  if ($WorkingDirectory) {
+    $startProcessArguments.WorkingDirectory = $WorkingDirectory
+    Write-Host "Working directory: $WorkingDirectory"
+  }
+
+  $process = Start-Process @startProcessArguments
 
   if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     Stop-Process -Id $process.Id -Force
@@ -115,6 +123,7 @@ function Invoke-Setupc {
   $result = Invoke-TimedProcess `
     -FilePath $Setupc.FullName `
     -ArgumentList $SetupArgs `
+    -WorkingDirectory $Setupc.DirectoryName `
     -TimeoutSeconds $timeoutSeconds `
     -Description $description
   Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $timeoutSeconds -Description $description
