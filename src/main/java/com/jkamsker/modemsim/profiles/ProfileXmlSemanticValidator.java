@@ -67,6 +67,7 @@ final class ProfileXmlSemanticValidator {
             report.error(profile.getAttribute("id") + ": cellular profile requires operator metadata");
         }
         validateDelayOperations(profile, network, report);
+        validateDuplicateRegisters(profile, report);
         validateCoverage(profile, Dom.child(profile, "coverage"), report);
     }
 
@@ -172,6 +173,20 @@ final class ProfileXmlSemanticValidator {
         }
         if (commandsTotal < commands.size()) {
             report.error(id + ": coverage commandsTotal must cover listed commands");
+        }
+    }
+
+    private void validateDuplicateRegisters(Element profile, ValidationReport report) {
+        Element registers = Dom.child(profile, "registers");
+        if (registers == null) {
+            return;
+        }
+        Set<String> names = new HashSet<>();
+        for (Element register : Dom.children(registers, "register")) {
+            String name = register.getAttribute("name");
+            if (!names.add(name)) {
+                report.error(profile.getAttribute("id") + ": duplicate register " + name);
+            }
         }
     }
 }

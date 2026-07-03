@@ -192,6 +192,29 @@ class ProfileXmlLoaderEdgeTest {
     }
 
     @Test
+    void rejectsDuplicateRegistersBeforeInheritanceMerge() throws Exception {
+        Path path = tempDir.resolve("duplicate-register.xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <modem-simulator version="1.0">
+                  <profile id="duplicate-register" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <registers>
+                      <register name="S7" default="60" min="1" max="120"/>
+                      <register name="S7" default="70" min="1" max="120"/>
+                    </registers>
+                    <coverage source="bad.md" commandsTotal="0" unknown="0"/>
+                  </profile>
+                </modem-simulator>
+                """);
+
+        ValidationReport report = new ProfileXmlLoader().validate(path);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("duplicate register S7"));
+    }
+
+    @Test
     void compatibilityDeviationAllowsNonRegisteredLocationFields() throws Exception {
         Path path = tempDir.resolve("deviation.xml");
         Files.writeString(path, """
