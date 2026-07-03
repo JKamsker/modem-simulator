@@ -8,9 +8,13 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.ModemEvent;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.session.SessionResponse;
+import com.jkamsker.modemsim.state.NetworkDelay;
+import com.jkamsker.modemsim.state.NetworkRuntime;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 
 final class GuiAcceptanceChecks {
@@ -29,6 +33,10 @@ final class GuiAcceptanceChecks {
         require("HayesHandler".equals(handled.handler()) && "OK".equals(handled.result()));
         require(handled.latencyMs() != null && handled.stateBefore() != null && handled.stateAfter() != null);
         require(!event(response, EventType.RX_BYTES).rawHex().isBlank());
+        HeadlessSession delayed = new HeadlessSession("gui-delay", smsDelayProfile(77), 12345);
+        delayed.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        require(Double.valueOf(77).equals(event(delayed.receive(RawBytes.ascii("latency\u001A")),
+                EventType.HANDLER_RESULT).latencyMs()));
     }
 
     void readOnly() {
@@ -54,6 +62,16 @@ final class GuiAcceptanceChecks {
                 .filter(item -> item.eventType() == type)
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private Profile smsDelayProfile(int delayMs) {
+        Profile base = BuiltinProfiles.acceptanceSierra();
+        NetworkRuntime network = base.initialState().network();
+        var delays = new LinkedHashMap<>(network.delays());
+        delays.put("sms-submit", new NetworkDelay("sms-submit", delayMs, delayMs));
+        return base.withInitialState(base.initialState().withNetwork(new NetworkRuntime(
+                network.cregN(), network.stat(), network.lac(), network.ci(), network.act(),
+                network.rejectCauseType(), network.rejectCause(), network.operator(), network.smsRateLimit(), delays)));
     }
 
     private void require(boolean condition) {

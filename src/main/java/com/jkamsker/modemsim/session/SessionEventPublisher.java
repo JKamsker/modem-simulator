@@ -95,6 +95,18 @@ final class SessionEventPublisher {
                 false, raw, Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0);
     }
 
+    void publishWithLatency(
+            EventType type,
+            Direction direction,
+            RawBytes raw,
+            ParsedCommand command,
+            ModemState before,
+            ModemState after,
+            CommandResult result,
+            double latencyMs) {
+        publish(type, direction, raw, command, before, after, result, false, raw, latencyMs);
+    }
+
     void publishRx(RawBytes raw, RawBytes redactionContext, ModemState state) {
         publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, raw, null, null, state, null, false, redactionContext, null);
     }

@@ -31,6 +31,7 @@ final class MacroCommandRouter {
     private final MacroScheduler scheduler;
     private final DecisionSink decisionSink;
     private List<PendingMacroTransition> pendingDelayedTransitions = List.of();
+    private Integer scheduledDelayMs;
 
     MacroCommandRouter(
             Profile profile,
@@ -49,6 +50,7 @@ final class MacroCommandRouter {
 
     CommandResult route(ParsedCommand command, ModemState state) {
         pendingDelayedTransitions = List.of();
+        scheduledDelayMs = null;
         CommandResult result = null;
         CommandResult before = commandMacro(command, state, MacroPhase.BEFORE, false);
         if (before != null) {
@@ -78,6 +80,12 @@ final class MacroCommandRouter {
         return result;
     }
 
+    Integer consumeScheduledDelayMs() {
+        Integer result = scheduledDelayMs;
+        scheduledDelayMs = null;
+        return result;
+    }
+
     private CommandResult commandMacro(
             ParsedCommand command, ModemState state, MacroPhase phase, boolean stopLine) {
         MacroDecision decision = macroEngine.evaluateCommand(command, state, profile, phase);
@@ -93,6 +101,7 @@ final class MacroCommandRouter {
         RawBytes delayed = renderer.render(ordered.delayedFrames(), delayedState == null ? next : delayedState);
         String operation = "macro-" + decision.macroId();
         ScheduledPayload scheduled = scheduler.schedule(operation, delayed, decision.delay(operation), next);
+        recordScheduledDelay(scheduled.sampledDelayMs());
         if (delayedState != null) {
             if (scheduled.scheduledSequence() == null) {
                 next = delayedState;
@@ -150,7 +159,14 @@ final class MacroCommandRouter {
 
     CommandResult executeTimer(MacroDecision decision, ModemState state) {
         pendingDelayedTransitions = List.of();
+        scheduledDelayMs = null;
         return executeMacro(decision, state, false);
+    }
+
+    private void recordScheduledDelay(Integer delayMs) {
+        if (delayMs != null && delayMs > 0) {
+            scheduledDelayMs = scheduledDelayMs == null ? delayMs : Math.max(scheduledDelayMs, delayMs);
+        }
     }
 
     ModemState applyFaults(ModemState source, MacroDecision decision) {

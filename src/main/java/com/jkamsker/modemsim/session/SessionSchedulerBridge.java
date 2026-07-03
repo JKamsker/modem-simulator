@@ -42,7 +42,7 @@ final class SessionSchedulerBridge {
 
     ScheduledPayload scheduleWithMetadata(String operation, RawBytes payload, NetworkDelay delay, ModemState source) {
         if (delay == null || delay.maxMs() == 0) {
-            return new ScheduledPayload(payload, null);
+            return new ScheduledPayload(payload, null, 0);
         }
         SourcePriority priority = operation != null && operation.startsWith("macro-")
                 ? SourcePriority.MACRO
@@ -50,7 +50,12 @@ final class SessionSchedulerBridge {
         ScheduledEmission emission = scheduler.enqueue(
                 clock.nowNanos(), events.nextSequence(), priority, payload, source.version(), operation, delay);
         events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, source);
-        return new ScheduledPayload(RawBytes.empty(), emission.sequence());
+        return new ScheduledPayload(RawBytes.empty(), emission.sequence(), emission.sampledDelayMs());
+    }
+
+    Integer previewDelayAfterNextEvent(String operation, NetworkDelay delay) {
+        return delay == null || delay.maxMs() == 0 ? null
+                : scheduler.sampleDelay(operation, events.nextSequence() + 1, delay);
     }
 
     RawBytes scheduleImmediate(String operation, RawBytes payload, ModemState source) {

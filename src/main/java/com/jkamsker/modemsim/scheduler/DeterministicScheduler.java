@@ -80,7 +80,7 @@ public final class DeterministicScheduler {
         return queue.size();
     }
 
-    private int sampleDelay(String operation, long sequence, NetworkDelay delay) {
+    public int sampleDelay(String operation, long sequence, NetworkDelay delay) {
         if (delay == null || delay.maxMs() == delay.minMs()) {
             return delay == null ? 0 : delay.minMs();
         }

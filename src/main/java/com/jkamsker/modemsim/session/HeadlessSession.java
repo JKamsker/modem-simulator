@@ -148,12 +148,12 @@ public final class HeadlessSession implements SessionActor {
         state = StateInvariants.normalize(result.state()); SessionFaultScheduler.cancelIfModemFault(before, state, scheduler, pendingMacroTransitions);
         pendingSms = null;
         RawBytes submitResponse = state.settings().quiet() ? RawBytes.empty() : result.response();
-        RawBytes output = macroOperation == null
-                ? scheduleOrReturn("sms-submit", submitResponse)
-                : scheduleOrReturn(macroOperation, submitResponse, macroDelay);
+        String operation = macroOperation == null ? "sms-submit" : macroOperation;
+        ScheduledPayload scheduled = scheduleMacro(operation, submitResponse, macroDelay, state);
+        RawBytes output = scheduled.output();
         String handler = macroOperation == null ? "SmsSubmitProcessor" : "Macro:" + macroOperation.substring("macro-".length());
-        events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
-                new CommandResult(state, List.of(), null, handler, false), true);
+        events.publishWithLatency(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
+                new CommandResult(state, List.of(), null, handler, false), scheduled.sampledDelayMs());
         if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
         if (!entry.tailBytes().isEmpty()) { output = output.append(receive(entry.tailBytes()).output()); }
         return response(output, start);
@@ -193,11 +193,11 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse applyFault(String type) { return applyState(faultService.apply(state, new com.jkamsker.modemsim.macros.FaultAction(type, type.equals("reboot") || type.equals("modem-reboot") ? 3000 : null, null, null, null, null)), null, type, EventType.FAULT_TRIGGERED); }
     public synchronized SessionResponse applyFault(com.jkamsker.modemsim.macros.FaultAction action) { return applyState(faultService.apply(state, action), null, action.type(), EventType.FAULT_TRIGGERED); }
     public synchronized SessionResponse fireTimer(String timerId) {
-        int start = eventCount(); MacroDecision decision = macroEngine.evaluateTimer(timerId, state, profile);
+        int start = eventCount(); long startedNanos = clock.nowNanos(); MacroDecision decision = macroEngine.evaluateTimer(timerId, state, profile);
         if (!decision.matched()) { return response(RawBytes.empty(), start); }
         ModemState before = state; CommandResult result = commandRouter.executeTimer(decision, state); pendingMacroTransitions.addAll(commandRouter.pendingDelayedTransitions()); state = StateInvariants.normalize(result.state());
         var stateMacro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(stateMacro.state()); rebootTimer.arm(state); SessionFaultScheduler.cancelIfModemFault(before, state, scheduler, pendingMacroTransitions);
-        RawBytes output = SessionFrameRenderer.render(result.frames(), state).append(stateChangeOutput(before, state)).append(stateMacro.output()); events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state, result);
+        RawBytes output = SessionFrameRenderer.render(result.frames(), state).append(stateChangeOutput(before, state)).append(stateMacro.output()); SessionResultEvents.publish(events, EventType.HANDLER_RESULT, null, before, state, result, startedNanos, commandRouter.consumeScheduledDelayMs());
         if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
         return response(output, start);
     }
@@ -248,7 +248,7 @@ public final class HeadlessSession implements SessionActor {
     private RawBytes scheduleOrReturn(String operation, RawBytes payload) { return SessionDelayScheduler.schedule(scheduler, operation, payload, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, int delayMs) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delayMs, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delay, state); }
-    private ScheduledPayload scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source) { return SessionDelayScheduler.scheduleWithMetadata(scheduler, operation, payload, delay, source); }
+    private ScheduledPayload scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source) { return SessionDelayScheduler.scheduleWithMetadata(scheduler, operation, payload, delay == null && source.network() != null ? source.network().delays().get(operation) : delay, source); }
     private RawBytes stateChangeOutput(ModemState before, ModemState after) { RawBytes urc = SessionStateChangeMacros.registrationUrc(before, after); return urc.isEmpty() ? RawBytes.empty() : scheduler.scheduleImmediate("state-urc", urc, after); }
     private RawBytes holdTxIfNeeded(RawBytes output) { if (!output.isEmpty() && SessionFreezePolicy.holdsTx(state)) { heldTx = heldTx.append(output); return RawBytes.empty(); } return output; }
     private RawBytes releaseHeldTx(ModemState before, ModemState after) { if (SessionFreezePolicy.releasesTx(before, after)) { RawBytes released = heldTx; heldTx = RawBytes.empty(); return released; } return RawBytes.empty(); }

@@ -54,6 +54,7 @@ final class SessionCommandExecutor {
             ModemState before = state;
             long startedNanos = scheduler.nowNanos();
             CommandResult routed = commandRouter.route(command, state);
+            Integer macroDelayMs = commandRouter.consumeScheduledDelayMs();
             pendingMacroTransitions.addAll(commandRouter.pendingDelayedTransitions());
             boolean delayedDial = command.normalizedName().equals("ATD")
                     && DialDelayPolicy.shouldDelay(routed, routed.state());
@@ -74,8 +75,8 @@ final class SessionCommandExecutor {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
             }
             EventType resultEvent = result.invalidParameter() ? EventType.PARSE_ERROR : EventType.HANDLER_RESULT;
-            events.publishMeasured(resultEvent, Direction.INTERNAL, RawBytes.empty(),
-                    command, before, state, result, startedNanos);
+            Integer latencyMs = macroDelayMs == null ? dialLatencyMs(delayedDial, state) : macroDelayMs;
+            SessionResultEvents.publish(events, resultEvent, command, before, state, result, startedNanos, latencyMs);
             if (isUnknownRestart(result)) {
                 events.publishAudit(EventType.FAULT_TRIGGERED, Direction.INTERNAL,
                         "unknown-at-command-policy", "restart", RawBytes.empty(), before, state);
@@ -112,6 +113,11 @@ final class SessionCommandExecutor {
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, ModemState state) {
         NetworkDelay delay = state.network() == null ? null : state.network().delays().get(operation);
         return scheduler.scheduleOrReturn(operation, payload, delay, state);
+    }
+
+    private Integer dialLatencyMs(boolean delayedDial, ModemState state) {
+        NetworkDelay delay = delayedDial && state.network() != null ? state.network().delays().get("dial") : null;
+        return scheduler.previewDelayAfterNextEvent("dial", delay);
     }
 
     private CommandResult applySavedSettings(ParsedCommand command, CommandResult result) {
