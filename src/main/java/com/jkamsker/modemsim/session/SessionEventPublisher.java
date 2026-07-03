@@ -37,7 +37,7 @@ final class SessionEventPublisher {
     private final String portRole;
     private final String clockMode;
     private final VirtualClock clock;
-    private final EventSink eventSink;
+    private final SessionEventDelivery delivery;
     private final InMemoryEventSink memorySink;
     private final EventRedactor redactor = new EventRedactor();
     private final EventStateRedactor stateRedactor = new EventStateRedactor();
@@ -67,7 +67,7 @@ final class SessionEventPublisher {
         this.portRole = portRole;
         this.clockMode = clockMode;
         this.clock = clock;
-        this.eventSink = eventSink;
+        this.delivery = new SessionEventDelivery(eventSink, () -> ++sequence);
         this.memorySink = eventSink instanceof InMemoryEventSink sink ? sink : null;
     }
 
@@ -82,8 +82,21 @@ final class SessionEventPublisher {
         publish(type, direction, raw, command, before, after, result, false);
     }
 
+    void publishMeasured(
+            EventType type,
+            Direction direction,
+            RawBytes raw,
+            ParsedCommand command,
+            ModemState before,
+            ModemState after,
+            CommandResult result,
+            long startedNanos) {
+        publish(type, direction, raw, command, before, after, result,
+                false, raw, Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0);
+    }
+
     void publishRx(RawBytes raw, RawBytes redactionContext, ModemState state) {
-        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, raw, null, null, state, null, false, redactionContext);
+        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, raw, null, null, state, null, false, redactionContext, null);
     }
 
     void publish(
@@ -95,7 +108,7 @@ final class SessionEventPublisher {
             ModemState after,
             CommandResult result,
             boolean smsBodyEntry) {
-        publish(type, direction, raw, command, before, after, result, smsBodyEntry, raw);
+        publish(type, direction, raw, command, before, after, result, smsBodyEntry, raw, null);
     }
 
     private void publish(
@@ -107,17 +120,18 @@ final class SessionEventPublisher {
             ModemState after,
             CommandResult result,
             boolean smsBodyEntry,
-            RawBytes redactionContext) {
+            RawBytes redactionContext,
+            Double latencyMs) {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, command, smsBodyEntry, redactionContext);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
-        RedactionInfo redaction = mergeRedaction(
+        RedactionInfo redaction = SessionEventRedactions.merge(
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
-        eventSink.publish(new ModemEvent(
+        delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), ParsedCommandEventData.from(command, redactor), profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                macroId(result), result == null ? null : 0.0, null, 0,
+                macroId(result), result == null ? null : latencyMs, null, 0,
                 replayDivergent(type),
                 result == null ? null : result.handler(),
                 result == null || result.finalResult() == null ? null : result.finalResult().name(),
@@ -147,13 +161,13 @@ final class SessionEventPublisher {
         data.put("cancelled", cancelled);
         String macroId = macroId(emission.operation());
         boolean stateRedacted = stateRedactor.containsSensitiveData(state);
-        eventSink.publish(new ModemEvent(
+        delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type,
                 Direction.INTERNAL, "", null, null, profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 macroId, null, null, 0, false, null, cancelled ? "cancelled" : null, data, null,
                 stateRedacted ? stateRedactor.redactSensitiveData(state) : state,
-                mergeRedaction(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
+                SessionEventRedactions.merge(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
     }
 
     void publishAudit(
@@ -168,9 +182,9 @@ final class SessionEventPublisher {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, false);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
-        RedactionInfo redaction = mergeRedaction(
+        RedactionInfo redaction = SessionEventRedactions.merge(
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
-        eventSink.publish(new ModemEvent(
+        delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), null, profileId,
                 eventPort, eventPortRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
@@ -192,13 +206,13 @@ final class SessionEventPublisher {
         parsed.put("macroDecision", data);
         boolean stateRedacted = stateRedactor.containsSensitiveData(state);
         ModemState visibleState = stateRedacted ? stateRedactor.redactSensitiveData(state) : state;
-        eventSink.publish(new ModemEvent(
+        delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, EventType.MACRO_DECISION,
                 Direction.INTERNAL, "", null, parsed, profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 decision.macroId(), null, null, 0, false, "MacroEngine", "matched", null, visibleState,
                 visibleState,
-                mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
+                SessionEventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
     }
 
     void publishMacroEvents(List<MacroEventAction> actions, String macroId, ModemState state) {
@@ -207,18 +221,18 @@ final class SessionEventPublisher {
             parsed.put("macroEvent", eventData(action));
             boolean stateRedacted = stateRedactor.containsSensitiveData(state);
             ModemState visibleState = stateRedacted ? stateRedactor.redactSensitiveData(state) : state;
-            eventSink.publish(new ModemEvent(
+            delivery.publish(new ModemEvent(
                     timestamp(), clock.nowNanos(), ++sequence, sessionId, EventType.MACRO_EVENT,
                     Direction.INTERNAL, "", null, parsed, profileId,
                     port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                     macroId, null, null, 0, false, "MacroEngine", action.type(), null,
                     visibleState, visibleState,
-                    mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
+                    SessionEventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
         }
     }
 
     void publishEvent(ModemEvent event) {
-        eventSink.publish(event);
+        delivery.publish(event);
         sequence = Math.max(sequence, event.sequence());
     }
 
@@ -267,30 +281,6 @@ final class SessionEventPublisher {
 
     private OffsetDateTime timestamp() {
         return EPOCH.plusNanos(clock.nowNanos());
-    }
-
-    private RedactionInfo mergeRedaction(
-            RedactionInfo payload,
-            boolean stateBeforeRedacted,
-            boolean stateAfterRedacted,
-            List<String> stateClasses) {
-        if (!stateBeforeRedacted && !stateAfterRedacted) {
-            return payload;
-        }
-        List<String> fields = new ArrayList<>(payload.fields());
-        List<String> classes = new ArrayList<>(payload.classes());
-        if (stateBeforeRedacted) {
-            fields.add("stateBefore");
-        }
-        if (stateAfterRedacted) {
-            fields.add("stateAfter");
-        }
-        for (String stateClass : stateClasses) {
-            if (!classes.contains(stateClass)) {
-                classes.add(stateClass);
-            }
-        }
-        return RedactionInfo.applied(fields, classes);
     }
 
 }

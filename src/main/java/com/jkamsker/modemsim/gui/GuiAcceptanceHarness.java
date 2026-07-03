@@ -4,7 +4,10 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 
 public final class GuiAcceptanceHarness {
     public void liveLog() {
@@ -31,6 +34,37 @@ public final class GuiAcceptanceHarness {
                 .anyMatch(event -> event.eventType() == EventType.STATE_CHANGE));
         requireThrows(() -> controller.rawDceToDte("+CREG: 4\\r\\n", false));
         require(readOnlyDisables("replay.runSelected"));
+    }
+
+    public void macroHotReloadTimers() {
+        try {
+            GuiSessionController controller = controller(false);
+            Path valid = timerMacro("heartbeat");
+            Path invalid = timerMacro("unknown");
+            require(!controller.reloadMacros(valid).errors().isBlank());
+            controller.macroTimerIds(Set.of("heartbeat"));
+            require(controller.reloadMacros(valid).errors().isBlank());
+            controller.macroToggleStatus("disable", "timer-urc");
+            String enabledBefore = controller.enabledMacros();
+            require(!controller.reloadMacros(invalid).errors().isBlank());
+            require(enabledBefore.equals(controller.enabledMacros()));
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("GUI macro reload acceptance check failed", e);
+        }
+    }
+
+    private Path timerMacro(String timerId) throws java.io.IOException {
+        Path path = Files.createTempFile("modemsim-timer-macro", ".xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="timer-urc" phase="on-timer">
+                    <match type="timer" timerId="%s"/>
+                    <then><emit line="+TIMER"/></then>
+                  </macro>
+                </macros>
+                """.formatted(timerId));
+        return path;
     }
 
     private GuiSessionController controller(boolean unsafeDce) {

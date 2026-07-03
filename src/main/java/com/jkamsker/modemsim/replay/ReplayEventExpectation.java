@@ -8,6 +8,8 @@ public record ReplayEventExpectation(
         EventType eventType,
         String source,
         Direction direction,
+        String command,
+        String finalResult,
         Long sequence,
         Long monotonicNanos,
         String rawHex,
@@ -36,7 +38,7 @@ public record ReplayEventExpectation(
             String profileHash, String configHash, String macroHash, String initialStateHash,
             Long sessionSeed, String clockMode, String schedulerOperation,
             Integer sampledDelayMs, Boolean redacted) {
-        this(eventType, null, direction, sequence, null, rawHex, profileHash, configHash, macroHash,
+        this(eventType, null, direction, null, null, sequence, null, rawHex, profileHash, configHash, macroHash,
                 initialStateHash, sessionSeed, clockMode, null, null, schedulerOperation, sampledDelayMs,
                 null, null, null, null, redacted, false, false, null, null);
     }
@@ -47,6 +49,8 @@ public record ReplayEventExpectation(
                 enumValue(EventType.class, node.path("eventType").asText(null)),
                 text(node, "source"),
                 enumValue(Direction.class, node.path("direction").asText(null)),
+                text(node, "command"),
+                text(node, "finalResult"),
                 longValue(node, "sequence"),
                 longValue(node, "monotonicNanos"),
                 text(node, "rawHex"),

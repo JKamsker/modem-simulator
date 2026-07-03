@@ -207,6 +207,25 @@ class EventLogTest {
         assertThat(event(number.events(), EventType.RX_BYTES).redaction().classes()).contains("msisdn");
     }
 
+    @Test
+    void droppedTelemetryPublishesSummaryAndCarriesCount() {
+        DropOnceSink sink = new DropOnceSink();
+        HeadlessSession session = new HeadlessSession("drop-aware", BuiltinProfiles.acceptanceSierra(), 12345, sink);
+
+        sink.dropNextDroppable();
+        session.receive(RawBytes.ascii("AT\r"));
+
+        ModemEvent summary = sink.events().stream()
+                .filter(event -> event.eventType() == EventType.DROPPED_EVENTS)
+                .findFirst()
+                .orElseThrow();
+        assertThat(summary.droppedEventCount()).isEqualTo(1);
+        assertThat(sink.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isNotEqualTo(EventType.DROPPED_EVENTS);
+            assertThat(event.droppedEventCount()).isEqualTo(1);
+        });
+    }
+
     private Profile lockedProfile() {
         Profile base = BuiltinProfiles.acceptanceSierra();
         SimRuntime sim = base.initialState().sim();
@@ -242,5 +261,33 @@ class EventLogTest {
                 String.valueOf(event.scheduler()),
                 String.valueOf(event.stateBefore()),
                 String.valueOf(event.stateAfter())).map(String::valueOf).toList());
+    }
+
+    private static final class DropOnceSink implements com.jkamsker.modemsim.monitor.DropAwareEventSink {
+        private final java.util.List<ModemEvent> events = new java.util.ArrayList<>();
+        private boolean dropNext;
+
+        @Override
+        public void publish(ModemEvent event) {
+            events.add(event);
+        }
+
+        @Override
+        public boolean publishDroppable(ModemEvent event) {
+            if (dropNext) {
+                dropNext = false;
+                return false;
+            }
+            events.add(event);
+            return true;
+        }
+
+        void dropNextDroppable() {
+            dropNext = true;
+        }
+
+        java.util.List<ModemEvent> events() {
+            return java.util.List.copyOf(events);
+        }
     }
 }

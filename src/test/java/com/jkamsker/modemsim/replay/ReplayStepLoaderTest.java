@@ -3,6 +3,9 @@ package com.jkamsker.modemsim.replay;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.session.HeadlessSession;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -41,6 +44,24 @@ class ReplayStepLoaderTest {
         assertThat(steps.getFirst().input().ascii()).isEqualTo("AT\r");
         assertThat(steps.getFirst().expectedOutput().toHex()).isEqualTo("0D0A4F4B0D0A");
         assertThat(steps.getFirst().expectedEvents()).hasSize(2);
+    }
+
+    @Test
+    void loadsGoldenYamlMetadataAndEventOracles() {
+        ReplayTranscript transcript = new ReplayStepLoader().loadTranscript(Path.of("tests/golden/basic-at.yaml"));
+
+        assertThat(transcript.name()).isEqualTo("basic-at-ok");
+        assertThat(transcript.profile()).isEqualTo("acceptance-sierra-hl6-hl8-ready");
+        assertThat(transcript.metadata()).containsKey("purpose");
+        assertThat(transcript.steps()).singleElement().satisfies(step -> {
+            assertThat(step.input().ascii()).isEqualTo("AT\r");
+            assertThat(step.expectedOutput().toHex()).isEqualTo("0D0A4F4B0D0A");
+            assertThat(step.expectedEvents()).extracting(ReplayEventExpectation::command).contains("AT");
+            assertThat(step.expectedEvents()).extracting(ReplayEventExpectation::finalResult).contains("OK");
+        });
+        assertThat(new ReplayValidator().validateRecompute(
+                new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345),
+                transcript.steps()).valid()).isTrue();
     }
 
     @Test

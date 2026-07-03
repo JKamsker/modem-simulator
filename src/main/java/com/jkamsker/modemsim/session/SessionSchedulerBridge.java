@@ -61,6 +61,10 @@ final class SessionSchedulerBridge {
         return emitScheduled(scheduler.due(clock.nowNanos(), source.version()), source).output();
     }
 
+    long nowNanos() {
+        return clock.nowNanos();
+    }
+
     void cancelAll(ModemState state) {
         for (ScheduledEmission emission : scheduler.cancelAll()) {
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state, true);

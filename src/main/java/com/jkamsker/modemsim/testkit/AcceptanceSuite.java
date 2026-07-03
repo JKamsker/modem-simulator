@@ -32,7 +32,7 @@ public final class AcceptanceSuite {
     private static final Path FAULT_MACROS = spec("docs/Tasks/Initial-Spec/examples/macros.faults-and-custom-responses.xml");
 
     public List<String> caseIds() {
-        return java.util.stream.IntStream.rangeClosed(1, 25)
+        return java.util.stream.IntStream.rangeClosed(1, 32)
                 .mapToObj(value -> "A%02d".formatted(value))
                 .toList();
     }
@@ -70,6 +70,13 @@ public final class AcceptanceSuite {
                 case "A23" -> new AcceptanceFaultChecks(FAULT_MACROS).run();
                 case "A24" -> customResponse();
                 case "A25" -> unknownPolicies();
+                case "A26" -> new AcceptanceExtendedChecks().parserAndAta();
+                case "A27" -> new AcceptanceExtendedChecks().macroHotReloadTimers();
+                case "A28" -> new AcceptanceExtendedChecks().auditBackpressure();
+                case "A29" -> new AcceptanceExtendedChecks().diagnostics();
+                case "A30" -> new AcceptanceExtendedChecks().sourceSizeGate();
+                case "A31" -> new AcceptanceExtendedChecks().goldenYamlLoader();
+                case "A32" -> new AcceptanceExtendedChecks().sRegisterBounds();
                 default -> throw new IllegalArgumentException("Unknown acceptance case: " + caseId);
             }
             return AcceptanceResult.pass(caseId);

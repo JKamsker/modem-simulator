@@ -52,6 +52,7 @@ final class SessionCommandExecutor {
             }
             events.publishParsed(command, state);
             ModemState before = state;
+            long startedNanos = scheduler.nowNanos();
             CommandResult routed = commandRouter.route(command, state);
             pendingMacroTransitions.addAll(commandRouter.pendingDelayedTransitions());
             boolean delayedDial = command.normalizedName().equals("ATD")
@@ -72,7 +73,9 @@ final class SessionCommandExecutor {
             if (command.normalizedName().equals("+CMGS") && result.finalResult() == null) {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
             }
-            events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), command, before, state, result);
+            events.publishMeasured(
+                    EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(),
+                    command, before, state, result, startedNanos);
             if (isUnknownRestart(result)) {
                 events.publishAudit(EventType.FAULT_TRIGGERED, Direction.INTERNAL,
                         "unknown-at-command-policy", "restart", RawBytes.empty(), before, state);

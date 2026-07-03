@@ -55,6 +55,10 @@ final class ReplayCommand {
             return 0;
         }
         report.divergences().forEach(divergence -> err.println("DIVERGENCE: " + divergence));
+        if (mode.equals("drive-from-captured-input") && hasFlag(args, "--confirm-divergence")) {
+            out.println("REPLAY DIVERGENCE CONFIRMED mode=" + mode + " steps=" + steps.size());
+            return 0;
+        }
         return 1;
     }
 
@@ -62,7 +66,10 @@ final class ReplayCommand {
         ReplayReport hashReport = validateReport(args, "validate-recompute", steps);
         if (!hashReport.valid()) {
             hashReport.divergences().forEach(divergence -> err.println("DIVERGENCE: " + divergence));
-            return 1;
+            if (!hasFlag(args, "--confirm-divergence")) {
+                return 1;
+            }
+            out.println("REPLAY DIVERGENCE CONFIRMED mode=play-to-dte steps=" + steps.size());
         }
         ReplayPlayback playback = new ReplayPlayback();
         ReplayReport report = playback.validate(steps);

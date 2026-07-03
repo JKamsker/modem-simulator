@@ -107,6 +107,31 @@ class ModemSimCliTest {
     }
 
     @Test
+    void replayDriveAndPlayModesRequireConfirmationForDivergence() throws Exception {
+        Path log = divergentReplayLog();
+        Path audit = tempDir.resolve("divergent-play-audit.jsonl");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "drive-from-captured-input"}))
+                .isEqualTo(1);
+        assertThat(runner.run(new String[] {
+                "replay", log.toString(), "--mode", "drive-from-captured-input", "--confirm-divergence"}))
+                .isZero();
+        assertThat(runner.run(new String[] {
+                "replay", log.toString(), "--mode", "play-to-dte", "--audit-log", audit.toString()}))
+                .isEqualTo(1);
+        assertThat(runner.run(new String[] {
+                "replay", log.toString(), "--mode", "play-to-dte", "--confirm-divergence",
+                "--audit-log", audit.toString()})).isZero();
+        assertThat(out.toString()).contains("DIVERGENCE CONFIRMED mode=drive-from-captured-input")
+                .contains("DIVERGENCE CONFIRMED mode=play-to-dte");
+        assertThat(err.toString()).contains("DIVERGENCE:");
+    }
+
+    @Test
     void headlessCommandRunsGoldenTranscriptScript() throws Exception {
         Path script = tempDir.resolve("script.yaml");
         Files.writeString(script, """
@@ -127,5 +152,14 @@ class ModemSimCliTest {
         assertThat(exit).isZero();
         assertThat(out.toString()).contains("HEADLESS OK steps=1");
         assertThat(err.toString()).isEmpty();
+    }
+
+    private Path divergentReplayLog() throws Exception {
+        Path log = tempDir.resolve("divergent-events.jsonl");
+        Files.writeString(log, """
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":0,"sequence":1,"sessionId":"main","eventType":"RX_BYTES","source":"rx","direction":"DTE_TO_DCE","rawHex":"41540D","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":1,"sequence":2,"sessionId":"main","eventType":"TX_BYTES","source":"tx","direction":"DCE_TO_DTE","rawHex":"0D0A4552524F520D0A","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                """);
+        return log;
     }
 }

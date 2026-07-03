@@ -2,6 +2,7 @@ package com.jkamsker.modemsim.replay;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.jkamsker.modemsim.parser.RawBytes;
 
 import java.io.IOException;
@@ -9,24 +10,31 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class ReplayStepLoader {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory());
     private static final Pattern SHA256 = Pattern.compile("^sha256:[0-9a-f]{64}$");
 
     public List<ReplayStep> load(Path path) {
+        return loadTranscript(path).steps();
+    }
+
+    public ReplayTranscript loadTranscript(Path path) {
         try {
-            return loadLines(Files.readAllLines(path));
+            return loadTranscript(Files.readAllLines(path));
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read replay log: " + path, e);
         }
     }
 
-    private List<ReplayStep> loadLines(List<String> lines) {
+    private ReplayTranscript loadTranscript(List<String> lines) {
         if (lines.stream().filter(line -> !line.isBlank()).findFirst().orElse("").trim().startsWith("{")) {
-            return loadJsonLines(lines);
+            return new ReplayTranscript(null, null, Map.of(), loadJsonLines(lines));
         }
         return loadYamlLines(lines);
     }
@@ -91,41 +99,78 @@ public final class ReplayStepLoader {
                 .reduce(RawBytes.empty(), RawBytes::append);
     }
 
-    private List<ReplayStep> loadYamlLines(List<String> lines) {
+    private ReplayTranscript loadYamlLines(List<String> lines) {
+        JsonNode root = parseYaml(lines);
         List<ReplayStep> steps = new ArrayList<>();
-        String input = null;
-        String output = null;
-        boolean drain = false;
-        for (String raw : lines) {
-            String line = raw.trim();
-            if (line.startsWith("- inputHex:") || line.startsWith("inputHex:")) {
-                if (input != null) {
-                    steps.add(new ReplayStep(rawHex(input), rawHex(output), drain));
-                }
-                input = value(line);
-                output = "";
-                drain = false;
-            } else if (line.startsWith("expectedOutputHex:") || line.startsWith("outputHex:")) {
-                output = value(line);
-            } else if (line.startsWith("drainScheduled:")) {
-                drain = Boolean.parseBoolean(value(line));
-            }
+        List<ReplayEventExpectation> rootEvents = eventExpectations(root.path("expectEvents"));
+        JsonNode stepNodes = root.path("steps");
+        if (!stepNodes.isArray()) {
+            throw new IllegalArgumentException("Replay YAML missing steps array");
         }
-        if (input != null) {
-            steps.add(new ReplayStep(rawHex(input), rawHex(output), drain));
+        for (int i = 0; i < stepNodes.size(); i++) {
+            JsonNode node = stepNodes.get(i);
+            List<ReplayEventExpectation> events = node.has("expectEvents")
+                    ? eventExpectations(node.path("expectEvents"))
+                    : i == 0 ? rootEvents : List.of();
+            steps.add(new ReplayStep(
+                    rawHex(text(node, "inputHex")),
+                    rawHex(firstText(node, "expectedOutputHex", "outputHex")),
+                    node.path("drainScheduled").asBoolean(false),
+                    events));
         }
-        return steps;
+        return new ReplayTranscript(text(root, "name"), text(root, "profile"), metadata(root.path("metadata")), steps);
     }
 
-    private String value(String line) {
-        String value = line.substring(line.indexOf(':') + 1).trim();
-        return value.replace("\"", "");
+    private JsonNode parseYaml(List<String> lines) {
+        try {
+            return YAML.readTree(String.join("\n", lines));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid replay YAML", e);
+        }
+    }
+
+    private Map<String, String> metadata(JsonNode node) {
+        Map<String, String> values = new LinkedHashMap<>();
+        if (!node.isObject()) {
+            return values;
+        }
+        var names = node.fieldNames();
+        while (names.hasNext()) {
+            String name = names.next();
+            values.put(name, node.path(name).asText());
+        }
+        return values;
+    }
+
+    private List<ReplayEventExpectation> eventExpectations(JsonNode node) {
+        if (!node.isArray()) {
+            return List.of();
+        }
+        List<ReplayEventExpectation> events = new ArrayList<>();
+        for (JsonNode event : node) {
+            events.add(ReplayEventExpectation.from(event));
+        }
+        return events;
+    }
+
+    private String firstText(JsonNode node, String... fields) {
+        for (String field : fields) {
+            String value = text(node, field);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String text(JsonNode node, String field) {
+        return node.has(field) && !node.path(field).isNull() ? node.path(field).asText() : null;
     }
 
     private ReplayStep step(JsonNode node) {
         return new ReplayStep(
                 rawHex(node.path("inputHex").asText()),
-                rawHex(node.path("expectedOutputHex").asText()),
+                rawHex(firstText(node, "expectedOutputHex", "outputHex")),
                 node.path("drainScheduled").asBoolean(false),
                 List.of());
     }

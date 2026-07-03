@@ -18,6 +18,9 @@ final class AcceptanceCaseRegistry {
             case "serial-config" -> "A22";
             case "faults" -> "A23";
             case "profiles" -> "A25";
+            case "parser" -> "A26";
+            case "build" -> "A30";
+            case "golden" -> "A31";
             default -> "all";
         };
     }
@@ -45,6 +48,13 @@ final class AcceptanceCaseRegistry {
             case "lifecycle-and-network" -> "A23";
             case "custom-response-cmsg" -> "A24";
             case "unknown-at-command-policy" -> "A25";
+            case "malformed-and-ata" -> "A26";
+            case "macro-hot-reload-timers" -> "A27";
+            case "audit-backpressure" -> "A28";
+            case "diagnostics" -> "A29";
+            case "source-size-gate" -> "A30";
+            case "golden-yaml-loader" -> "A31";
+            case "s-register-bounds" -> "A32";
             default -> caseId;
         };
     }
