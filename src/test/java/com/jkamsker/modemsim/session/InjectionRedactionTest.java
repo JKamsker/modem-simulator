@@ -37,10 +37,40 @@ class InjectionRedactionTest {
         assertSmsBodyRedacted(injectionTelemetry(response.events()));
     }
 
+    @Test
+    void splitPinInjectionUsesBufferedRedactionContext() {
+        HeadlessSession session = new HeadlessSession("split-pin-injection", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.injectDte(RawBytes.ascii("AT+CP"), "raw-dte-to-dce");
+
+        SessionResponse response = session.injectDte(RawBytes.ascii("IN=\"9876\"\r"), "raw-dte-to-dce");
+
+        assertNoEventLeak(response.events(), "9876", "39383736");
+        assertRawRedacted(event(response.events(), EventType.INJECTION), "pin");
+        assertRawRedacted(event(response.events(), EventType.RX_BYTES), "pin");
+        assertRawRedacted(injectionTelemetry(response.events()), "pin");
+    }
+
+    @Test
+    void splitDialInjectionUsesBufferedRedactionContext() {
+        HeadlessSession session = new HeadlessSession("split-dial-injection", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.injectDte(RawBytes.ascii("ATD+49"), "raw-dte-to-dce");
+
+        SessionResponse response = session.injectDte(RawBytes.ascii("1701234567\r"), "raw-dte-to-dce");
+
+        assertNoEventLeak(response.events(), "1701234567", RawBytes.ascii("1701234567").toHex());
+        assertRawRedacted(event(response.events(), EventType.INJECTION), "msisdn");
+        assertRawRedacted(event(response.events(), EventType.RX_BYTES), "msisdn");
+        assertRawRedacted(injectionTelemetry(response.events()), "msisdn");
+    }
+
     private void assertSmsBodyRedacted(ModemEvent event) {
+        assertRawRedacted(event, "sms-body");
+    }
+
+    private void assertRawRedacted(ModemEvent event, String redactionClass) {
         assertThat(event.rawHex()).isEqualTo("<redacted>");
         assertThat(event.textEscaped()).isEqualTo("<redacted>");
-        assertThat(event.redaction().classes()).contains("sms-body");
+        assertThat(event.redaction().classes()).contains(redactionClass);
     }
 
     private void assertNoEventLeak(List<ModemEvent> events, String text, String hex) {
