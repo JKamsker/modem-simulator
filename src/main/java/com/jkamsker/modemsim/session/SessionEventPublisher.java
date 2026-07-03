@@ -188,11 +188,10 @@ final class SessionEventPublisher {
         publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, null);
     }
 
-    void publishAuditMeasured(
+    void publishAuditWithLatency(
             EventType type, Direction direction, String injectionType, String result,
-            RawBytes raw, ModemState before, ModemState after, long startedNanos) {
-        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole,
-                Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0);
+            RawBytes raw, ModemState before, ModemState after, double latencyMs) {
+        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, latencyMs);
     }
 
     void publishAudit(

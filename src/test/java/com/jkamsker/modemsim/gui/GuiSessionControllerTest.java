@@ -32,8 +32,10 @@ class GuiSessionControllerTest {
                         EventType.RX_BYTES,
                         EventType.PARSED_COMMAND,
                         EventType.HANDLER_RESULT,
-                        EventType.TX_BYTES);
+                        EventType.TX_BYTES,
+                        EventType.INJECTION);
         assertThat(response.events().getFirst().injectionType()).isEqualTo("raw-dte-to-dce");
+        assertThat(response.events().getLast().latencyMs()).isNotNull();
     }
 
     @Test
@@ -44,7 +46,8 @@ class GuiSessionControllerTest {
 
         assertThat(response.outputAscii()).contains("+CSQ");
         assertThat(response.events()).extracting(event -> event.eventType())
-                .containsExactly(EventType.INJECTION, EventType.PARSED_COMMAND, EventType.HANDLER_RESULT, EventType.TX_BYTES);
+                .containsExactly(EventType.INJECTION, EventType.PARSED_COMMAND, EventType.HANDLER_RESULT,
+                        EventType.TX_BYTES, EventType.INJECTION);
         assertThat(response.events()).noneSatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.RX_BYTES));
 
         SessionResponse malformed = controller.parsedCommand("AT+CPIN=\"1234");
@@ -65,7 +68,7 @@ class GuiSessionControllerTest {
 
         assertThat(response.outputAscii()).isEqualTo("+CREG: 4\r\n");
         assertThat(response.events()).extracting(event -> event.eventType())
-                .containsExactly(EventType.INJECTION, EventType.TX_BYTES);
+                .containsExactly(EventType.INJECTION, EventType.TX_BYTES, EventType.INJECTION);
         assertThat(response.events().getFirst().injectionType()).isEqualTo("raw-dce-to-dte");
         assertThat(response.events().getFirst().scheduler()).isNull();
     }
@@ -153,7 +156,7 @@ class GuiSessionControllerTest {
         assertThat(transcript).isEqualTo(String.join("\n", List.of(
                 "DTE_TO_DCE 41540D",
                 "DCE_TO_DTE 0D0A4F4B0D0A")));
-        assertThat(controller.coverage(response.events())).contains("INJECTION=1").contains("TX_BYTES=1");
+        assertThat(controller.coverage(response.events())).contains("INJECTION=2").contains("TX_BYTES=1");
     }
 
     @Test

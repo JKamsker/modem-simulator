@@ -67,11 +67,16 @@ class HandlerLatencyTest {
 
     @Test
     void injectionLatencyIsMeasured() {
-        HeadlessSession session = new HeadlessSession("injection-latency", BuiltinProfiles.acceptanceSierra(), 12345);
+        HeadlessSession session = new HeadlessSession(
+                "injection-latency", profileWithDelay("sms-submit", 77), 12345);
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
 
-        SessionResponse response = session.injectDce(RawBytes.ascii("+CREG: 4\r\n"), "raw-dce-to-dte");
+        SessionResponse response = session.injectDte(RawBytes.ascii("latency\u001A"), "raw-dte-to-dce");
 
-        assertThat(event(response.events(), EventType.INJECTION).latencyMs()).isNotNull();
+        assertThat(response.events().stream()
+                .filter(event -> event.eventType() == EventType.INJECTION && event.latencyMs() != null)
+                .map(ModemEvent::latencyMs)
+                .toList()).containsExactly(77.0);
     }
 
     private Profile profileWithDelay(String operation, int delayMs) {

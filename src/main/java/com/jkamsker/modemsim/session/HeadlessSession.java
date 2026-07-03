@@ -158,38 +158,37 @@ public final class HeadlessSession implements SessionActor {
         if (!entry.tailBytes().isEmpty()) { output = output.append(receive(entry.tailBytes()).output()); }
         return response(output, start);
     }
-    @Override
-    public synchronized SessionResponse advanceTime(long millis) { return scheduledResponse(() -> scheduler.advanceTime(millis, state)); }
+    @Override public synchronized SessionResponse advanceTime(long millis) { return scheduledResponse(() -> scheduler.advanceTime(millis, state)); }
     public synchronized SessionResponse advanceTo(long monotonicNanos) { return scheduledResponse(() -> scheduler.advanceTo(monotonicNanos, state)); }
     public synchronized SessionResponse drainScheduled() { return scheduledResponse(() -> scheduler.drainScheduled(state)); }
-    @Override
-    public synchronized ModemState snapshot() { return state; }
+    @Override public synchronized ModemState snapshot() { return state; }
     public synchronized List<ModemEvent> events() { return events.eventsSince(0); }
     public synchronized SessionResponse injectDce(RawBytes bytes, String injectionType) {
-        int start = eventCount(); long startedNanos = clock.nowNanos();
-        events.publishAuditMeasured(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, state, state, startedNanos);
+        int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
+        events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, before, before);
         events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
+        events.publishAuditWithLatency(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
         return response(bytes, start);
     }
     public synchronized SessionResponse injectDte(RawBytes bytes, String injectionType) {
-        int start = eventCount(); long startedNanos = clock.nowNanos();
-        events.publishAuditMeasured(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, null, bytes, state, state, startedNanos);
+        int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
+        events.publishAudit(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, null, bytes, before, before);
         SessionResponse processed = receive(bytes);
+        events.publishAuditWithLatency(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
         return response(processed.output(), start);
     }
     public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
-        int start = eventCount(); long startedNanos = clock.nowNanos();
-        events.publishAuditMeasured(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state, startedNanos);
+        int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
+        events.publishAudit(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, before, before);
         List<ParsedCommand> commands;
         try {
             commands = parseCommands(bytes);
-        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(profile.errorPolicy(), events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); }
-        return commands.isEmpty() ? response(RawBytes.empty(), start)
-                : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { SessionResponse failed = SessionParseFailure.response(profile.errorPolicy(), events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, injectionType, "failed", bytes, before, state, injectionLatency(startedNanos, start)); return response(failed.output(), start); }
+        SessionResponse result = commands.isEmpty() ? response(RawBytes.empty(), start) : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
+        events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
+        return response(result.output(), start);
     }
-    public synchronized SessionResponse applyState(ModemState next, String injectionType) {
-        return applyState(next, injectionType, EventType.STATE_CHANGE);
-    }
+    public synchronized SessionResponse applyState(ModemState next, String injectionType) { return applyState(next, injectionType, EventType.STATE_CHANGE); }
     public synchronized SessionResponse applyFault(String type) { return applyState(faultService.apply(state, new com.jkamsker.modemsim.macros.FaultAction(type, type.equals("reboot") || type.equals("modem-reboot") ? 3000 : null, null, null, null, null)), null, type, EventType.FAULT_TRIGGERED); }
     public synchronized SessionResponse applyFault(com.jkamsker.modemsim.macros.FaultAction action) { return applyState(faultService.apply(state, action), null, action.type(), EventType.FAULT_TRIGGERED); }
     public synchronized SessionResponse fireTimer(String timerId) {
@@ -221,11 +220,12 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse diagnostic(EventType eventType, String result) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state); return response(RawBytes.empty(), start); }
     public synchronized SessionResponse diagnostic(EventType eventType, String result, String port, String portRole) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state, port, portRole); return response(RawBytes.empty(), start); }
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
-        int start = eventCount(); long startedNanos = clock.nowNanos();
-        events.publishAuditMeasured(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state, startedNanos);
+        int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
+        events.publishAudit(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), before, before);
         pendingMacroTransitions.removeCancelled(scheduler.cancelMacroReloadable(state));
         events.replaceMacroHash(next.hash());
         macroEngine = next; commandRouter = commandRouter(next); commandExecutor = commandExecutor(commandRouter);
+        events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), before, state, injectionLatency(startedNanos, start));
         return response(RawBytes.empty(), start);
     }
     private SessionResponse applyState(ModemState next, String injectionType, String result, EventType eventType) {
@@ -265,6 +265,7 @@ public final class HeadlessSession implements SessionActor {
     private List<ParsedCommand> parseCommands(RawBytes bytes) { return new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(bytes, SessionEntryMode.from(state.call().mode())); }
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
     private int eventCount() { return events.eventCount(); }
+    private double injectionLatency(long startedNanos, int start) { return events.eventsSince(start).stream().map(ModemEvent::latencyMs).filter(java.util.Objects::nonNull).mapToDouble(Double::doubleValue).max().orElse(Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0); }
     private SessionResponse executeParsedCommands(List<ParsedCommand> commands, RawBytes output, long lastByteNanos, boolean markRx, int start) {
         ModemState before = state; CommandExecutionResult execution = commandExecutor.execute(commands, state);
         state = StateInvariants.normalize(execution.state());
