@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.app;
 
 import com.jkamsker.modemsim.macros.MacroLoader;
+import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.transport.PortDiscovery;
 import com.jkamsker.modemsim.testkit.AcceptanceResult;
@@ -12,7 +13,9 @@ import com.jkamsker.modemsim.validation.ValidationReport;
 
 import java.nio.file.Path;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public final class ModemSimCli {
     private ModemSimCli() {
@@ -53,6 +56,7 @@ public final class ModemSimCli {
 
         private int dispatch(String[] args) {
             return switch (args[0]) {
+                case "run" -> runRuntime(args);
                 case "validate-profile" -> report(new ProfileXmlLoader().validate(pathArg(args, 1)));
                 case "validate-macros" -> report(new MacroLoader().validate(pathArg(args, 1)));
                 case "validate-scenario" -> report(new ScenarioValidator().validate(pathArg(args, 1)));
@@ -65,6 +69,16 @@ public final class ModemSimCli {
                     yield 2;
                 }
             };
+        }
+
+        private int runRuntime(String[] args) {
+            Path configPath = pathOption(args, "--config");
+            RuntimeConfig config = new RuntimeConfigLoader().load(configPath);
+            RuntimeResult result = new ModemRuntime().run(config, runInputs(args), intOption(args, "--max-reads", -1));
+            out.println("RUN " + result.sessionId()
+                    + " reads=" + result.readsProcessed()
+                    + " outputHex=" + result.output().toHex());
+            return 0;
         }
 
         private int coverage(String[] args) {
@@ -110,6 +124,38 @@ public final class ModemSimCli {
             return Path.of(args[index]);
         }
 
+        private Path pathOption(String[] args, String name) {
+            String value = option(args, name, null);
+            if (value == null) {
+                throw new IllegalArgumentException("Missing option: " + name);
+            }
+            return Path.of(value);
+        }
+
+        private int intOption(String[] args, String name, int fallback) {
+            String value = option(args, name, null);
+            return value == null ? fallback : Integer.parseInt(value);
+        }
+
+        private List<RawBytes> runInputs(String[] args) {
+            List<RawBytes> inputs = new ArrayList<>();
+            for (int i = 0; i < args.length - 1; i++) {
+                if (args[i].equals("--input-hex")) {
+                    inputs.add(RawBytes.hex(args[++i]));
+                } else if (args[i].equals("--input-ascii")) {
+                    inputs.add(RawBytes.ascii(unescape(args[++i])));
+                }
+            }
+            return inputs;
+        }
+
+        private String unescape(String value) {
+            return value.replace("\\r", "\r")
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\u001A", "\u001A");
+        }
+
         private String option(String[] args, String name, String fallback) {
             for (int i = 0; i < args.length - 1; i++) {
                 if (args[i].equals(name)) {
@@ -122,6 +168,7 @@ public final class ModemSimCli {
         private void usage() {
             err.println("""
                     Usage:
+                      modemsim run --config config.yaml
                       modemsim validate-profile <profile.xml>
                       modemsim validate-macros <macros.xml>
                       modemsim validate-scenario <scenario.xml>

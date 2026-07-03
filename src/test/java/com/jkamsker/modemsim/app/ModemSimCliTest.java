@@ -25,4 +25,21 @@ class ModemSimCliTest {
         assertThat(runner.run(new String[] {"test", "--suite", "acceptance", "--case", "A01"})).isZero();
         assertThat(err.toString()).isEmpty();
     }
+
+    @Test
+    void runCommandProcessesConfiguredHeadlessPort() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        int exit = runner.run(new String[] {
+                "run",
+                "--config", "src/test/resources/config/valid.yaml",
+                "--input-ascii", "AT\\r"});
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).contains("RUN main reads=1 outputHex=0D0A4F4B0D0A");
+        assertThat(err.toString()).isEmpty();
+    }
 }
