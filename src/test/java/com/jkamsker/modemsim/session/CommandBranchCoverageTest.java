@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.session;
 
+import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.NetworkRuntime;
@@ -154,7 +155,9 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CSCA\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CSCS?\r")).outputAscii()).contains("+CSCS: \"GSM\"");
         assertThat(session.receive(RawBytes.ascii("AT+CSCS=?\r")).outputAscii()).contains("\"UCS2\"");
-        assertThat(session.receive(RawBytes.ascii("AT+CMGR=abc\r")).outputAscii()).contains("+CMS ERROR: 321");
+        SessionResponse malformedIndex = session.receive(RawBytes.ascii("AT+CMGR=abc\r"));
+        assertThat(malformedIndex.outputAscii()).contains("ERROR");
+        assertThat(malformedIndex.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
         assertThat(session.receive(RawBytes.ascii("AT+CMGD=99\r")).outputAscii()).contains("+CMS ERROR: 321");
     }
 

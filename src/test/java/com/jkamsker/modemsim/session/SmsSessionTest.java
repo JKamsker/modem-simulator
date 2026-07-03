@@ -113,6 +113,21 @@ class SmsSessionTest {
     }
 
     @Test
+    void smsIndexCommandsRejectQuotedIndicesBeforeStorageLookup() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        submitAndDrain(session, "stored");
+
+        SessionResponse read = session.receive(RawBytes.ascii("AT+CMGR=\"1\"\r"));
+        SessionResponse delete = session.receive(RawBytes.ascii("AT+CMGD=\"1\"\r"));
+
+        assertThat(read.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(delete.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(read.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
+        assertThat(delete.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
+        assertThat(session.snapshot().sms().messages()).hasSize(1);
+    }
+
+    @Test
     void textModeCmgsRequiresQuotedPhoneDestination() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 

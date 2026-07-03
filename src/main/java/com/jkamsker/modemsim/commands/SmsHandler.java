@@ -62,7 +62,11 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cmgr(ModemState state, ParsedCommand command) {
-        SmsMessage message = state.sms().messagesInSelectedStorage().get(parseInt(command.arguments(), -1));
+        Integer index = parseIndex(command.arguments());
+        if (index == null) {
+            return CommandResult.invalidParameter(state, "SmsHandler");
+        }
+        SmsMessage message = state.sms().messagesInSelectedStorage().get(index);
         if (message == null) {
             return CmsError.INVALID_INDEX.result(state, "SmsHandler");
         }
@@ -90,7 +94,10 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cmgd(ModemState state, ParsedCommand command) {
-        int index = parseInt(command.arguments(), -1);
+        Integer index = parseIndex(command.arguments());
+        if (index == null) {
+            return CommandResult.invalidParameter(state, "SmsHandler");
+        }
         if (!state.sms().messagesInSelectedStorage().containsKey(index)) {
             return CmsError.INVALID_INDEX.result(state, "SmsHandler");
         }
@@ -189,10 +196,16 @@ public final class SmsHandler implements CommandHandler {
 
     private int parseInt(String value, int fallback) {
         try {
-            return Integer.parseInt(value.replace("\"", ""));
+            return Integer.parseInt(value.trim());
         } catch (RuntimeException e) {
             return fallback;
         }
+    }
+
+    private Integer parseIndex(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        int parsed = trimmed.matches("[0-9]+") ? parseInt(trimmed, -1) : -1;
+        return parsed >= 0 ? parsed : null;
     }
 
     private boolean validCnmi(String arguments) {
