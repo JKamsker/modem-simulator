@@ -44,10 +44,16 @@ public final class GuiAcceptanceHarness {
             controller.start(GuiSessionOptions.headless()
                     .withMacroTimers(List.of(new RuntimeTimer("heartbeat", 1000))));
             require(controller.reloadMacros(valid).errors().isBlank());
-            controller.macroToggleStatus("disable", "timer-urc");
+            controller.fireTimer("heartbeat");
             String enabledBefore = controller.enabledMacros();
             require(!controller.reloadMacros(invalid).errors().isBlank());
             require(enabledBefore.equals(controller.enabledMacros()));
+            require(controller.advanceTime(1000).outputAscii().contains("+TIMER"));
+            controller.fireTimer("heartbeat");
+            require(controller.reloadMacros(valid).response().events().stream().anyMatch(event ->
+                    event.eventType() == EventType.SCHEDULER_EMIT
+                            && Boolean.TRUE.equals(event.scheduler().get("cancelled"))
+                            && "macro-timer-urc".equals(event.scheduler().get("operation"))));
         } catch (java.io.IOException e) {
             throw new IllegalStateException("GUI macro reload acceptance check failed", e);
         }
@@ -60,7 +66,7 @@ public final class GuiAcceptanceHarness {
                 <macros version="1.0">
                   <macro id="timer-urc" phase="on-timer">
                     <match type="timer" timerId="%s"/>
-                    <then><emit line="+TIMER"/></then>
+                    <then><delay ms="1000"/><emit line="+TIMER"/></then>
                   </macro>
                 </macros>
                 """.formatted(timerId));

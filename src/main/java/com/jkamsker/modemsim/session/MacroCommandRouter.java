@@ -93,6 +93,11 @@ final class MacroCommandRouter {
     }
 
     private CommandResult executeMacro(MacroDecision decision, ModemState state, boolean stopLine) {
+        return executeMacro(decision, state, stopLine, false);
+    }
+
+    private CommandResult executeMacro(
+            MacroDecision decision, ModemState state, boolean stopLine, boolean cancelOnMacroReload) {
         OrderedMacroResult ordered = ordered(decision, state);
         ModemState next = ordered.immediateState();
         pendingDelayedTransitions = List.of();
@@ -100,7 +105,8 @@ final class MacroCommandRouter {
         ModemState delayedState = ordered.pendingState();
         RawBytes delayed = renderer.render(ordered.delayedFrames(), delayedState == null ? next : delayedState);
         String operation = "macro-" + decision.macroId();
-        ScheduledPayload scheduled = scheduler.schedule(operation, delayed, decision.delay(operation), next);
+        ScheduledPayload scheduled = scheduler.schedule(
+                operation, delayed, decision.delay(operation), next, cancelOnMacroReload);
         recordScheduledDelay(scheduled.sampledDelayMs());
         if (delayedState != null) {
             if (scheduled.scheduledSequence() == null) {
@@ -160,7 +166,7 @@ final class MacroCommandRouter {
     CommandResult executeTimer(MacroDecision decision, ModemState state) {
         pendingDelayedTransitions = List.of();
         scheduledDelayMs = null;
-        return executeMacro(decision, state, false);
+        return executeMacro(decision, state, false, true);
     }
 
     private void recordScheduledDelay(Integer delayMs) {
@@ -217,7 +223,8 @@ final class MacroCommandRouter {
     }
 
     interface MacroScheduler {
-        ScheduledPayload schedule(String operation, RawBytes payload, NetworkDelay delay, ModemState state);
+        ScheduledPayload schedule(
+                String operation, RawBytes payload, NetworkDelay delay, ModemState state, boolean cancelOnMacroReload);
     }
 
     interface DecisionSink {

@@ -149,7 +149,7 @@ public final class HeadlessSession implements SessionActor {
         pendingSms = null;
         RawBytes submitResponse = state.settings().quiet() ? RawBytes.empty() : result.response();
         String operation = macroOperation == null ? "sms-submit" : macroOperation;
-        ScheduledPayload scheduled = scheduleMacro(operation, submitResponse, macroDelay, state);
+        ScheduledPayload scheduled = scheduleMacro(operation, submitResponse, macroDelay, state, false);
         RawBytes output = scheduled.output();
         String handler = macroOperation == null ? "SmsSubmitProcessor" : "Macro:" + macroOperation.substring("macro-".length());
         events.publishWithLatency(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
@@ -223,8 +223,7 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state);
-        scheduler.cancelAll(state);
-        pendingMacroTransitions.clear();
+        pendingMacroTransitions.removeCancelled(scheduler.cancelMacroReloadable(state));
         events.replaceMacroHash(next.hash());
         macroEngine = next; commandRouter = commandRouter(next); commandExecutor = commandExecutor(commandRouter);
         return response(RawBytes.empty(), start);
@@ -248,7 +247,7 @@ public final class HeadlessSession implements SessionActor {
     private RawBytes scheduleOrReturn(String operation, RawBytes payload) { return SessionDelayScheduler.schedule(scheduler, operation, payload, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, int delayMs) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delayMs, state); }
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay) { return SessionDelayScheduler.schedule(scheduler, operation, payload, delay, state); }
-    private ScheduledPayload scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source) { return SessionDelayScheduler.scheduleWithMetadata(scheduler, operation, payload, delay == null && source.network() != null ? source.network().delays().get(operation) : delay, source); }
+    private ScheduledPayload scheduleMacro(String operation, RawBytes payload, NetworkDelay delay, ModemState source, boolean cancelOnReload) { return SessionDelayScheduler.scheduleWithMetadata(scheduler, operation, payload, delay == null && source.network() != null ? source.network().delays().get(operation) : delay, source, cancelOnReload); }
     private RawBytes stateChangeOutput(ModemState before, ModemState after) { RawBytes urc = SessionStateChangeMacros.registrationUrc(before, after); return urc.isEmpty() ? RawBytes.empty() : scheduler.scheduleImmediate("state-urc", urc, after); }
     private RawBytes holdTxIfNeeded(RawBytes output) { if (!output.isEmpty() && SessionFreezePolicy.holdsTx(state)) { heldTx = heldTx.append(output); return RawBytes.empty(); } return output; }
     private RawBytes releaseHeldTx(ModemState before, ModemState after) { if (SessionFreezePolicy.releasesTx(before, after)) { RawBytes released = heldTx; heldTx = RawBytes.empty(); return released; } return RawBytes.empty(); }

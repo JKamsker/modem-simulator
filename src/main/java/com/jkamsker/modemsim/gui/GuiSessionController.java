@@ -127,6 +127,10 @@ final class GuiSessionController {
         return enqueue("fault", () -> session.applyFault(action));
     }
 
+    SessionResponse fireTimer(String timerId) { return enqueue("timer", () -> session.fireTimer(timerId)); }
+
+    SessionResponse advanceTime(long millis) { return enqueue("advance-time", () -> session.advanceTime(millis)); }
+
     ModemState snapshot() {
         return session.snapshot();
     }

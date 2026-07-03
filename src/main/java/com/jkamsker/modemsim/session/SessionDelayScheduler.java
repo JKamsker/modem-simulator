@@ -29,4 +29,9 @@ final class SessionDelayScheduler {
             SessionSchedulerBridge scheduler, String operation, RawBytes payload, NetworkDelay delay, ModemState state) {
         return scheduler.scheduleWithMetadata(operation, payload, delay, state);
     }
+
+    static ScheduledPayload scheduleWithMetadata(SessionSchedulerBridge scheduler, String operation, RawBytes payload,
+            NetworkDelay delay, ModemState state, boolean cancelOnMacroReload) {
+        return scheduler.scheduleWithMetadata(operation, payload, delay, state, cancelOnMacroReload);
+    }
 }

@@ -41,6 +41,11 @@ final class SessionSchedulerBridge {
     }
 
     ScheduledPayload scheduleWithMetadata(String operation, RawBytes payload, NetworkDelay delay, ModemState source) {
+        return scheduleWithMetadata(operation, payload, delay, source, false);
+    }
+
+    ScheduledPayload scheduleWithMetadata(
+            String operation, RawBytes payload, NetworkDelay delay, ModemState source, boolean cancelOnMacroReload) {
         if (delay == null || delay.maxMs() == 0) {
             return new ScheduledPayload(payload, null, 0);
         }
@@ -48,7 +53,8 @@ final class SessionSchedulerBridge {
                 ? SourcePriority.MACRO
                 : SourcePriority.RX;
         ScheduledEmission emission = scheduler.enqueue(
-                clock.nowNanos(), events.nextSequence(), priority, payload, source.version(), operation, delay);
+                clock.nowNanos(), events.nextSequence(), priority, payload, source.version(),
+                operation, delay, cancelOnMacroReload);
         events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, source);
         return new ScheduledPayload(RawBytes.empty(), emission.sequence(), emission.sampledDelayMs());
     }
@@ -74,6 +80,14 @@ final class SessionSchedulerBridge {
         for (ScheduledEmission emission : scheduler.cancelAll()) {
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state, true);
         }
+    }
+
+    List<ScheduledEmission> cancelMacroReloadable(ModemState state) {
+        List<ScheduledEmission> cancelled = scheduler.cancelMacroReloadable();
+        for (ScheduledEmission emission : cancelled) {
+            events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state, true);
+        }
+        return cancelled;
     }
 
     private ScheduledBatch emitScheduled(List<ScheduledEmission> emissions, ModemState state) {

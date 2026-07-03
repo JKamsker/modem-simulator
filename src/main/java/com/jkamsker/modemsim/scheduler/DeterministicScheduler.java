@@ -26,6 +26,18 @@ public final class DeterministicScheduler {
             long stateVersion,
             String operation,
             NetworkDelay delay) {
+        return enqueue(nowNanos, sequence, priority, payload, stateVersion, operation, delay, false);
+    }
+
+    public ScheduledEmission enqueue(
+            long nowNanos,
+            long sequence,
+            SourcePriority priority,
+            RawBytes payload,
+            long stateVersion,
+            String operation,
+            NetworkDelay delay,
+            boolean cancelOnMacroReload) {
         int sampled = sampleDelay(operation, sequence, delay);
         ScheduledEmission emission = new ScheduledEmission(
                 nowNanos + sampled * 1_000_000L,
@@ -35,7 +47,8 @@ public final class DeterministicScheduler {
                 stateVersion,
                 true,
                 operation,
-                sampled);
+                sampled,
+                cancelOnMacroReload);
         queue.add(emission);
         return emission;
     }
@@ -67,6 +80,21 @@ public final class DeterministicScheduler {
         while (!queue.isEmpty()) {
             result.add(queue.poll());
         }
+        return result;
+    }
+
+    public List<ScheduledEmission> cancelMacroReloadable() {
+        List<ScheduledEmission> result = new ArrayList<>();
+        List<ScheduledEmission> retained = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            ScheduledEmission emission = queue.poll();
+            if (emission.cancelOnMacroReload()) {
+                result.add(emission);
+            } else {
+                retained.add(emission);
+            }
+        }
+        queue.addAll(retained);
         return result;
     }
 

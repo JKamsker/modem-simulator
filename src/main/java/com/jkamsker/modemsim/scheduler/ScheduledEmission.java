@@ -10,8 +10,15 @@ public record ScheduledEmission(
         long stateVersion,
         boolean cancelOnStateChange,
         String operation,
-        int sampledDelayMs
+        int sampledDelayMs,
+        boolean cancelOnMacroReload
 ) implements Comparable<ScheduledEmission> {
+    public ScheduledEmission(long dueMonotonicNanos, long sequence, SourcePriority sourcePriority, RawBytes payload,
+            long stateVersion, boolean cancelOnStateChange, String operation, int sampledDelayMs) {
+        this(dueMonotonicNanos, sequence, sourcePriority, payload, stateVersion, cancelOnStateChange,
+                operation, sampledDelayMs, false);
+    }
+
     @Override
     public int compareTo(ScheduledEmission other) {
         int byDue = Long.compare(dueMonotonicNanos, other.dueMonotonicNanos);
