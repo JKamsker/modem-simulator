@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <modem-simulator version="1.0">
-  <profile id="negative-pin-and-pinref"
+  <profile id="negative-missing-effective-error-policy"
            vendor="Spec Fixture"
-           status="stub"
+           status="device-target"
            profileKind="cellular">
-    <identity manufacturer="Fixture" model="PIN-REF" revision="1" imei="359762080000001"/>
+    <identity manufacturer="Fixture" model="ERROR-POLICY" revision="1" imei="359762080000001"/>
     <dialect commandTerminator="CR"
              responseTerminator="CRLF"
              smsPromptBytes="0D0A3E20"
@@ -15,13 +15,9 @@
              lineModel="minimal-v250"
              unknownAtCommand="ERROR"/>
     <initial-state>
-      <sim state="SIM_PIN_REQUIRED"
-           pinQueryEnabled="true"
-           pin="1234"
-           pinRef="TEST_SIM_PIN"
-           pinRetries="3"/>
-      <network cregN="0" stat="0"/>
-      <signal rssi="99" ber="99"/>
+      <sim state="READY" pinQueryEnabled="false"/>
+      <network cregN="2" stat="1"/>
+      <signal rssi="18" ber="0"/>
       <sms textMode="true"/>
       <call mode="command" carrier="false"/>
       <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>

@@ -62,14 +62,17 @@ final class RuntimeIo {
             try {
                 read = read(sidecar.endpoint());
             } catch (SerialOverflowException e) {
-                session.diagnostic(EventType.RX_OVERFLOW, "optional-rx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.RX_OVERFLOW, sidecar,
+                        "optional-rx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
                 continue;
             } catch (SerialPortLostException e) {
-                session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.PORT_LOST, sidecar,
+                        "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
                 continue;
             } catch (IOException e) {
-                session.diagnostic(EventType.PORT_LOST, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.PORT_LOST, sidecar,
+                        "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
                 continue;
             }
@@ -77,7 +80,8 @@ final class RuntimeIo {
                 continue;
             }
             if (sidecar.isSniffer()) {
-                session.diagnostic(EventType.POLICY_DENIED, "sniffer-input-ignored:" + sidecar.binding().id());
+                diagnostic(session, EventType.POLICY_DENIED, sidecar,
+                        "sniffer-input-ignored:" + sidecar.binding().id());
             } else if (sidecar.isManualDceInjection()) {
                 SessionResponse response = session.injectDce(read.bytes(), "raw-dce-to-dte");
                 writeResponse(modemEndpoint, session, sidecars, response);
@@ -140,16 +144,25 @@ final class RuntimeIo {
             try {
                 sidecar.mirror(direction, bytes);
             } catch (SerialOverflowException e) {
-                session.diagnostic(EventType.TX_OVERFLOW, "optional-tx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.TX_OVERFLOW, sidecar,
+                        "optional-tx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             } catch (SerialPortLostException e) {
-                session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.PORT_LOST, sidecar,
+                        "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             } catch (IOException e) {
-                session.diagnostic(EventType.PORT_LOST, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
+                diagnostic(session, EventType.PORT_LOST, sidecar,
+                        "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             }
         }
+    }
+
+    private void diagnostic(HeadlessSession session, EventType type, RuntimeSidecar sidecar, String result) {
+        PortBinding binding = sidecar.binding();
+        String port = binding.name() == null || binding.name().isBlank() ? binding.id() : binding.name();
+        session.diagnostic(type, result, port, binding.role().configName());
     }
 
     private boolean dcdAfterDisconnect(ModemState state) {

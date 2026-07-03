@@ -52,7 +52,7 @@ class ModemRuntimeTest {
         assertThat(readLog(result.eventLogPath())).contains("optional-port-open-failed:sniffer:sidecar unavailable");
         assertThatThrownBy(() -> runtime.run(config(true, true), List.of(), 0))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Runtime failed: sidecar unavailable");
+                .hasMessageContaining("Runtime failed: PORT_BUSY: sidecar unavailable");
     }
 
     @Test

@@ -76,7 +76,7 @@ Event-`source` ist die normalisierte Herkunft des Events:
 | `replay` | Replay-Steuerung oder Replay-Injection. |
 | `scheduler` | Scheduler-Enqueue/-Emit/-Cancel. |
 | `transport` | Portverlust, Portdiagnose oder RX/TX-Overflow. |
-| `internal` | Parser-, Handler-, Audit- oder Lifecycle-Event ohne externe Quelle. |
+| `internal` | Parser-, Handler-, State-, Fault-, Policy-, Audit- oder Lifecycle-Event ohne externe Quelle. |
 
 Das Scheduler-Feld `sourcePriority` ist ein separater Tie-Breaker fuer faellige Scheduler-Eintraege.
 
@@ -88,7 +88,7 @@ Mindest-Mapping fuer Eventquellen:
 | `TX_BYTES` | `tx` |
 | `SCHEDULER_ENQUEUE`, `SCHEDULER_EMIT` | `scheduler` |
 | `PORT_OPEN_FAILED`, `PORT_LOST`, `RX_OVERFLOW`, `TX_OVERFLOW` | `transport` |
-| `DROPPED_EVENTS`, `AUDIT_FAILURE`, `PARSED_COMMAND`, `PARSE_ERROR`, `HANDLER_RESULT` | `internal` |
+| `SESSION_START`, `SESSION_STOP`, `STATE_CHANGE`, `FAULT_TRIGGERED`, `POLICY_DENIED`, `VALIDATION_ERROR`, `DROPPED_EVENTS`, `AUDIT_FAILURE`, `PARSED_COMMAND`, `PARSE_ERROR`, `HANDLER_RESULT` | `internal` |
 | `INJECTION` | `gui`, `replay`, `internal` |
 | `MACRO_DECISION`, `MACRO_EVENT` | `macro` |
 | `REPLAY_MARKER` | `replay` |

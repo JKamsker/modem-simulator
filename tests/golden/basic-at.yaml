@@ -1,7 +1,18 @@
 name: basic-at-ok
-profile: generic-hayes-v250
+profile: acceptance-sierra-hl6-hl8-ready
+commandTerminator: CR
+responseTerminator: CRLF
+defaultEcho: false
+defaultVerbose: true
+defaultQuiet: false
 clockMode: virtual
 sessionSeed: 12345
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: NONE
+  flowControl: NONE
 metadata:
   purpose: Golden Transcript loader smoke fixture for A31.
 steps:

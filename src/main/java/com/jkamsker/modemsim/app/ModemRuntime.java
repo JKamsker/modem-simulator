@@ -71,6 +71,8 @@ final class ModemRuntime {
                     config.macroTimers(), dceWrites, config.allowUnsafeDceTransmit());
             session.stop("normal-stop");
             return new RuntimeResult(result.sessionId(), result.readsProcessed(), result.output(), config.eventLogPath());
+        } catch (SerialException e) {
+            throw new IllegalStateException("Runtime failed: " + e.diagnosticCode() + ": " + e.getMessage(), e);
         } catch (IOException e) {
             throw new IllegalStateException("Runtime failed: " + e.getMessage(), e);
         } finally {

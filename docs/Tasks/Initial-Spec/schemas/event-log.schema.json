@@ -333,6 +333,36 @@
       "if": {
         "properties": {
           "eventType": {
+            "enum": [
+              "SESSION_START",
+              "SESSION_STOP",
+              "STATE_CHANGE",
+              "FAULT_TRIGGERED"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "internal"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          },
+          "rawHex": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
             "const": "INJECTION"
           }
         },
@@ -585,7 +615,8 @@
       },
       "then": {
         "required": [
-          "diagnosticCode"
+          "diagnosticCode",
+          "replayDivergent"
         ],
         "properties": {
           "source": {
@@ -593,6 +624,9 @@
           },
           "diagnosticCode": {
             "const": "RX_OVERFLOW"
+          },
+          "replayDivergent": {
+            "const": true
           }
         }
       }
@@ -610,7 +644,8 @@
       },
       "then": {
         "required": [
-          "diagnosticCode"
+          "diagnosticCode",
+          "replayDivergent"
         ],
         "properties": {
           "source": {
@@ -618,6 +653,9 @@
           },
           "diagnosticCode": {
             "const": "TX_OVERFLOW"
+          },
+          "replayDivergent": {
+            "const": true
           }
         }
       }

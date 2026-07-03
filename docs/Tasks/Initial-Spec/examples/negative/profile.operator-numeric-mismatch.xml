@@ -2,7 +2,7 @@
 <modem-simulator version="1.0">
   <profile id="negative-operator-numeric-mismatch"
            vendor="Spec Fixture"
-           status="negative-fixture"
+           status="stub"
            profileKind="cellular">
     <identity manufacturer="Fixture" model="OPERATOR" revision="1" imei="359762080000001"/>
     <dialect commandTerminator="CR"

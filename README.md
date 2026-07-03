@@ -285,7 +285,7 @@ Schemas:
 
 `./mvnw -B -Pcoverage-all verify` removes the display-safe GUI JaCoCo exclusions and includes GUI-tagged tests. Run it under `xvfb-run` on Linux. This is the stricter coverage gate used by CI to keep the full non-generated production bundle above the 85% line threshold.
 
-The source-size guard fails above 300 lines for non-generated Java source files under `src/`.
+The source-size guard fails at 300 lines or more for non-generated Java source files under `src/`; keep them under 300 lines.
 
 CI runs the same Maven verify target on:
 
