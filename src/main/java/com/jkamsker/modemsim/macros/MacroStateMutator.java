@@ -67,7 +67,8 @@ public final class MacroStateMutator {
         return state.withCall(new CallRuntime(
                 patch.path().equals("state.call.mode") ? callMode(patch.value()) : call.mode(),
                 patch.path().equals("state.call.carrier") ? Boolean.parseBoolean(patch.value()) : call.carrier(),
-                patch.path().equals("state.call.dialedNumber") ? patch.value() : call.dialedNumber()));
+                patch.path().equals("state.call.dialedNumber") ? patch.value() : call.dialedNumber(),
+                patch.path().equals("state.call.incomingNumber") ? patch.value() : call.incomingNumber()));
     }
 
     private ModemState modemPatch(ModemState state, MacroStatePatch patch) {

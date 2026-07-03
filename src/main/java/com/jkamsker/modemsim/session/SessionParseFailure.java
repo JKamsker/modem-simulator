@@ -13,11 +13,11 @@ final class SessionParseFailure {
 
     static SessionResponse response(
             SessionEventPublisher events, SessionInputState inputState, long lastByteNanos,
-            ModemState state, RawBytes output, int start) {
+            ModemState state, RawBytes input, RawBytes output, int start) {
         RawBytes result = state.settings().quiet() ? RawBytes.empty()
                 : new ResponseFormatter(state).result("ERROR", state.settings().verbose());
         RawBytes response = output.append(result);
-        events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, state, state,
+        events.publish(EventType.PARSE_ERROR, Direction.INTERNAL, input, null, state, state,
                 CommandResult.error(state, "AtCommandParser"));
         inputState.clearCommandBuffer();
         if (!response.isEmpty()) {

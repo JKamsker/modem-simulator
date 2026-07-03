@@ -60,7 +60,7 @@ record GuiStatePatch(
 
     private ModemState applyCall(ModemState state) {
         CallRuntime call = state.call();
-        return state.withCall(new CallRuntime(callMode, call.carrier(), call.dialedNumber()));
+        return state.withCall(new CallRuntime(callMode, call.carrier(), call.dialedNumber(), call.incomingNumber()));
     }
 
     private ModemState applyModem(ModemState state) {

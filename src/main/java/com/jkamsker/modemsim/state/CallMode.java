@@ -2,6 +2,7 @@ package com.jkamsker.modemsim.state;
 
 public enum CallMode {
     COMMAND("command"),
+    RINGING("ringing"),
     DIALING("dialing"),
     ONLINE_DATA("online-data"),
     ONLINE_COMMAND("online-command"),

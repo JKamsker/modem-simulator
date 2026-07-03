@@ -1,11 +1,14 @@
 package com.jkamsker.modemsim.session;
 
+import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileRegister;
 import com.jkamsker.modemsim.profiles.ProfileRegisterCatalog;
 import com.jkamsker.modemsim.state.CallMode;
+import com.jkamsker.modemsim.state.CallRuntime;
+import com.jkamsker.modemsim.state.ModemLines;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -146,8 +149,31 @@ class ProtocolRegressionTest {
     void malformedLineReturnsErrorInsteadOfThrowing() {
         HeadlessSession session = new HeadlessSession("parse-error", BuiltinProfiles.acceptanceSierra(), 12345);
 
-        assertThat(session.receive(RawBytes.ascii("BOGUS\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+        var response = session.receive(RawBytes.ascii("BOGUS\r"));
+
+        assertThat(response.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(response.events()).anySatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.PARSE_ERROR));
         assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void ataOnlyAnswersRingingCall() {
+        HeadlessSession idle = new HeadlessSession("ata-idle", BuiltinProfiles.acceptanceSierra(), 12345);
+        assertThat(idle.receive(RawBytes.ascii("ATA\r")).outputAscii()).isEqualTo("\r\nNO CARRIER\r\n");
+
+        var base = BuiltinProfiles.acceptanceSierra().initialState();
+        var ringing = base
+                .withCall(new CallRuntime(CallMode.RINGING, false, null, "+491701234567"))
+                .withLines(new ModemLines(true, true, false, true, true, true));
+        Profile profile = BuiltinProfiles.acceptanceSierra().withInitialState(ringing);
+        HeadlessSession session = new HeadlessSession("ata-ringing", profile, 12345);
+
+        assertThat(session.receive(RawBytes.ascii("ATA\r")).outputAscii()).isEqualTo("\r\nCONNECT\r\n");
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
+        assertThat(session.snapshot().call().carrier()).isTrue();
+        assertThat(session.snapshot().call().dialedNumber()).isEqualTo("+491701234567");
+        assertThat(session.snapshot().lines().dcd()).isTrue();
+        assertThat(session.snapshot().lines().ri()).isFalse();
     }
 
     @Test

@@ -62,8 +62,7 @@ public final class AtCommandParser {
             return List.of(special(RawBytes.ascii(line), line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
         }
         if (!line.regionMatches(true, 0, "AT", 0, 2)) {
-            return List.of(command(RawBytes.ascii(line), line, "PARSE_ERROR", CommandKind.BASIC, "", 0, mode,
-                    0, line.length(), false));
+            throw new AtParseException("line does not start with AT");
         }
         return parseBody(source, line, line.substring(2), mode);
     }
@@ -83,8 +82,7 @@ public final class AtCommandParser {
         int position = 0;
         while (position < body.length()) {
             if (body.charAt(position) == ';') {
-                position++;
-                continue;
+                throw new AtParseException("stray command separator");
             }
             Slice slice = nextSlice(body, position);
             String rawText = (index == 0 ? "AT" : "") + slice.text();
@@ -132,6 +130,9 @@ public final class AtCommandParser {
                 return new Slice(body.substring(start, i), i, i + 1, sawQuote);
             }
         }
+        if (quoted) {
+            throw new AtParseException("unterminated quoted argument");
+        }
         return new Slice(body.substring(start), body.length(), body.length(), sawQuote);
     }
 
@@ -140,12 +141,19 @@ public final class AtCommandParser {
         while (end < body.length() && Character.isDigit(body.charAt(end))) {
             end++;
         }
+        if (end == start + 1) {
+            throw new AtParseException("missing S-register number");
+        }
         if (end < body.length() && body.charAt(end) == '?') {
             end++;
         } else if (end < body.length() && body.charAt(end) == '=') {
             end++;
+            int valueStart = end;
             while (end < body.length() && Character.isDigit(body.charAt(end))) {
                 end++;
+            }
+            if (end == valueStart) {
+                throw new AtParseException("missing S-register value");
             }
         }
         return new Slice(body.substring(start, end), end, end, false);
@@ -168,6 +176,9 @@ public final class AtCommandParser {
             int rawStart, int rawEnd, boolean quoted) {
         int separator = firstSeparator(slice);
         String name = (separator < 0 ? slice : slice.substring(0, separator)).toUpperCase(Locale.ROOT);
+        if (name.length() == extendedPrefixLength(name)) {
+            throw new AtParseException("missing extended command name");
+        }
         String args = separator < 0 ? "" : slice.substring(separator + 1);
         CommandKind kind = switch (separator < 0 ? '\0' : slice.charAt(separator)) {
             case '?' -> CommandKind.EXTENDED_READ;
@@ -236,6 +247,14 @@ public final class AtCommandParser {
 
     private boolean startsWithExtendedPrefix(String text, int start) {
         return extendedPrefixes.stream().anyMatch(prefix -> text.startsWith(prefix, start));
+    }
+
+    private int extendedPrefixLength(String name) {
+        return extendedPrefixes.stream()
+                .filter(name::startsWith)
+                .mapToInt(String::length)
+                .findFirst()
+                .orElse(0);
     }
 
     private boolean hasTerminator(String text) {

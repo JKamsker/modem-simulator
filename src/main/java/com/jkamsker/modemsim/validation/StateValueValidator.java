@@ -16,7 +16,7 @@ public final class StateValueValidator {
             "state.network.act", "state.network.rejectCauseType", "state.network.rejectCause",
             "state.signal.rssi", "state.signal.ber",
             "state.sms.textMode", "state.sms.storage",
-            "state.call.mode", "state.call.carrier", "state.call.dialedNumber",
+            "state.call.mode", "state.call.carrier", "state.call.dialedNumber", "state.call.incomingNumber",
             "state.modem.lifecycle", "state.modem.freezeMode", "state.modem.bootDelayMs",
             "state.modemLines.dtr", "state.modemLines.dsr", "state.modemLines.dcd",
             "state.modemLines.ri", "state.modemLines.rts", "state.modemLines.cts");
@@ -92,6 +92,7 @@ public final class StateValueValidator {
             case "state.call.mode" -> state.call().mode().pathValue();
             case "state.call.carrier" -> Boolean.toString(state.call().carrier());
             case "state.call.dialedNumber" -> state.call().dialedNumber();
+            case "state.call.incomingNumber" -> state.call().incomingNumber();
             case "state.modem.lifecycle" -> state.modem().lifecycle().name();
             case "state.modem.freezeMode" -> state.modem().freezeMode().name();
             case "state.modem.bootDelayMs" -> Integer.toString(state.modem().bootDelayMs());

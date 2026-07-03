@@ -65,7 +65,8 @@ public final class EventStateRedactor {
         if (state.sms() != null && containsSmsMsisdn(state.sms())) {
             classes.add("msisdn");
         }
-        if (state.call() != null && state.call().dialedNumber() != null) {
+        if (state.call() != null
+                && (state.call().dialedNumber() != null || state.call().incomingNumber() != null)) {
             classes.add("msisdn");
         }
     }
@@ -136,6 +137,7 @@ public final class EventStateRedactor {
         return new CallRuntime(
                 call.mode(),
                 call.carrier(),
-                call.dialedNumber() == null ? null : REDACTED);
+                call.dialedNumber() == null ? null : REDACTED,
+                call.incomingNumber() == null ? null : REDACTED);
     }
 }

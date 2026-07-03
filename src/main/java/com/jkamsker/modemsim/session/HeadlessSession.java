@@ -106,7 +106,7 @@ public final class HeadlessSession implements SessionActor {
         try {
             commands = new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(effective, SessionEntryMode.from(state.call().mode()));
         } catch (com.jkamsker.modemsim.parser.AtParseException e) {
-            return SessionParseFailure.response(events, inputState, lastByteNanos, state, output, start);
+            return SessionParseFailure.response(events, inputState, lastByteNanos, state, effective, output, start);
         }
         if (commands.isEmpty()) {
             inputState.rememberIncomplete(effective);

@@ -123,7 +123,8 @@ public final class ModemEventJson {
         put(json, "call", Map.of(
                 "mode", state.call().mode().name(),
                 "carrier", state.call().carrier(),
-                "dialedNumber", value(state.call().dialedNumber())));
+                "dialedNumber", value(state.call().dialedNumber()),
+                "incomingNumber", value(state.call().incomingNumber())));
         put(json, "modem", Map.of(
                 "lifecycle", state.modem().lifecycle().name(),
                 "freezeMode", state.modem().freezeMode().name(),

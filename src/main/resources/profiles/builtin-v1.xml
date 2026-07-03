@@ -18,6 +18,7 @@
       <command name="AT&amp;V" status="implemented_full" handler="HayesHandler"/>
       <command name="AT&amp;D" status="implemented_full" handler="HayesHandler"/>
       <command name="AT&amp;C" status="implemented_full" handler="HayesHandler"/>
+      <command name="ATA" status="implemented_full" handler="HayesHandler"/>
       <command name="ATD" status="implemented_stub" handler="HayesHandler"/>
       <command name="ATH" status="implemented_full" handler="HayesHandler"/>
       <command name="ATO" status="implemented_full" handler="HayesHandler"/>
@@ -35,7 +36,7 @@
       <register name="S8" default="2" min="0" max="255"/>
       <register name="S12" default="50" min="0" max="255"/>
     </registers>
-    <coverage source="references/snapshots/itu-v250.md" commandsTotal="17" unknown="0"/>
+    <coverage source="references/snapshots/itu-v250.md" commandsTotal="18" unknown="0"/>
   </profile>
 
   <profile id="3gpp-27007-r18" vendor="3GPP" status="normative-base" profileKind="base"
@@ -77,7 +78,7 @@
       <command name="+CCLK" status="implemented_stub" handler="CellularHandler"/>
       <command name="+CFUN" status="implemented_stub" handler="CellularHandler"/>
     </commands>
-    <coverage source="references/snapshots/3gpp-27007.md" commandsTotal="30" unknown="0"/>
+    <coverage source="references/snapshots/3gpp-27007.md" commandsTotal="31" unknown="0"/>
   </profile>
 
   <profile id="3gpp-27005-r16" vendor="3GPP" status="normative-base" profileKind="base"
@@ -115,7 +116,7 @@
       <command name="+CSCA" status="implemented_full" handler="SmsHandler"/>
       <command name="+CSCS" status="implemented_stub" handler="SmsHandler"/>
     </commands>
-    <coverage source="references/snapshots/3gpp-27005.md" commandsTotal="26" unknown="0"/>
+    <coverage source="references/snapshots/3gpp-27005.md" commandsTotal="27" unknown="0"/>
   </profile>
 
   <profile id="sierra-common" vendor="Sierra Wireless / Semtech" status="manufacturer-base"
@@ -131,7 +132,7 @@
       <command name="+WDSR" status="unsupported_declared" reason="Sierra device-services reply command is tracked but out of v0.2 runtime scope"/>
       <command name="+KSIMSLOT" status="unsupported_declared" reason="Sierra SIM slot selection is tracked but out of v0.2 runtime scope"/>
     </commands>
-    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="44" unknown="0"/>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="45" unknown="0"/>
   </profile>
 
   <profile id="sierra-hl6-hl8-v20" vendor="Sierra Wireless / Semtech" status="device-family"
@@ -140,7 +141,7 @@
     <identity manufacturer="Sierra Wireless" model="HL8548" revision="SIM-HL6HL8-v20" imei="359762080000001"/>
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
-    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="44" unknown="0"/>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="45" unknown="0"/>
   </profile>
 
   <profile id="westermo-common" vendor="Westermo" status="manufacturer-base" profileKind="base"
@@ -149,7 +150,7 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
-    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="17" unknown="0"/>
+    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="18" unknown="0"/>
   </profile>
 
   <profile id="westermo-td22-6177-2203" vendor="Westermo" status="device-target" profileKind="pstn"
@@ -158,7 +159,7 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
-    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="17" unknown="0"/>
+    <coverage source="references/snapshots/westermo-td22.md" commandsTotal="18" unknown="0"/>
   </profile>
 
   <profile id="westermo-td36-6618-2202" vendor="Westermo" status="device-target" profileKind="pstn"
@@ -167,7 +168,7 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
-    <coverage source="references/snapshots/westermo-td36.md" commandsTotal="17" unknown="0"/>
+    <coverage source="references/snapshots/westermo-td36.md" commandsTotal="18" unknown="0"/>
   </profile>
 
   <profile id="westermo-gd01-6196-2220" vendor="Westermo" status="device-target" profileKind="hybrid"
@@ -184,7 +185,7 @@
       <command name="+STSF" status="unsupported_declared" reason="SIM toolkit configuration is tracked but out of v0.2 runtime scope"/>
       <command name="+CCED" status="unsupported_declared" reason="Cell environment diagnostics are tracked but out of v0.2 runtime scope"/>
     </commands>
-    <coverage source="references/snapshots/westermo-gd01.md" commandsTotal="44" unknown="0"/>
+    <coverage source="references/snapshots/westermo-gd01.md" commandsTotal="45" unknown="0"/>
   </profile>
 
   <profile id="westermo-gdw11-6615-2220" vendor="Westermo" status="device-target" profileKind="hybrid"
@@ -201,6 +202,6 @@
       <command name="+STSF" status="unsupported_declared" reason="SIM toolkit configuration is tracked but out of v0.2 runtime scope"/>
       <command name="+CCED" status="unsupported_declared" reason="Cell environment diagnostics are tracked but out of v0.2 runtime scope"/>
     </commands>
-    <coverage source="references/snapshots/westermo-gdw11.md" commandsTotal="44" unknown="0"/>
+    <coverage source="references/snapshots/westermo-gdw11.md" commandsTotal="45" unknown="0"/>
   </profile>
 </modem-simulator>

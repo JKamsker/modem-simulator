@@ -37,6 +37,7 @@ public final class HayesHandler implements CommandHandler {
             case "AT&D" -> setDtrPolicy(state, command.arguments());
             case "AT&C" -> setDcdPolicy(state, command.arguments());
             case "ATD" -> dial(profile, state, command.arguments());
+            case "ATA" -> answer(state);
             case "ATH" -> hangup(state);
             case "ATO" -> online(state);
             default -> null;
@@ -79,6 +80,16 @@ public final class HayesHandler implements CommandHandler {
         ModemState connected = state
                 .withCall(state.call().connected(number))
                 .withLines(state.lines().withDcd(true));
+        return new CommandResult(connected, List.of(), ResultCode.CONNECT, "HayesHandler", false);
+    }
+
+    private CommandResult answer(ModemState state) {
+        if (state.call().mode() != CallMode.RINGING) {
+            return new CommandResult(state, List.of(), ResultCode.NO_CARRIER, "HayesHandler", true);
+        }
+        ModemState connected = state
+                .withCall(state.call().answerIncoming())
+                .withLines(state.lines().withDcd(true).withRi(false));
         return new CommandResult(connected, List.of(), ResultCode.CONNECT, "HayesHandler", false);
     }
 

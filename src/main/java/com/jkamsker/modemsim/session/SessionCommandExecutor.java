@@ -91,7 +91,7 @@ final class SessionCommandExecutor {
 
     private CommandResult delayedDialResult(ParsedCommand command, ModemState before, CommandResult routed) {
         ModemState dialing = before
-                .withCall(new CallRuntime(CallMode.DIALING, false, command.arguments()))
+                .withCall(new CallRuntime(CallMode.DIALING, false, command.arguments(), null))
                 .withLines(before.lines().withDcd(false));
         return new CommandResult(dialing, routed.frames(), routed.finalResult(), routed.handler(), routed.stopLine());
     }

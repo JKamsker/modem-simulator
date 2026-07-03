@@ -3,6 +3,7 @@ package com.jkamsker.modemsim.parser;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AtCommandParserTest {
     private final AtCommandParser parser = new AtCommandParser(8);
@@ -100,5 +101,21 @@ class AtCommandParserTest {
 
         assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT&D", "AT&C");
         assertThat(commands).extracting(ParsedCommand::arguments).containsExactly("2", "1");
+    }
+
+    @Test
+    void rejectsMalformedLines() {
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("BOGUS\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+CPIN=\"1234\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT;+CSQ\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7=\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
     }
 }

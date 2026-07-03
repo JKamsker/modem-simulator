@@ -128,7 +128,8 @@ final class ProfileXmlStateParser {
     private CallRuntime parseCall(Element call, CallRuntime fallback) {
         return call == null ? fallback : new CallRuntime(
                 callMode(Dom.attr(call, "mode", "command")),
-                Dom.boolAttr(call, "carrier", false), Dom.attr(call, "dialedNumber", null));
+                Dom.boolAttr(call, "carrier", false), Dom.attr(call, "dialedNumber", null),
+                Dom.attr(call, "incomingNumber", null));
     }
 
     private ModemRuntimeInfo parseModem(Element modem, ModemRuntimeInfo fallback) {
@@ -152,6 +153,7 @@ final class ProfileXmlStateParser {
 
     private CallMode callMode(String value) {
         return switch (value) {
+            case "ringing" -> CallMode.RINGING;
             case "online-data" -> CallMode.ONLINE_DATA;
             case "online-command" -> CallMode.ONLINE_COMMAND;
             case "dialing" -> CallMode.DIALING;
