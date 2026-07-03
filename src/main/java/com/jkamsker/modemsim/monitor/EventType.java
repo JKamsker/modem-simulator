@@ -15,5 +15,7 @@ public enum EventType {
     INJECTION,
     AUDIT_FAILURE,
     REPLAY_MARKER,
-    PORT_LOST
+    PORT_LOST,
+    RX_OVERFLOW,
+    TX_OVERFLOW
 }

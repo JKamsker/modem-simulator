@@ -19,7 +19,7 @@
     {"command": "+CGMM", "status": "implemented_full", "handler": "CellularHandler"},
     {"command": "+CGMR", "status": "implemented_full", "handler": "CellularHandler"},
     {"command": "+CGSN", "status": "implemented_full", "handler": "CellularHandler"},
-    {"command": "+CCLK", "status": "implemented_stub", "handler": "unsupported_declared"},
-    {"command": "+CFUN", "status": "implemented_stub", "handler": "unsupported_declared"}
+    {"command": "+CCLK", "status": "implemented_stub", "handler": "CellularHandler"},
+    {"command": "+CFUN", "status": "implemented_stub", "handler": "CellularHandler"}
   ]
 }

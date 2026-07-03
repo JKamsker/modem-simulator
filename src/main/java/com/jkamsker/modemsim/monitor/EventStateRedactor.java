@@ -81,7 +81,7 @@ public final class EventStateRedactor {
     }
 
     private boolean containsSmsMsisdn(SmsRuntime sms) {
-        return sms.messages().values().stream()
+        return sms.smsc() != null || sms.messages().values().stream()
                 .anyMatch(message -> message.sender() != null || message.recipient() != null);
     }
 
@@ -120,6 +120,8 @@ public final class EventStateRedactor {
                 sms.smsc() == null ? null : REDACTED,
                 sms.cnmi(),
                 sms.storage(),
+                sms.writeStorage(),
+                sms.receiveStorage(),
                 sms.nextMessageReference(),
                 messages);
     }

@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-24.04, windows-2025]
 
     steps:
       - uses: actions/checkout@v4
@@ -32,16 +32,23 @@ jobs:
       - name: Verify
         shell: bash
         run: ./mvnw -B verify
+      - name: Repository hygiene
+        shell: bash
+        run: |
+          git diff --check
+          if grep -RIn --exclude-dir=.git --exclude-dir=target 'alegs3' .; then
+            exit 1
+          fi
       - name: Log native access target
         shell: bash
         run: |
           echo "native-access target from packaged launchers:"
-          grep -ho -- '--enable-native-access=[^ ]*' src/main/scripts/modemsim src/main/scripts/modemsim.cmd | sort -u
+          grep -ho -- '--enable-native-access=[^ ]*' src/main/scripts/modemsim* | sort -u
           grep -R -- '--enable-native-access=ALL-UNNAMED' pom.xml src/main/scripts
 
   gui-headless:
     name: GUI headless tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -50,11 +57,28 @@ jobs:
           java-version: '24'
           cache: maven
       - name: GUI lane
-        run: ./mvnw -B -Dtest=GuiSessionControllerTest,ReadOnlyPolicyTest test
+        run: xvfb-run -a ./mvnw -B -DexcludedGroups= -Dgroups=gui test
+
+  coverage-all:
+    name: Full coverage gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - name: Verify with GUI classes counted
+        run: xvfb-run -a ./mvnw -B -Pcoverage-all verify
 
   distribution:
-    name: Distribution smoke
-    runs-on: ubuntu-latest
+    name: Distribution smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -63,6 +87,7 @@ jobs:
           java-version: '24'
           cache: maven
       - name: Package ZIP distribution
+        shell: bash
         run: ./mvnw -B -DskipTests package
       - name: Inspect distribution
         run: unzip -l target/*-dist.zip
@@ -71,13 +96,40 @@ jobs:
         run: |
           rm -rf target/dist-smoke
           unzip -q target/*-dist.zip -d target/dist-smoke
-          launcher=$(find target/dist-smoke -path '*/bin/modemsim' -type f | head -n 1)
-          "$launcher" test --suite acceptance --case A01
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            launcher=$(find target/dist-smoke -path '*/bin/modemsim.cmd' -type f | head -n 1)
+            app_home=$(dirname "$(dirname "$launcher")")
+            app_home_win=$(cygpath -w "$app_home")
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd validate-config src\\test\\resources\\config\\valid.yaml"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd validate-profile docs\\Tasks\\Initial-Spec\\examples\\modem-profile.sample.xml"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd validate-macros docs\\Tasks\\Initial-Spec\\examples\\macros.sms-error-123.xml"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd validate-scenario docs\\Tasks\\Initial-Spec\\examples\\scenario.no-network.xml"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd coverage verify --profiles v1-targets"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd replay src\\test\\resources\\replay\\basic-at-events.jsonl --mode validate-recompute"
+            cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd test --suite acceptance --case all"
+          else
+            launcher=$(find target/dist-smoke -path '*/bin/modemsim' -type f | head -n 1)
+            app_home=$(dirname "$(dirname "$launcher")")
+            (
+              cd "$app_home"
+              bin/modemsim validate-config src/test/resources/config/valid.yaml
+              bin/modemsim validate-profile docs/Tasks/Initial-Spec/examples/modem-profile.sample.xml
+              bin/modemsim validate-macros docs/Tasks/Initial-Spec/examples/macros.sms-error-123.xml
+              bin/modemsim validate-scenario docs/Tasks/Initial-Spec/examples/scenario.no-network.xml
+              bin/modemsim coverage verify --profiles v1-targets
+              bin/modemsim replay src/test/resources/replay/basic-at-events.jsonl --mode validate-recompute
+              bin/modemsim test --suite acceptance --case all
+            )
+          fi
+      - name: Smoke GUI launcher presence
+        shell: bash
+        run: |
+          test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui' -type f | head -n 1)"
+          test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui.cmd' -type f | head -n 1)"
 
   serial-it:
     name: Serial integration tests
-    if: github.event_name == 'workflow_dispatch' && inputs.run_serial_it == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -85,5 +137,33 @@ jobs:
           distribution: temurin
           java-version: '24'
           cache: maven
+      - name: Install PTY loopback tool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y socat
+      - name: Create virtual serial pair
+        shell: bash
+        run: |
+          mkdir -p target/serial-it
+          socat -d -d PTY,raw,echo=0,link="$PWD/target/serial-it/modem" \
+            PTY,raw,echo=0,link="$PWD/target/serial-it/dte" \
+            > target/serial-it/socat.log 2>&1 &
+          echo "$!" > target/serial-it/socat.pid
+          for _ in {1..50}; do
+            test -e target/serial-it/modem && test -e target/serial-it/dte && break
+            sleep 0.1
+          done
+          test -e target/serial-it/modem
+          test -e target/serial-it/dte
+          echo "MODEMSIM_SERIAL_MODEM_PORT=$PWD/target/serial-it/modem" >> "$GITHUB_ENV"
+          echo "MODEMSIM_SERIAL_DTE_PORT=$PWD/target/serial-it/dte" >> "$GITHUB_ENV"
       - name: Serial lane
-        run: ./mvnw -B -Dgroups=serial-it -DfailIfNoTests=false test
+        run: ./mvnw -B -DexcludedGroups= -Dgroups=serial-it test
+      - name: Stop virtual serial pair
+        if: always()
+        shell: bash
+        run: |
+          if [ -f target/serial-it/socat.pid ]; then
+            kill "$(cat target/serial-it/socat.pid)" || true
+            cat target/serial-it/socat.log || true
+          fi

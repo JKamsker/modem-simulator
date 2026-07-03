@@ -68,6 +68,31 @@ class ModemRuntimeTest {
     }
 
     @Test
+    void delayedDialIsNotDrainedOnSameRead() {
+        HeadlessEndpoint endpoint = new HeadlessEndpoint();
+        endpoint.enqueueRead(RawBytes.ascii("ATD123\r"), 0);
+        ModemRuntime runtime = new ModemRuntime(binding -> endpoint);
+
+        RuntimeResult result = runtime.run(config(false, false), List.of(), 1);
+
+        assertThat(result.output().toHex()).isEmpty();
+        assertThat(readLog(result.eventLogPath())).contains("\"eventType\":\"SCHEDULER_ENQUEUE\"");
+    }
+
+    @Test
+    void delayedDialEmitsWhenLaterReadAdvancesClock() {
+        HeadlessEndpoint endpoint = new HeadlessEndpoint();
+        endpoint.enqueueRead(RawBytes.ascii("ATD123\r"), 0);
+        endpoint.enqueueRead(RawBytes.empty(), 5_000_000_000L);
+        ModemRuntime runtime = new ModemRuntime(binding -> endpoint);
+
+        RuntimeResult result = runtime.run(config(false, false), List.of(), 2);
+
+        assertThat(result.output().ascii()).isEqualTo("\r\nCONNECT\r\n");
+        assertThat(readLog(result.eventLogPath())).contains("\"eventType\":\"SCHEDULER_EMIT\"");
+    }
+
+    @Test
     void manualDceSidecarInjectsRawDceOnlyWhenUnsafeTransmitIsAllowed() {
         Map<String, HeadlessEndpoint> endpoints = new LinkedHashMap<>();
         ModemRuntime runtime = new ModemRuntime(binding -> {
@@ -85,6 +110,63 @@ class ModemRuntimeTest {
         assertThat(readLog(result.eventLogPath()))
                 .contains("\"eventType\":\"INJECTION\"")
                 .contains("\"injectionType\":\"raw-dce-to-dte\"");
+    }
+
+    @Test
+    void runtimePublishesPortLostAndDropsLinesWhenMainPortReadFails() {
+        LostReadEndpoint endpoint = new LostReadEndpoint();
+        ModemRuntime runtime = new ModemRuntime(binding -> endpoint);
+
+        RuntimeResult result = runtime.run(config(false, false), List.of(), 1);
+
+        assertThat(result.readsProcessed()).isZero();
+        assertThat(endpoint.lines.dsr()).isFalse();
+        assertThat(endpoint.lines.dcd()).isFalse();
+        assertThat(readLog(result.eventLogPath()))
+                .contains("\"eventType\":\"PORT_LOST\"")
+                .contains("\"port\":\"modem\"")
+                .contains("\"portRole\":\"modem-simulation\"")
+                .contains("\"dsr\":false")
+                .contains("\"dcd\":false");
+    }
+
+    @Test
+    void resolverAcceptsEveryV1CoverageTargetId() throws Exception {
+        ProfileResolver resolver = new ProfileResolver();
+        try (var files = Files.list(Path.of("src/main/resources/coverage/v1-targets"))) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .map(path -> path.getFileName().toString().replace(".json", ""))
+                    .map(id -> resolver.resolve(id).id()))
+                    .contains(
+                            "generic-hayes-v250",
+                            "3gpp-27007-r18",
+                            "3gpp-27005-r16",
+                            "sierra-common",
+                            "sierra-hl6-hl8-v20",
+                            "westermo-common",
+                            "westermo-td22-6177-2203",
+                            "westermo-td36-6618-2202",
+                            "westermo-gd01-6196-2220",
+                            "westermo-gdw11-6615-2220");
+        }
+    }
+
+    @Test
+    void builtInProfilesExposeSpecMetadataWithoutSelfCycles() throws Exception {
+        ProfileResolver resolver = new ProfileResolver();
+        assertThat(resolver.resolve("generic-hayes-v250").status()).isEqualTo("normative-base");
+        assertThat(resolver.resolve("generic-hayes-v250").profileKind()).isEqualTo("base");
+        assertThat(resolver.resolve("sierra-common").parents())
+                .containsExactly("generic-hayes-v250", "3gpp-27007-r18", "3gpp-27005-r16");
+        assertThat(resolver.resolve("westermo-common").parents()).containsExactly("generic-hayes-v250");
+        assertThat(resolver.resolve("westermo-common").profileKind()).isEqualTo("base");
+        assertThat(resolver.resolve("westermo-gdw11-6615-2220").profileKind()).isEqualTo("hybrid");
+        try (var files = Files.list(Path.of("src/main/resources/coverage/v1-targets"))) {
+            files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .map(path -> path.getFileName().toString().replace(".json", ""))
+                    .map(resolver::resolve)
+                    .forEach(profile -> assertThat(profile.parents()).doesNotContain(profile.id()));
+        }
     }
 
     private RuntimeConfig config(boolean sidecarEnabled, boolean strict) {
@@ -157,6 +239,37 @@ class ModemRuntimeTest {
 
         @Override
         public void writeLines(ModemLines lines) {
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
+    private static final class LostReadEndpoint implements SerialEndpoint {
+        private ModemLines lines = ModemLines.ready();
+
+        @Override
+        public void open(SerialConfig config) {
+        }
+
+        @Override
+        public SerialRead read() throws IOException {
+            throw new IOException("port removed");
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) {
+        }
+
+        @Override
+        public ModemLines readLines() {
+            return lines;
+        }
+
+        @Override
+        public void writeLines(ModemLines lines) {
+            this.lines = lines;
         }
 
         @Override

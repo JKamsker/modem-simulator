@@ -4,6 +4,13 @@ enum EndpointType {
     SERIAL,
     HEADLESS;
 
+    String configName() {
+        return switch (this) {
+            case SERIAL -> "serial";
+            case HEADLESS -> "headless";
+        };
+    }
+
     static EndpointType fromConfig(String value) {
         return switch (value) {
             case "serial" -> SERIAL;

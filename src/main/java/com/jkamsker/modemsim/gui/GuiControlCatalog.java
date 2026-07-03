@@ -9,6 +9,8 @@ public final class GuiControlCatalog {
                 control("session.mainPort", false),
                 control("session.snifferPort", false),
                 control("session.manualDcePort", false),
+                control("session.initialScenario", false),
+                control("session.seed", false),
                 control("session.baudRate", true),
                 control("session.dataBits", true),
                 control("session.stopBits", true),
@@ -18,7 +20,10 @@ public final class GuiControlCatalog {
                 control("session.stop", true),
                 control("session.reconnect", true),
                 control("session.portLost", false),
+                control("session.readOnly", true),
                 control("log.table", false),
+                control("log.filter", false),
+                control("log.selection", false),
                 control("log.export", false),
                 control("state.simState", true),
                 control("state.pinRetries", true),
@@ -56,9 +61,11 @@ public final class GuiControlCatalog {
                 control("macro.enable", true),
                 control("macro.disable", true),
                 control("macro.file", false),
+                control("macro.id", false),
                 control("macro.hash", false),
                 control("macro.errors", false),
                 control("macro.customResponses", false),
+                control("macro.enabled", false),
                 control("replay.mode", false),
                 control("replay.logFile", false),
                 control("replay.hashStatus", false),
@@ -69,7 +76,8 @@ public final class GuiControlCatalog {
                 control("export.jsonl", false),
                 control("export.preview", false),
                 control("export.transcript", false),
-                control("export.coverage", false));
+                control("export.coverage", false),
+                control("export.replayReport", false));
     }
 
     private GuiControl control(String id, boolean mutating) {

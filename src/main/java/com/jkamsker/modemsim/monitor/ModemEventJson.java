@@ -51,6 +51,7 @@ public final class ModemEventJson {
         put(json, "latencyMs", event.latencyMs());
         put(json, "injectionType", event.injectionType());
         put(json, "droppedEventCount", event.droppedEventCount());
+        put(json, "handler", event.handler());
         put(json, "result", event.result());
         put(json, "scheduler", event.scheduler());
         put(json, "stateBefore", state(event.stateBefore()));
@@ -76,7 +77,7 @@ public final class ModemEventJson {
                 "lifecycle", state.modem().lifecycle().name(),
                 "freezeMode", state.modem().freezeMode().name(),
                 "bootDelayMs", state.modem().bootDelayMs()));
-        put(json, "lines", Map.of(
+        put(json, "modemLines", Map.of(
                 "dtr", state.lines().dtr(), "dsr", state.lines().dsr(), "dcd", state.lines().dcd(),
                 "ri", state.lines().ri(), "rts", state.lines().rts(), "cts", state.lines().cts()));
         put(json, "settings", settings(state));
@@ -121,6 +122,8 @@ public final class ModemEventJson {
         put(json, "smsc", state.sms().smsc());
         put(json, "cnmi", state.sms().cnmi());
         put(json, "storage", state.sms().storage().name());
+        put(json, "writeStorage", state.sms().writeStorage().name());
+        put(json, "receiveStorage", state.sms().receiveStorage().name());
         put(json, "nextMessageReference", state.sms().nextMessageReference());
         put(json, "messages", messages(state.sms().messages()));
         return json;

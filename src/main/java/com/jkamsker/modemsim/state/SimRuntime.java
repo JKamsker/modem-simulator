@@ -12,7 +12,7 @@ public record SimRuntime(
 ) {
     public static SimRuntime ready() {
         return new SimRuntime(
-                SimState.READY, true, "TEST_SIM_PIN", "1234", 3, 10,
+                SimState.READY, true, "TEST_SIM_PIN", null, 3, 10,
                 "262010123456789", "8949020000000000000");
     }
 

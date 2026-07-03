@@ -11,7 +11,13 @@
     "eventType",
     "direction",
     "rawHex",
-    "redaction"
+    "redaction",
+    "profileHash",
+    "configHash",
+    "macroHash",
+    "initialStateHash",
+    "sessionSeed",
+    "clockMode"
   ],
   "properties": {
     "timestamp": {
@@ -57,6 +63,8 @@
         "MACRO_DECISION",
         "REPLAY_MARKER",
         "PORT_LOST",
+        "RX_OVERFLOW",
+        "TX_OVERFLOW",
         "AUDIT_FAILURE"
       ]
     },
@@ -74,6 +82,11 @@
         "raw-dce-to-dte",
         "parsed-command",
         "state-change",
+        "dtr-drop",
+        "line-change",
+        "scenario-step",
+        "unknown-at-command-policy",
+        "modem-reboot-complete",
         "macro-control",
         "replay"
       ]
@@ -98,19 +111,20 @@
       "type": "string"
     },
     "profileHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "configHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "macroHash": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "initialStateHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "sessionSeed": {
       "type": "integer"
@@ -128,6 +142,12 @@
       ]
     },
     "result": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "handler": {
       "type": [
         "string",
         "null"
@@ -164,6 +184,9 @@
         "sampledDelayMs": {
           "type": "integer",
           "minimum": 0
+        },
+        "operation": {
+          "type": "string"
         },
         "cancelled": {
           "type": "boolean"

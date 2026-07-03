@@ -3,6 +3,9 @@ package com.jkamsker.modemsim.commands;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.UnknownAtCommandPolicy;
+import com.jkamsker.modemsim.macros.FaultAction;
+import com.jkamsker.modemsim.macros.FaultService;
+import com.jkamsker.modemsim.state.FreezeMode;
 import com.jkamsker.modemsim.state.ModemLifecycle;
 import com.jkamsker.modemsim.state.ModemState;
 
@@ -10,12 +13,19 @@ import java.util.List;
 
 public final class DefaultCommandRouter {
     private final List<CommandHandler> handlers = List.of(new HayesHandler(), new CellularHandler(), new SmsHandler());
+    private final FaultService faults = new FaultService();
 
     public CommandResult route(Profile profile, ModemState state, ParsedCommand command) {
-        if (state.modem().lifecycle() == ModemLifecycle.FROZEN) {
+        if (state.modem().lifecycle() == ModemLifecycle.REBOOTING || noResponseFreeze(state)) {
             return new CommandResult(state, List.of(), null, "FreezePolicy", true);
         }
+        if (command.normalizedName().equals("PARSE_ERROR")) {
+            return new CommandResult(state, List.of(), ResultCode.ERROR, "AtCommandParser", true);
+        }
         for (CommandHandler handler : handlers) {
+            if (!handlerAllowed(profile, handler)) {
+                continue;
+            }
             CommandResult result = handler.handle(profile, state, command);
             if (result != null) {
                 return result;
@@ -31,11 +41,33 @@ public final class DefaultCommandRouter {
             case ERR -> new CommandResult(state, List.of(), ResultCode.ERR, "UnknownPolicy", true);
             case ERROR -> CommandResult.error(state, "UnknownPolicy");
             case RESTART -> new CommandResult(
-                    state.withModem(state.modem().withLifecycle(ModemLifecycle.REBOOTING)),
+                    faults.apply(state, new FaultAction("modem-reboot", null, null, null, null, null)),
                     List.of(),
-                    null,
-                    "UnknownPolicy",
-                    true);
+                null,
+                "UnknownPolicy",
+                true);
         };
+    }
+
+    private boolean handlerAllowed(Profile profile, CommandHandler handler) {
+        if (handler instanceof CellularHandler) {
+            return mobileProfile(profile) || profile.id().equals("3gpp-27007-r18");
+        }
+        if (handler instanceof SmsHandler) {
+            return mobileProfile(profile) || profile.id().equals("3gpp-27005-r16");
+        }
+        return true;
+    }
+
+    private boolean mobileProfile(Profile profile) {
+        return switch (profile.profileKind()) {
+            case "cellular", "hybrid" -> true;
+            default -> false;
+        };
+    }
+
+    private boolean noResponseFreeze(ModemState state) {
+        return state.modem().lifecycle() == ModemLifecycle.FROZEN
+                && state.modem().freezeMode() != FreezeMode.HOLD_TX;
     }
 }

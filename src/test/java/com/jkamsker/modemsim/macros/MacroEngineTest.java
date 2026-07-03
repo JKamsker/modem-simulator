@@ -1,9 +1,14 @@
 package com.jkamsker.modemsim.macros;
 
+import com.jkamsker.modemsim.monitor.EventType;
+import com.jkamsker.modemsim.parser.CommandKind;
+import com.jkamsker.modemsim.parser.EntryMode;
+import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.state.ModemLifecycle;
+import com.jkamsker.modemsim.state.SimState;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -105,6 +110,106 @@ class MacroEngineTest {
     }
 
     @Test
+    void conditionsStatePatchesJitterAndDecisionEventsAreApplied() throws Exception {
+        MacroSet macros = new MacroLoader().load(write("conditions.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="conditional-at" priority="100" phase="replace">
+                    <match command="AT"/>
+                    <when>
+                      <state path="state.network.stat" equals="4"/>
+                      <profile id="sierra-hl6-hl8-v20"/>
+                    </when>
+                    <then>
+                      <set path="state.sim.state" value="SIM_FAILURE"/>
+                      <delay ms="10" jitterMs="5"/>
+                      <event type="TEST_MARKER" message="conditional macro"/>
+                      <emit line="+COND"/>
+                    </then>
+                  </macro>
+                </macros>
+                """));
+        HeadlessSession session = new HeadlessSession(
+                "main", BuiltinProfiles.acceptanceSierra(), 12345,
+                new com.jkamsker.modemsim.monitor.InMemoryEventSink(), new MacroEngine(macros));
+
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).contains("OK");
+
+        session.applyFault("network-outage");
+        var response = session.receive(RawBytes.ascii("AT\r"));
+
+        assertThat(response.outputHex()).isEmpty();
+        assertThat(session.snapshot().sim().state()).isEqualTo(SimState.SIM_FAILURE);
+        assertThat(response.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isEqualTo(EventType.MACRO_DECISION);
+            assertThat(event.macroId()).isEqualTo("conditional-at");
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> decision = (java.util.Map<String, Object>) event.parsedCommand().get("macroDecision");
+            assertThat(decision)
+                    .containsEntry("minDelayMs", 10)
+                    .containsEntry("maxDelayMs", 15);
+        });
+        assertThat(response.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isEqualTo(EventType.SCHEDULER_ENQUEUE);
+            assertThat((Integer) event.scheduler().get("sampledDelayMs")).isBetween(10, 15);
+        });
+        assertThat(session.drainScheduled().outputAscii()).contains("+COND");
+    }
+
+    @Test
+    void stateChangeMacrosRunAfterExplicitStateTransitions() throws Exception {
+        MacroSet macros = new MacroLoader().load(write("state-change.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="network-state-urc" priority="100" phase="on-state-change">
+                    <match type="state-change"/>
+                    <when>
+                      <state path="state.network.stat" equals="4"/>
+                    </when>
+                    <then>
+                      <emit line="+STATE: NO NETWORK"/>
+                    </then>
+                  </macro>
+                </macros>
+                """));
+        HeadlessSession session = new HeadlessSession(
+                "main", BuiltinProfiles.acceptanceSierra(), 12345,
+                new com.jkamsker.modemsim.monitor.InMemoryEventSink(), new MacroEngine(macros));
+
+        var response = session.applyFault("network-outage");
+
+        assertThat(response.outputAscii()).contains("+STATE: NO NETWORK");
+        assertThat(response.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isEqualTo(EventType.MACRO_DECISION);
+            assertThat(event.macroId()).isEqualTo("network-state-urc");
+        });
+    }
+
+    @Test
+    void delayedStateOnlyMacroCommitsStateWhenScheduledMarkerIsDue() throws Exception {
+        MacroSet macros = new MacroLoader().load(write("state-only-delay.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="delayed-state" priority="100" phase="replace">
+                    <match rawGlob="AT+DELAYSTATE"/>
+                    <then>
+                      <delay ms="1000"/>
+                      <set path="state.network.stat" value="4"/>
+                    </then>
+                  </macro>
+                </macros>
+                """));
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345,
+                new com.jkamsker.modemsim.monitor.InMemoryEventSink(), new MacroEngine(macros));
+
+        session.receive(RawBytes.ascii("AT+DELAYSTATE\r"));
+        assertThat(session.snapshot().network().stat()).isEqualTo(1);
+        session.advanceTime(1_000);
+
+        assertThat(session.snapshot().network().stat()).isEqualTo(4);
+    }
+
+    @Test
     void validatorRejectsAmbiguousCustomResponseSemantics() throws Exception {
         var report = new MacroLoader().validate(write("ambiguous-custom.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -140,10 +245,45 @@ class MacroEngineTest {
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("does not accept stat"));
     }
 
+    @Test
+    void validatorRejectsInvalidStatePredicatesAndSetValues() throws Exception {
+        var report = new MacroLoader().validate(write("bad-state-values.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="bad-state-values" priority="100" phase="replace">
+                    <match command="AT"/>
+                    <when>
+                      <state path="state.unknown.value" equals="1"/>
+                    </when>
+                    <then>
+                      <set path="state.signal.rssi" value="32"/>
+                    </then>
+                  </macro>
+                </macros>
+                """));
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("unknown state path"));
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("state.signal.rssi"));
+    }
+
+    @Test
+    void matchModeRestrictsCommandMacrosToTheActiveEntryMode() {
+        MatchSpec match = new MatchSpec("AT", "basic", null, null,
+                "at-command", null, null, null, null, null, null, null);
+
+        assertThat(match.matchesCommand(parsed(CommandKind.EXTENDED_READ, EntryMode.COMMAND))).isFalse();
+        assertThat(match.matchesCommand(parsed(CommandKind.BASIC, EntryMode.COMMAND))).isTrue();
+    }
+
     private Path write(String name, String content) throws Exception {
         Path path = tempDir.resolve(name);
         Files.writeString(path, content);
         return path;
+    }
+
+    private ParsedCommand parsed(CommandKind kind, EntryMode mode) {
+        return new ParsedCommand(RawBytes.ascii("AT\r"), "AT", "AT", kind, "", java.util.List.of("AT"), 0, mode);
     }
 
     private static final class SessionAssertions {

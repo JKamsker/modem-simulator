@@ -15,6 +15,7 @@ public final class ProfileSemanticValidator {
         validateRequiredState(profile, report);
         validateSimNetwork(profile, report);
         validateNetwork(profile, report);
+        validateCoverage(profile, report);
         return report;
     }
 
@@ -32,6 +33,9 @@ public final class ProfileSemanticValidator {
     }
 
     private void validateSimNetwork(Profile profile, ValidationReport report) {
+        if (!Set.of("cellular", "hybrid").contains(profile.profileKind())) {
+            return;
+        }
         SimRuntime sim = profile.initialState().sim();
         NetworkRuntime network = profile.initialState().network();
         if (sim == null) {
@@ -39,6 +43,9 @@ public final class ProfileSemanticValidator {
         }
         if (sim.pinQueryEnabled() && blank(sim.pinRef()) && blank(sim.testPin())) {
             report.error(profile.id() + ": pinQueryEnabled requires pinRef or test pin");
+        }
+        if (!blank(sim.testPin()) && !testProfile(profile)) {
+            report.error(profile.id() + ": inline test pin is only allowed for test fixture profiles");
         }
         if (!blank(sim.pinRef()) && !blank(sim.testPin())) {
             report.error(profile.id() + ": pin and pinRef cannot both be configured for runtime profiles");
@@ -70,12 +77,31 @@ public final class ProfileSemanticValidator {
             }
         }
         if (!network.registeredForCircuitServices()
+                && !hasCompatibilityDeviation(profile)
                 && (network.lac() != null || network.ci() != null || network.act() != null)) {
             report.error(profile.id() + ": non-registered CREG state must not expose lac/ci/act");
         }
     }
 
+    private boolean testProfile(Profile profile) {
+        return Set.of("candidate", "stub", "out-of-scope").contains(profile.status());
+    }
+
+    private boolean hasCompatibilityDeviation(Profile profile) {
+        return profile.deviations().stream().anyMatch(deviation -> "compatibility".equals(deviation.severity()));
+    }
+
     private boolean blank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void validateCoverage(Profile profile, ValidationReport report) {
+        ProfileCoverage coverage = profile.coverage();
+        if (coverage == null) {
+            return;
+        }
+        if (coverage.commandsTotal() != coverage.commands().size()) {
+            report.error(profile.id() + ": coverage commandsTotal must equal command count");
+        }
     }
 }

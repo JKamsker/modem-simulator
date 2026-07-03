@@ -26,11 +26,57 @@ class ConfigCoverageScenarioValidationTest {
     }
 
     @Test
+    void rejectsUnsupportedSerialBaudRates() throws Exception {
+        Path config = tempDir.resolve("bad-baud.yaml");
+        Files.writeString(config, """
+                sessionSeed: 12345
+                clockMode: virtual
+                serialLine: {baudRate: 12345, dataBits: 8, stopBits: 1, parity: NONE, flowControl: NONE}
+                ports:
+                  - {id: modem, type: headless, role: modem-simulation, enabled: true, profile: sierra-hl6-hl8-v20}
+                redaction: {enabled: true, maskPin: true, maskPuk: true, maskImsi: true, maskIccid: true, maskImei: true, maskMsisdn: true, maskSmsBody: true}
+                """);
+
+        ValidationReport report = new ConfigValidator().validate(config);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("baudRate"));
+    }
+
+    @Test
     void verifiesCoverageForAllV1Targets() {
         ValidationReport report = new CoverageValidator()
                 .verifyV1Targets(Path.of("src/main/resources/coverage/v1-targets"));
 
         assertThat(report.valid()).as(report.errors().toString()).isTrue();
+    }
+
+    @Test
+    void rejectsUnexpectedCoverageTargetFiles() throws Exception {
+        Path source = Path.of("src/main/resources/coverage/v1-targets");
+        try (var files = Files.list(source)) {
+            files.forEach(path -> {
+                try {
+                    Files.copy(path, tempDir.resolve(path.getFileName().toString()));
+                } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+            });
+        }
+        Files.writeString(tempDir.resolve("extra.json"), """
+                {
+                  "profile": "unexpected-profile",
+                  "source": "test",
+                  "commands_total": 0,
+                  "unknown": 0,
+                  "commands": []
+                }
+                """);
+
+        ValidationReport report = new CoverageValidator().verifyV1Targets(tempDir);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("Unexpected v1 coverage report"));
     }
 
     @Test
@@ -74,12 +120,17 @@ class ConfigCoverageScenarioValidationTest {
         Path scenario = tempDir.resolve("bad-scenario.xml");
         Files.writeString(scenario, """
                 <?xml version="1.0" encoding="UTF-8"?>
-                <scenario id="bad" version="1.0" clock="virtual">
-                  <initial-state>
-                    <signal rssi="32" ber="0"/>
-                  </initial-state>
+	                <scenario id="bad" version="1.0" clock="virtual">
+	                  <initial-state>
+	                    <sim state="BROKEN"/>
+	                    <network cregN="4" stat="12"/>
+	                    <signal rssi="32" ber="0"/>
+	                  </initial-state>
                   <step atMs="10">
                     <set path="state.unknown.value" value="1"/>
+                  </step>
+                  <step atMs="11">
+                    <fault type="network-restore" stat="99" rssi="18" ber="0"/>
                   </step>
                   <step atMs="5"/>
                   <expect command="AT"/>
@@ -88,9 +139,12 @@ class ConfigCoverageScenarioValidationTest {
 
         ValidationReport report = new ScenarioValidator().validate(scenario);
 
-        assertThat(report.valid()).isFalse();
-        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("rssi"));
+	        assertThat(report.valid()).isFalse();
+	        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("state.sim.state"));
+	        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("state.network.cregN"));
+	        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("rssi"));
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("unknown state path"));
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("state.network.stat"));
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("ordered by atMs"));
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("expectation"));
     }

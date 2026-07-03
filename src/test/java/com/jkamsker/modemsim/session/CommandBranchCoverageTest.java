@@ -23,9 +23,11 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT&W\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("A/")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("NO CARRIER");
-        assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputAscii()).contains("CONNECT");
+        assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputHex()).isEqualTo("4154443535350D");
+        assertThat(session.drainScheduled().outputAscii()).contains("CONNECT");
         session.advanceTime(1_000);
-        assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("+++")).outputHex()).isEmpty();
+        assertThat(session.advanceTime(1_000).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("CONNECT");
     }
 
@@ -48,6 +50,8 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CREG=3\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CREG=4\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CREG\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CGREG=1\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("+CREG: 3,1");
         assertThat(session.receive(RawBytes.ascii("AT+CSQ=?\r")).outputAscii()).contains("(0-31,99)");
         assertThat(session.receive(RawBytes.ascii("AT+COPS=?\r")).outputAscii()).contains("(0,1,2,3,4)");
         assertThat(session.receive(RawBytes.ascii("AT+COPS=0\r")).outputAscii()).contains("OK");
@@ -56,6 +60,10 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMEE=?\r")).outputAscii()).contains("(0-2)");
         assertThat(session.receive(RawBytes.ascii("AT+CMEE=9\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CMEE=abc\r")).outputAscii()).contains("ERROR");
+        assertThat(session.receive(RawBytes.ascii("AT+CCLK?\r")).outputAscii()).contains("+CCLK:");
+        assertThat(session.receive(RawBytes.ascii("AT+CCLK=?\r")).outputAscii()).contains("yy/MM/dd");
+        assertThat(session.receive(RawBytes.ascii("AT+CFUN?\r")).outputAscii()).contains("+CFUN: 1");
+        assertThat(session.receive(RawBytes.ascii("AT+CFUN=?\r")).outputAscii()).contains("(0,1)");
     }
 
     @Test
@@ -71,13 +79,15 @@ class CommandBranchCoverageTest {
         assertThat(deniedSession.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii())
                 .contains("+CREG: 3,3,0,11");
 
-        assertThat(new HeadlessSession("pstn", BuiltinProfiles.westermoTd22(), 12345)
-                .receive(RawBytes.ascii("AT+COPS?\r")).outputAscii()).contains("ERROR");
+        HeadlessSession pstn = new HeadlessSession("pstn", BuiltinProfiles.westermoTd22(), 12345);
+        assertThat(pstn.receive(RawBytes.ascii("AT+COPS?\r")).outputAscii()).contains("ERROR");
+        assertThat(pstn.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii()).contains("ERROR");
+        assertThat(pstn.receive(RawBytes.ascii("AT+CMGF?\r")).outputAscii()).contains("ERROR");
 
         assertPinState(SimState.SIM_PUK_REQUIRED, "+CPIN: SIM PUK");
         assertPinState(SimState.SIM_NOT_INSERTED, "+CME ERROR: SIM not inserted");
         assertPinState(SimState.SIM_FAILURE, "+CME ERROR: SIM failure");
-        assertPinState(SimState.SIM_BUSY, "+CME ERROR: operation not allowed");
+        assertPinState(SimState.SIM_BUSY, "+CME ERROR: SIM busy");
 
         HeadlessSession locked = lockedSession();
         locked.receive(RawBytes.ascii("AT+CMEE=2\r"));
@@ -108,8 +118,21 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CSCA?\r")).outputAscii()).contains("+CSCA:");
         assertThat(session.receive(RawBytes.ascii("AT+CSCA=\"+123\"\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CSCA\r")).outputAscii()).contains("ERROR");
+        assertThat(session.receive(RawBytes.ascii("AT+CSCS?\r")).outputAscii()).contains("+CSCS: \"GSM\"");
+        assertThat(session.receive(RawBytes.ascii("AT+CSCS=?\r")).outputAscii()).contains("\"UCS2\"");
         assertThat(session.receive(RawBytes.ascii("AT+CMGR=abc\r")).outputAscii()).contains("+CMS ERROR: 321");
         assertThat(session.receive(RawBytes.ascii("AT+CMGD=99\r")).outputAscii()).contains("+CMS ERROR: 321");
+    }
+
+    @Test
+    void normative3gppProfilesExposeOnlyTheirCommandFamily() {
+        HeadlessSession at27007 = new HeadlessSession("27007", BuiltinProfiles.byId("3gpp-27007-r18"), 12345);
+        assertThat(at27007.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("+CREG");
+        assertThat(at27007.receive(RawBytes.ascii("AT+CMGF?\r")).outputAscii()).contains("ERROR");
+
+        HeadlessSession at27005 = new HeadlessSession("27005", BuiltinProfiles.byId("3gpp-27005-r16"), 12345);
+        assertThat(at27005.receive(RawBytes.ascii("AT+CMGF?\r")).outputAscii()).contains("+CMGF");
+        assertThat(at27005.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("ERROR");
     }
 
     private HeadlessSession session() {

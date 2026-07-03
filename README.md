@@ -10,8 +10,8 @@ The simulator is aimed at software that expects a Hayes, GSM, or vendor-specific
 - Implements core V.250 behavior such as `AT`, `ATE`, `ATQ`, `ATV`, `ATS`, `ATZ`, `AT&F`, `AT&W`, `AT&V`, dial/connect, escape, online-command mode, and hangup flows.
 - Implements key 3GPP TS 27.007 cellular commands including `+CREG`, `+CSQ`, `+CPIN`, `+CMEE`, `+COPS`, and identity commands.
 - Implements the 3GPP TS 27.005 SMS text-mode workflow around `+CMGF`, `+CMGS`, prompt handling, Ctrl-Z submit, ESC cancel, storage helpers, service center configuration, and deterministic CMS errors.
-- Supports XML modem profiles, XML macro rules, XML scenarios, YAML config validation, and JSON coverage reports.
-- Provides deterministic headless sessions with virtual time, seeded delay sampling, event capture, replay validation building blocks, and an in-memory serial endpoint for tests.
+- Supports XML modem profiles, inherited profile metadata, XML macro rules, XML scenarios, YAML config validation, and JSON coverage reports.
+- Provides deterministic headless sessions with virtual time, seeded delay sampling, event capture, replay validation/playback, and an in-memory serial endpoint for tests.
 - Includes built-in acceptance profiles for Sierra-like cellular behavior and Westermo PSTN/GSM-family behavior.
 - Enforces an 85% line-coverage gate and Java source size checks in `mvn verify`.
 
@@ -51,6 +51,12 @@ Build, test, validate coverage, and run the source-size guard:
 ./mvnw -B clean verify
 ```
 
+Run the full Linux coverage lane, including GUI-tagged tests and JavaFX view classes:
+
+```bash
+xvfb-run -a ./mvnw -B -Pcoverage-all verify
+```
+
 Build the ZIP distribution:
 
 ```bash
@@ -58,7 +64,7 @@ Build the ZIP distribution:
 unzip -l target/modem-simulator-*-dist.zip
 ```
 
-The distribution contains `bin/modemsim` and `bin/modemsim.cmd`. Both launchers run the CLI with `--enable-native-access=ALL-UNNAMED`, which is required for classpath use of jSerialComm on Java 24.
+The distribution contains CLI launchers (`bin/modemsim`, `bin/modemsim.cmd`) and GUI launchers (`bin/modemsim-gui`, `bin/modemsim-gui.cmd`). All launchers use `--enable-native-access=ALL-UNNAMED`, which is required for classpath use of jSerialComm on Java 24.
 
 Run the full acceptance suite:
 
@@ -70,6 +76,7 @@ Run one acceptance case:
 
 ```bash
 ./mvnw -q exec:java -Dexec.args="test --suite acceptance --case A01"
+./mvnw -q exec:java -Dexec.args="test --suite cellular --case creg"
 ```
 
 Validate the sample modem profile:
@@ -95,13 +102,20 @@ List visible serial ports:
 The Maven `exec` plugin runs `com.jkamsker.modemsim.app.ModemSimCli`.
 
 ```text
+run --config <config.yaml> [--input-ascii <text>|--input-hex <hex>] [--max-reads <n>]
+run --port <port> --baud <rate> --profile <profile-id|profile.xml> [--endpoint serial|headless]
 validate-profile <profile.xml>
 validate-macros <macros.xml>
 validate-scenario <scenario.xml>
 validate-config <config.yaml>
 coverage verify --profiles v1-targets
 test --suite acceptance --case <case-id|all>
+test --tags <tag> --case <alias>
+replay <jsonl|yaml-log> --mode validate-recompute [--profile <profile-id|profile.xml>] [--seed <long>]
+replay <jsonl> --mode drive-from-captured-input [--profile <profile-id|profile.xml>] [--seed <long>]
+replay <jsonl> --mode play-to-dte [--endpoint serial|headless] [--port <port>] [--baud <rate>] [--timing none|recorded]
 list-ports
+headless --profile <profile-id|profile.xml> --script <transcript.jsonl|transcript.yaml> [--seed <long>]
 ```
 
 Useful examples:
@@ -111,7 +125,16 @@ Useful examples:
 ./mvnw -q exec:java -Dexec.args="validate-scenario docs/Tasks/Initial-Spec/examples/scenario.no-network.xml"
 ./mvnw -q exec:java -Dexec.args="validate-config src/test/resources/config/valid.yaml"
 ./mvnw -q exec:java -Dexec.args="test --suite acceptance --case A09"
+./mvnw -q exec:java -Dexec.args="test --tags gui --case live-log"
+./mvnw -q exec:java -Dexec.args="run --endpoint headless --port HEADLESS --baud 115200 --profile sierra-hl6-hl8-v20 --input-ascii AT\\r"
+./mvnw -q exec:java -Dexec.args="replay src/test/resources/replay/basic-at-events.jsonl --mode validate-recompute"
+./mvnw -q exec:java -Dexec.args="replay src/test/resources/replay/basic-at-events.jsonl --mode play-to-dte --endpoint headless"
+./mvnw -q exec:java -Dexec.args="headless --profile sierra-hl6-hl8-v20 --script src/test/resources/replay/basic-at.jsonl"
 ```
+
+The `test` command accepts both acceptance IDs (`A01` through `A25`) and spec-oriented aliases such as `creg`, `text-cmgs`, `deterministic-delays`, `live-log`, `injection`, `data-mode-lines`, and `unknown-at-command-policy`.
+
+`play-to-dte` validates replay metadata before transmitting: required fingerprints must be present, TX bytes must match the captured event stream, timing metadata is checked, and logs with redacted replay bytes are rejected. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
 
 ## Implemented Acceptance Surface
 
@@ -124,7 +147,7 @@ The checked-in acceptance suite covers the v1 cases from `docs/Tasks/Initial-Spe
 - Deterministic scheduler delay sampling
 - XML macro matching, faults, and custom byte responses
 - Profile, schema, coverage, config, and XML-hardening checks
-- GUI control policy model and unsafe-DCE transmit guardrails
+- GUI control policy model, shared runtime event streaming, macro reload validation, replay/export panes, and unsafe-DCE transmit guardrails
 - Unknown-command policies for `OK`, `ERR`, `ERROR`, and restart behavior
 
 Run them with:
@@ -154,17 +177,17 @@ Session actor
 Important packages:
 
 ```text
-app          CLI entry point
+app          CLI entry point, runtime launcher, replay command, distribution scripts
 transport    Serial abstractions, jSerialComm adapter, headless endpoint
 parser       AT framing, parsing, raw byte helpers
 commands     Hayes, cellular, SMS handlers and response formatting
-profiles     Built-in profiles, XML loading, semantic validation
+profiles     Built-in profiles, XML loading, metadata inheritance, semantic validation
 state        Immutable modem, SIM, network, signal, SMS, and line state
 macros       XML macro loading, matching, actions, and fault services
 scheduler    Virtual clock and deterministic response ordering
 session      Headless session orchestration and event publishing
-replay       Replay validation model
-gui          GUI control catalog and read-only policy model
+replay       Replay validation and playback model
+gui          GUI view, controller, event display, control catalog, and read-only policy model
 validation   XML, JSON schema, config, scenario, and coverage validators
 testkit      v1 acceptance suite
 ```
@@ -191,6 +214,8 @@ Current v1 targets include:
 - `westermo-gdw11-6615-2220`
 
 Coverage validation is about explicit command disposition, not pretending every vendor command is fully implemented. Unknown commands in v1 target coverage must be driven to zero by marking each command as implemented, stubbed, intentionally unsupported, or not applicable.
+
+XML profiles carry more than executable state. The loader preserves and inherits command declarations, S-register declarations, coverage metadata, and deviation notes. Child profiles override entries with the same command/register/deviation ID while inheriting entries they do not redeclare.
 
 ## Specification
 
@@ -235,20 +260,28 @@ Schemas:
 - minimum bundle line coverage: `85%`
 - non-generated Java source-size guard
 
-The source-size guard warns above 300 lines and fails above 500 lines for Java source files under `src/`.
+`./mvnw -B -Pcoverage-all verify` removes the display-safe GUI JaCoCo exclusions and includes GUI-tagged tests. Run it under `xvfb-run` on Linux. This is the stricter coverage gate used by CI to keep the full non-generated production bundle above the 85% line threshold.
+
+The source-size guard fails above 300 lines for non-generated Java source files under `src/`.
 
 CI runs the same Maven verify target on:
 
-- `ubuntu-latest`
-- `windows-latest`
+- `ubuntu-24.04`
+- `windows-2025`
 
-CI also has a Linux GUI-headless lane, a ZIP distribution smoke lane, and an opt-in `serial-it` lane for environments with external serial loopback fixtures.
+CI also has a Linux GUI-headless lane, a full-coverage lane with GUI classes counted, Linux and Windows ZIP distribution smoke lanes, and an opt-in `serial-it` lane that provisions a Linux `socat` PTY pair before running the real serial API smoke test.
+
+To enable the checked-in local hook for the same source-size guard:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ## Development Notes
 
 - Keep production Java packages under `com.jkamsker.modemsim`.
 - Prefer small, direct classes over clever abstractions.
-- Keep non-generated Java source below 300 lines where practical and never above 500 lines.
+- Keep non-generated Java source below 300 lines.
 - Add focused tests when changing command behavior, parsing, state transitions, XML validation, scheduler ordering, or profile semantics.
 - Use the spec examples and schemas for validation tests instead of duplicating ad hoc fixtures.
 - Run `./mvnw -B clean verify` before pushing changes that touch code, schemas, test resources, or build configuration.
@@ -257,12 +290,15 @@ CI also has a Linux GUI-headless lane, a ZIP distribution smoke lane, and an opt
 
 The project includes a jSerialComm-backed endpoint for real serial ports and a headless endpoint for deterministic tests. It does not implement kernel drivers or create virtual COM pairs by itself. For full serial integration, provide a physical serial adapter or an OS-level virtual serial pair, then point the simulator at the desired port through the runtime integration layer.
 
+jSerialComm exposes DTR and RTS setters. The simulator maps DCE output signals onto those available controls deterministically: DSR/DCD/RI assert DTR, and CTS asserts RTS. Runtime tests cover DTR drop/reassert behavior; true hardware-line behavior still depends on the adapter and null-modem wiring.
+
 ## Security And Test Safety
 
 - XML loading is hardened against XXE-style inputs.
 - v1 has no HTTP or WebSocket control API.
 - Unsafe DCE transmit paths are modeled behind explicit GUI/read-only policy checks.
-- Event and replay design is built around deterministic state transitions and redaction-aware artifacts.
+- Event and replay design is built around deterministic state transitions and mandatory redaction-aware artifacts.
+- Raw payloads containing PINs, SMS bodies, IMSI/ICCID/IMEI values, or phone numbers are redacted in logs. Replay accepts state-redacted logs when raw bytes are intact and rejects artifacts where replay-critical bytes were redacted.
 
 ## Common Problems
 
@@ -277,6 +313,10 @@ Confirm the serial adapter or virtual port pair is visible to the OS and that yo
 Coverage check fails:
 
 Run `./mvnw -B verify`, open `target/site/jacoco/index.html`, and add behavior-focused tests for the uncovered branch or class. Do not lower the threshold to hide regressions.
+
+GUI coverage check fails locally:
+
+Use `xvfb-run -a ./mvnw -B -Pcoverage-all verify` on Linux. On Windows or macOS, run the default `verify` gate plus the GUI-focused tests in an environment with a display server.
 
 ## License
 

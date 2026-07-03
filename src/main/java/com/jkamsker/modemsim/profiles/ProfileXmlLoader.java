@@ -24,19 +24,27 @@ import com.jkamsker.modemsim.validation.XmlSecurity;
 import org.w3c.dom.Element;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class ProfileXmlLoader {
     private final ProfileSemanticValidator semanticValidator = new ProfileSemanticValidator();
+    private final ProfileXmlSemanticValidator xmlSemanticValidator = new ProfileXmlSemanticValidator();
 
     public Profile load(Path xmlPath) {
         ValidationReport report = validate(xmlPath);
         report.throwIfInvalid();
         Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
-        return parseProfile(Dom.children(root, "profile").getFirst());
+        return new ProfileXmlInheritanceResolver(this, root).resolve(ProfileXmlSelector.single(root));
+    }
+
+    public Profile load(Path xmlPath, String profileId) {
+        ValidationReport report = validate(xmlPath);
+        report.throwIfInvalid();
+        Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+        return new ProfileXmlInheritanceResolver(this, root).resolve(ProfileXmlSelector.byId(root, profileId));
     }
 
     public ValidationReport validate(Path xmlPath) {
@@ -44,18 +52,22 @@ public final class ProfileXmlLoader {
         try {
             XmlSecurity.validate(xmlPath, SchemaLocator.schemaPath("modem-profile.schema.xsd"));
             Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+            Set<String> profileIds = xmlSemanticValidator.profileIds(root);
+            ProfileXmlInheritanceResolver resolver = new ProfileXmlInheritanceResolver(this, root);
+            xmlSemanticValidator.validateRoot(root, report);
             for (Element profile : Dom.children(root, "profile")) {
-                report.merge(semanticValidator.validate(parseProfile(profile)));
+                xmlSemanticValidator.validate(profile, profileIds, report);
+                report.merge(semanticValidator.validate(resolver.resolve(profile)));
             }
         } catch (Exception e) {
             report.error(e.getMessage());
         }
         return report;
     }
-
-    private Profile parseProfile(Element profile) {
+    Profile parseProfile(Element profile) {
         Dialect dialect = parseDialect(Dom.child(profile, "dialect"));
         ModemState state = parseState(profile, dialect);
+        ProfileXmlMetadata metadata = new ProfileXmlMetadataParser().parse(profile);
         return new Profile(
                 profile.getAttribute("id"),
                 parents(profile.getAttribute("extends")),
@@ -64,7 +76,7 @@ public final class ProfileXmlLoader {
                 Dom.attr(profile, "profileKind", "cellular"),
                 dialect,
                 parseIdentity(Dom.child(profile, "identity")),
-                state);
+                state, metadata.commands(), metadata.registers(), metadata.coverage(), metadata.deviations());
     }
 
     private Dialect parseDialect(Element dialect) {
@@ -75,6 +87,8 @@ public final class ProfileXmlLoader {
                 Dom.boolAttr(dialect, "defaultEcho", false),
                 Dom.boolAttr(dialect, "defaultQuiet", false),
                 Dom.boolAttr(dialect, "defaultVerbose", true),
+                terminator(Dom.attr(dialect, "commandTerminator", "CR"), true),
+                terminator(Dom.attr(dialect, "responseTerminator", "CRLF"), false),
                 resetPolicy(Dom.attr(dialect, "resetPolicy", "nvram-on-atz")),
                 lineModel(Dom.attr(dialect, "lineModel", "minimal-v250")),
                 unknownPolicy(Dom.attr(dialect, "unknownAtCommand", "ERROR")),
@@ -94,7 +108,8 @@ public final class ProfileXmlLoader {
 
     private ModemState parseState(Element profile, Dialect dialect) {
         Element initial = Dom.child(profile, "initial-state");
-        ModemState base = "pstn".equals(Dom.attr(profile, "profileKind", "cellular"))
+        String kind = Dom.attr(profile, "profileKind", "cellular");
+        ModemState base = Set.of("pstn", "isdn", "base").contains(kind)
                 ? ModemState.pstnReady()
                 : ModemState.cellularReady();
         if (initial == null) {
@@ -112,11 +127,13 @@ public final class ProfileXmlLoader {
                 0), dialect);
     }
 
-    private ModemState applyDialect(ModemState state, Dialect dialect) {
+    ModemState applyDialect(ModemState state, Dialect dialect) {
         SessionSettings settings = state.settings()
                 .withEcho(dialect.defaultEcho())
                 .withQuiet(dialect.defaultQuiet())
-                .withVerbose(dialect.defaultVerbose());
+                .withVerbose(dialect.defaultVerbose())
+                .withRegister(3, dialect.commandTerminator())
+                .withRegister(4, dialect.responseTerminator());
         return state.withSettings(settings);
     }
 
@@ -124,9 +141,10 @@ public final class ProfileXmlLoader {
         if (sim == null) {
             return fallback;
         }
+        boolean pinQueryEnabled = Dom.boolAttr(sim, "pinQueryEnabled", false);
         return new SimRuntime(
-                SimState.valueOf(Dom.attr(sim, "state", "READY")),
-                Dom.boolAttr(sim, "pinQueryEnabled", false),
+                SimState.valueOf(Dom.attr(sim, "state", pinQueryEnabled ? "SIM_PIN_REQUIRED" : "READY")),
+                pinQueryEnabled,
                 Dom.attr(sim, "pinRef", null),
                 Dom.attr(sim, "pin", null),
                 Dom.intAttr(sim, "pinRetries", 3),
@@ -233,7 +251,7 @@ public final class ProfileXmlLoader {
     }
 
     private List<String> parents(String value) {
-        return value == null || value.isBlank() ? List.of() : Arrays.asList(value.trim().split("\\s+"));
+        return ProfileXmlSupport.parents(value);
     }
 
     private Integer intObject(Element element, String name) {
@@ -254,6 +272,14 @@ public final class ProfileXmlLoader {
             case "byte-only" -> LineModel.BYTE_ONLY;
             case "profile-specific" -> LineModel.PROFILE_SPECIFIC;
             default -> LineModel.MINIMAL_V250;
+        };
+    }
+
+    private int terminator(String value, boolean commandTerminator) {
+        return switch (value) {
+            case "LF" -> 10;
+            case "CRLF" -> commandTerminator ? 13 : 10;
+            default -> 13;
         };
     }
 

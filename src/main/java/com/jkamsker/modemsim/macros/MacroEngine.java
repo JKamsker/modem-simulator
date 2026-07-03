@@ -29,7 +29,7 @@ public final class MacroEngine {
     public MacroDecision evaluateCommand(
             ParsedCommand command, ModemState state, Profile profile, MacroPhase phase) {
         for (MacroRule rule : macroSet.rules()) {
-            if (rule.enabled() && rule.phase() == phase && rule.match().matchesCommand(command)) {
+            if (matches(rule, command, state, profile, phase)) {
                 return decision(rule);
             }
         }
@@ -38,7 +38,29 @@ public final class MacroEngine {
 
     public MacroDecision evaluateSms(String destination, String body, ModemState state, Profile profile) {
         for (MacroRule rule : macroSet.rules()) {
-            if (rule.enabled() && rule.phase() == MacroPhase.REPLACE && rule.match().matchesSms(destination, body)) {
+            if (rule.enabled() && rule.phase() == MacroPhase.REPLACE
+                    && rule.condition().matches(state, profile) && rule.match().matchesSms(destination, body)) {
+                return decision(rule);
+            }
+        }
+        return MacroDecision.none();
+    }
+
+    public MacroDecision evaluateStateChange(ModemState before, ModemState after, Profile profile) {
+        for (MacroRule rule : macroSet.rules()) {
+            if (rule.enabled() && rule.phase() == MacroPhase.ON_STATE_CHANGE
+                    && "state-change".equals(rule.match().type())
+                    && rule.condition().matches(after, profile)) {
+                return decision(rule);
+            }
+        }
+        return MacroDecision.none();
+    }
+
+    public MacroDecision evaluateTimer(String timerId, ModemState state, Profile profile) {
+        for (MacroRule rule : macroSet.rules()) {
+            if (rule.enabled() && rule.phase() == MacroPhase.ON_TIMER
+                    && rule.match().matchesTimer(timerId) && rule.condition().matches(state, profile)) {
                 return decision(rule);
             }
         }
@@ -52,18 +74,36 @@ public final class MacroEngine {
     private MacroDecision decision(MacroRule rule) {
         List<ResponseFrame> frames = new ArrayList<>();
         List<FaultAction> faults = new ArrayList<>();
-        int delay = 0;
+        List<MacroStatePatch> patches = new ArrayList<>();
+        List<MacroEventAction> events = new ArrayList<>();
+        int minDelay = 0;
+        int maxDelay = 0;
         for (MacroAction action : rule.actions()) {
             switch (action.type()) {
-                case "delay" -> delay += integer(action.attr("ms"));
+                case "delay" -> {
+                    int base = integer(action.attr("ms"));
+                    minDelay += base;
+                    maxDelay += base + integer(action.attr("jitterMs"));
+                }
                 case "emit" -> addEmit(frames, action);
                 case "send" -> addSend(frames, action);
                 case "fault" -> faults.add(MacroLoader.fault(action));
+                case "set" -> patches.add(MacroLoader.statePatch(action));
+                case "event" -> events.add(MacroLoader.event(action));
                 default -> {
                 }
             }
         }
-        return new MacroDecision(true, rule.id(), delay, frames, faults);
+        return new MacroDecision(
+                true, rule.id(), macroSet.randomSeed(), minDelay, maxDelay, frames, faults, patches, events, rule.actions());
+    }
+
+    private boolean matches(
+            MacroRule rule, ParsedCommand command, ModemState state, Profile profile, MacroPhase phase) {
+        return rule.enabled()
+                && rule.phase() == phase
+                && rule.condition().matches(state, profile)
+                && rule.match().matchesCommand(command);
     }
 
     private void addEmit(List<ResponseFrame> frames, MacroAction action) {

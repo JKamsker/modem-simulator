@@ -3,13 +3,19 @@ package com.jkamsker.modemsim.session;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.state.SimState;
 import com.jkamsker.modemsim.state.SimRuntime;
+import com.jkamsker.modemsim.validation.JsonSchemaValidator;
+import com.jkamsker.modemsim.validation.SchemaLocator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -28,8 +34,65 @@ class EventLogTest {
         assertThat(event.clockMode()).isEqualTo("virtual");
         assertThat(event.profileHash()).startsWith("sha256:");
         assertThat(event.configHash()).startsWith("sha256:");
+        assertThat(event.macroHash()).isEqualTo("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
         assertThat(event.initialStateHash()).startsWith("sha256:");
         assertThat(event.droppedEventCount()).isZero();
+    }
+
+    @Test
+    void auditEventsUseSessionMetadata() {
+        InMemoryEventSink sink = new InMemoryEventSink();
+        HeadlessSession session = new HeadlessSession("audit", BuiltinProfiles.acceptanceSierra(), 9876, sink);
+
+        session.applyState(session.snapshot(), "state-change");
+
+        ModemEvent event = sink.events().getLast();
+        assertThat(event.eventType()).isEqualTo(EventType.STATE_CHANGE);
+        assertThat(event.sessionSeed()).isEqualTo(9876);
+        assertThat(event.configHash()).startsWith("sha256:");
+        assertThat(event.configHash()).isNotEqualTo("sha256:gui-session:" + event.profile());
+    }
+
+    @Test
+    void staleScheduledEmissionsAreLoggedAsCancelled() {
+        HeadlessSession session = new HeadlessSession("cancel-session", BuiltinProfiles.acceptanceSierra(), 42);
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        session.receive(RawBytes.ascii("payload\u001A"));
+
+        SessionResponse fault = session.applyFault("network-outage");
+        SessionResponse drained = session.drainScheduled();
+
+        assertThat(drained.output()).isEqualTo(RawBytes.empty());
+        assertThat(fault.events()).extracting(ModemEvent::eventType).contains(EventType.SCHEDULER_EMIT);
+        ModemEvent cancel = fault.events().stream()
+                .filter(item -> item.eventType() == EventType.SCHEDULER_EMIT)
+                .filter(item -> Boolean.TRUE.equals(item.scheduler().get("cancelled")))
+                .findFirst()
+                .orElseThrow();
+        assertThat(cancel.scheduler())
+                .containsEntry("cancelled", true)
+                .containsEntry("operation", "sms-submit");
+    }
+
+    @Test
+    void cancellationAndPortLostEventsValidateAgainstEventSchema(@TempDir Path tempDir) throws Exception {
+        HeadlessSession session = new HeadlessSession(
+                "schema", BuiltinProfiles.acceptanceSierra(), 42,
+                new InMemoryEventSink(), "virtual", "modem", "modem-simulation");
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        session.receive(RawBytes.ascii("payload\u001A"));
+        List<ModemEvent> events = Stream.concat(
+                session.portLost("port-lost:modem:test").events().stream(),
+                session.stop("normal-stop").events().stream()).toList();
+
+        JsonSchemaValidator validator = new JsonSchemaValidator();
+        for (int i = 0; i < events.size(); i++) {
+            Path json = tempDir.resolve("event-" + i + ".json");
+            Files.writeString(json, ModemEventJson.toJson(events.get(i)));
+            assertThat(validator.validateJson(json, SchemaLocator.schemaPath("event-log.schema.json")).valid())
+                    .as(ModemEventJson.toJson(events.get(i)))
+                    .isTrue();
+        }
     }
 
     @Test
@@ -71,21 +134,50 @@ class EventLogTest {
     }
 
     @Test
+    void storedSmsReadResponsesAreRedactedInEventLog() {
+        HeadlessSession session = new HeadlessSession("sms-read", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        session.receive(RawBytes.ascii("very secret body\u001A"));
+        session.drainScheduled();
+
+        SessionResponse response = session.receive(RawBytes.ascii("AT+CMGR=1\r"));
+
+        assertNoEventLeak(response.events(), "very secret body", RawBytes.ascii("very secret body").toHex());
+        ModemEvent tx = event(response.events(), EventType.TX_BYTES);
+        assertThat(tx.rawHex()).isEqualTo("<redacted>");
+        assertThat(tx.redaction().classes()).contains("sms-body");
+    }
+
+    @Test
     void identifiersAreRedactedFromRawEventsAndStateSnapshots() {
         HeadlessSession session = new HeadlessSession("ids", BuiltinProfiles.acceptanceSierra(), 12345);
 
         SessionResponse imei = session.receive(RawBytes.ascii("AT+CGSN\r"));
         SessionResponse smsc = session.receive(RawBytes.ascii("AT+CSCA?\r"));
         SessionResponse dial = session.receive(RawBytes.ascii("ATD+491701234567\r"));
+        SessionResponse localDial = session.receive(RawBytes.ascii("ATD1234567890\r"));
 
         assertNoEventLeak(imei.events(), "359762080000001", RawBytes.ascii("359762080000001").toHex());
         assertNoEventLeak(smsc.events(), "+491710760000", RawBytes.ascii("+491710760000").toHex());
         assertNoEventLeak(dial.events(), "+491701234567", RawBytes.ascii("+491701234567").toHex());
+        assertNoEventLeak(localDial.events(), "1234567890", RawBytes.ascii("1234567890").toHex());
         assertThat(event(imei.events(), EventType.TX_BYTES).redaction().classes())
                 .contains("imei", "imsi", "iccid");
         assertThat(event(smsc.events(), EventType.TX_BYTES).redaction().classes()).contains("msisdn");
         assertThat(event(dial.events(), EventType.HANDLER_RESULT).stateAfter().call().dialedNumber())
                 .isEqualTo("<redacted>");
+    }
+
+    @Test
+    void cregLocationFieldsAreNotRedactedAsPhoneNumbers() {
+        HeadlessSession session = new HeadlessSession("creg-redaction", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.receive(RawBytes.ascii("AT+CREG?\r"));
+
+        ModemEvent tx = event(response.events(), EventType.TX_BYTES);
+        assertThat(tx.rawHex()).isNotEqualTo("<redacted>");
+        assertThat(tx.textEscaped()).contains("00001234");
+        assertThat(tx.redaction().fields()).doesNotContain("rawHex", "textEscaped");
     }
 
     private Profile lockedProfile() {

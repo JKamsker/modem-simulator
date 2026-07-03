@@ -8,7 +8,8 @@ public final class SimulatorApplication extends Application {
     @Override
     public void start(Stage stage) {
         stage.setTitle("Modem Simulator");
-        stage.setScene(new Scene(new SimulatorView().root(), 1100, 720));
+        boolean unsafeDce = Boolean.getBoolean("modemsim.gui.allowUnsafeDceTransmit");
+        stage.setScene(new Scene(new SimulatorView(unsafeDce).root(), 1100, 720));
         stage.show();
     }
 }

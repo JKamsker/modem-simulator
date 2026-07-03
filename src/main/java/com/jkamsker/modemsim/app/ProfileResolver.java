@@ -9,16 +9,13 @@ import java.nio.file.Path;
 
 final class ProfileResolver {
     Profile resolve(String profile) {
-        if (profile == null || profile.equals(BuiltinProfiles.acceptanceSierra().id())) {
+        if (profile == null || profile.isBlank()) {
             return BuiltinProfiles.acceptanceSierra();
-        }
-        if (profile.equals(BuiltinProfiles.westermoTd22().id())) {
-            return BuiltinProfiles.westermoTd22();
         }
         Path path = Path.of(profile);
         if (Files.exists(path)) {
             return new ProfileXmlLoader().load(path);
         }
-        throw new IllegalArgumentException("Unknown profile: " + profile);
+        return BuiltinProfiles.byId(profile);
     }
 }

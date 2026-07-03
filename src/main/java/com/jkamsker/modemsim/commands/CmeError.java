@@ -9,6 +9,8 @@ public enum CmeError {
     SIM_PIN_REQUIRED(11, "SIM PIN required"),
     SIM_PUK_REQUIRED(12, "SIM PUK required"),
     SIM_FAILURE(13, "SIM failure"),
+    SIM_BUSY(14, "SIM busy"),
+    SIM_WRONG(15, "SIM wrong"),
     INCORRECT_PASSWORD(16, "incorrect password"),
     OPERATION_NOT_ALLOWED(3, "operation not allowed");
 

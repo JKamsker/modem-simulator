@@ -22,6 +22,9 @@
     <slf4j.version>2.0.16</slf4j.version>
     <jacoco.version>0.8.13</jacoco.version>
     <jacocoArgLine/>
+    <excludedGroups>serial-it,gui</excludedGroups>
+    <jacoco.gui.application.exclude>com/jkamsker/modemsim/gui/*</jacoco.gui.application.exclude>
+    <jacoco.gui.view.exclude>__no_gui_view_exclusion__</jacoco.gui.view.exclude>
   </properties>
 
   <dependencies>
@@ -33,6 +36,11 @@
     <dependency>
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-xml</artifactId>
       <version>${jackson.version}</version>
     </dependency>
     <dependency>
@@ -84,6 +92,7 @@
         <configuration>
           <useModulePath>false</useModulePath>
           <argLine>@{jacocoArgLine} --enable-native-access=ALL-UNNAMED</argLine>
+          <excludedGroups>${excludedGroups}</excludedGroups>
         </configuration>
       </plugin>
       <plugin>
@@ -101,8 +110,8 @@
         <version>${jacoco.version}</version>
         <configuration>
           <excludes>
-            <exclude>com/jkamsker/modemsim/gui/SimulatorApplication*</exclude>
-            <exclude>com/jkamsker/modemsim/gui/SimulatorView*</exclude>
+            <exclude>${jacoco.gui.application.exclude}</exclude>
+            <exclude>${jacoco.gui.view.exclude}</exclude>
           </excludes>
         </configuration>
         <executions>
@@ -213,4 +222,15 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>coverage-all</id>
+      <properties>
+        <excludedGroups>serial-it</excludedGroups>
+        <jacoco.gui.application.exclude>__no_gui_application_exclusion__</jacoco.gui.application.exclude>
+        <jacoco.gui.view.exclude>__no_gui_view_exclusion__</jacoco.gui.view.exclude>
+      </properties>
+    </profile>
+  </profiles>
 </project>

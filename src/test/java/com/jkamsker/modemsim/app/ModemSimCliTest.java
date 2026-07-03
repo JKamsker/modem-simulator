@@ -29,6 +29,8 @@ class ModemSimCliTest {
                 "validate-scenario", "docs/Tasks/Initial-Spec/examples/scenario.no-network.xml"})).isZero();
         assertThat(runner.run(new String[] {"coverage", "verify", "--profiles", "v1-targets"})).isZero();
         assertThat(runner.run(new String[] {"test", "--suite", "acceptance", "--case", "A01"})).isZero();
+        assertThat(runner.run(new String[] {"test", "--suite", "cellular", "--case", "creg"})).isZero();
+        assertThat(runner.run(new String[] {"test", "--tags", "gui", "--case", "live-log"})).isZero();
         assertThat(err.toString()).isEmpty();
     }
 
@@ -50,11 +52,28 @@ class ModemSimCliTest {
     }
 
     @Test
+    void runCommandSupportsDirectPortProfileOptions() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        int exit = runner.run(new String[] {
+                "run",
+                "--endpoint", "headless",
+                "--port", "HEADLESS",
+                "--baud", "115200",
+                "--profile", "sierra-hl6-hl8-v20",
+                "--input-ascii", "AT\\r"});
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).contains("RUN main reads=1 outputHex=0D0A4F4B0D0A");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
     void replayCommandValidatesJsonlTranscript() throws Exception {
-        Path log = tempDir.resolve("session.jsonl");
-        Files.writeString(log, """
-                {"inputHex":"41540D","expectedOutputHex":"0D0A4F4B0D0A"}
-                """);
+        Path log = Path.of("src/test/resources/replay/basic-at-events.jsonl");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
@@ -66,7 +85,44 @@ class ModemSimCliTest {
                 "--profile", "sierra-hl6-hl8-v20"});
 
         assertThat(exit).isZero();
-        assertThat(out.toString()).contains("REPLAY OK steps=1");
+        assertThat(out.toString()).contains("REPLAY OK mode=validate-recompute steps=1");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
+    void replayCommandSupportsDriveAndPlayModes() {
+        Path log = Path.of("src/test/resources/replay/basic-at-events.jsonl");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "drive-from-captured-input"})).isZero();
+        assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "play-to-dte"})).isZero();
+        assertThat(out.toString()).contains("mode=drive-from-captured-input").contains("PLAY_TO_DTE");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
+    void headlessCommandRunsGoldenTranscriptScript() throws Exception {
+        Path script = tempDir.resolve("script.yaml");
+        Files.writeString(script, """
+                steps:
+                  - inputHex: "41540D"
+                    expectedOutputHex: "0D0A4F4B0D0A"
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        int exit = runner.run(new String[] {
+                "headless",
+                "--profile", "sierra-hl6-hl8-v20",
+                "--script", script.toString()});
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).contains("HEADLESS OK steps=1");
         assertThat(err.toString()).isEmpty();
     }
 }

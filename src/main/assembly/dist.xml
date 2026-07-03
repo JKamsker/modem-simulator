@@ -21,6 +21,18 @@
       <lineEnding>dos</lineEnding>
     </file>
     <file>
+      <source>src/main/scripts/modemsim-gui</source>
+      <outputDirectory>bin</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>src/main/scripts/modemsim-gui.cmd</source>
+      <outputDirectory>bin</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>dos</lineEnding>
+    </file>
+    <file>
       <source>README.md</source>
       <outputDirectory>.</outputDirectory>
     </file>
@@ -39,6 +51,21 @@
       <includes>
         <include>*.jar</include>
       </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/docs</directory>
+      <outputDirectory>docs</outputDirectory>
+      <excludes>
+        <exclude>Tasks/Initial-Spec/references/downloads/**</exclude>
+      </excludes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/src/main/resources/coverage</directory>
+      <outputDirectory>src/main/resources/coverage</outputDirectory>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/src/test/resources</directory>
+      <outputDirectory>src/test/resources</outputDirectory>
     </fileSet>
   </fileSets>
 </assembly>

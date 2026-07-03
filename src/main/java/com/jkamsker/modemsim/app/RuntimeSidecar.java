@@ -6,7 +6,28 @@ import com.jkamsker.modemsim.transport.SerialEndpoint;
 
 import java.io.IOException;
 
-record RuntimeSidecar(PortBinding binding, SerialEndpoint endpoint) implements AutoCloseable {
+final class RuntimeSidecar implements AutoCloseable {
+    private final PortBinding binding;
+    private final SerialEndpoint endpoint;
+    private boolean active = true;
+
+    RuntimeSidecar(PortBinding binding, SerialEndpoint endpoint) {
+        this.binding = binding;
+        this.endpoint = endpoint;
+    }
+
+    PortBinding binding() {
+        return binding;
+    }
+
+    SerialEndpoint endpoint() {
+        return endpoint;
+    }
+
+    boolean active() {
+        return active;
+    }
+
     boolean isSniffer() {
         return binding.role() == PortRole.SNIFFER;
     }
@@ -16,7 +37,7 @@ record RuntimeSidecar(PortBinding binding, SerialEndpoint endpoint) implements A
     }
 
     void mirror(Direction direction, RawBytes bytes) throws IOException {
-        if (!isSniffer() || bytes.isEmpty()) {
+        if (!active || !isSniffer() || bytes.isEmpty()) {
             return;
         }
         RawBytes payload = switch (binding.snifferFormat()) {
@@ -31,15 +52,20 @@ record RuntimeSidecar(PortBinding binding, SerialEndpoint endpoint) implements A
     }
 
     void write(RawBytes bytes) throws IOException {
-        if (bytes.isEmpty()) {
+        if (!active || bytes.isEmpty()) {
             return;
         }
         byte[] raw = bytes.toByteArray();
         endpoint.write(raw, 0, raw.length);
     }
 
+    void retire() {
+        close();
+    }
+
     @Override
     public void close() {
+        active = false;
         endpoint.close();
     }
 }

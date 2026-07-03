@@ -1,26 +1,38 @@
 package com.jkamsker.modemsim.gui;
 
+import com.jkamsker.modemsim.state.CallMode;
+import com.jkamsker.modemsim.state.FreezeMode;
+import com.jkamsker.modemsim.state.ModemLifecycle;
 import com.jkamsker.modemsim.state.SimState;
+import com.jkamsker.modemsim.state.SmsStorage;
 
 final class GuiStatePatchFactory {
     private GuiStatePatchFactory() {
     }
 
-    static GuiSessionController.GuiStatePatch fromText(String text) {
+    static GuiStatePatch fromText(String text) {
         String[] parts = text.split("=", 2);
         if (parts.length != 2) {
             return empty();
         }
         return switch (parts[0].trim()) {
-            case "network.stat" -> fromValues(null, "", "", parts[1], "", "", "", "", "", "");
-            case "network.cregN" -> fromValues(null, "", "", "", parts[1], "", "", "", "", "");
-            case "signal" -> fromValues(null, "", "", "", "", "", "", "", parts[1], "");
-            case "lines.dcd" -> fromValues(null, "", "", "", "", "", "", "", "", parts[1]);
+            case "network.stat", "state.network.stat" ->
+                    fromValues(null, "", "", parts[1], "", "", "", "", "", "", "", "", "", "", "", "");
+            case "network.cregN", "state.network.cregN" ->
+                    fromValues(null, "", "", "", parts[1], "", "", "", "", "", "", "", "", "", "", "");
+            case "state.network.rejectCauseType" ->
+                    fromValues(null, "", "", "", "", "", "", "", "", parts[1], "", "", "", "", "", "");
+            case "state.network.rejectCause" ->
+                    fromValues(null, "", "", "", "", "", "", "", "", "", parts[1], "", "", "", "", "");
+            case "signal", "state.signal" ->
+                    fromValues(null, "", "", "", "", "", "", "", parts[1], "", "", "", "", "", "", "");
+            case "lines.dcd", "state.modemLines.dcd" ->
+                    fromValues(null, "", "", "", "", "", "", "", "", "", "", "", "", "", "", parts[1]);
             default -> empty();
         };
     }
 
-    static GuiSessionController.GuiStatePatch fromValues(
+    static GuiStatePatch fromValues(
             String simState,
             String pinRetries,
             String pukRetries,
@@ -30,9 +42,15 @@ final class GuiStatePatchFactory {
             String ci,
             String act,
             String signal,
+            String rejectCauseType,
+            String rejectCause,
+            String smsStorage,
+            String callMode,
+            String lifecycle,
+            String freezeMode,
             String lines) {
         int[] pair = pair(signal);
-        return new GuiSessionController.GuiStatePatch(
+        return new GuiStatePatch(
                 simState == null || simState.isBlank() ? null : SimState.valueOf(simState),
                 integer(pinRetries),
                 integer(pukRetries),
@@ -41,13 +59,24 @@ final class GuiStatePatchFactory {
                 blankToNull(lac),
                 blankToNull(ci),
                 integer(act),
+                integer(rejectCauseType),
+                integer(rejectCause),
                 pair[0] < 0 ? null : pair[0],
                 pair[1] < 0 ? null : pair[1],
-                dcd(lines));
+                enumValue(SmsStorage.class, smsStorage),
+                enumValue(CallMode.class, callMode),
+                enumValue(ModemLifecycle.class, lifecycle),
+                enumValue(FreezeMode.class, freezeMode),
+                lineFlag(lines, "DTR"),
+                lineFlag(lines, "DSR"),
+                lineFlag(lines, "DCD"),
+                lineFlag(lines, "RI"),
+                lineFlag(lines, "RTS"),
+                lineFlag(lines, "CTS"));
     }
 
-    private static GuiSessionController.GuiStatePatch empty() {
-        return fromValues(null, "", "", "", "", "", "", "", "", "");
+    private static GuiStatePatch empty() {
+        return fromValues(null, "", "", "", "", "", "", "", "", "", "", "", "", "", "", "");
     }
 
     private static int[] pair(String value) {
@@ -58,11 +87,11 @@ final class GuiStatePatchFactory {
         return new int[] {integer(parts[0], -1), integer(parts[1], -1)};
     }
 
-    private static Boolean dcd(String value) {
+    private static Boolean lineFlag(String value, String flag) {
         if (value == null || value.isBlank()) {
             return null;
         }
-        return value.equalsIgnoreCase("true") || value.toUpperCase().contains("DCD");
+        return value.equalsIgnoreCase("true") || value.toUpperCase().contains(flag);
     }
 
     private static Integer integer(String value) {
@@ -80,5 +109,9 @@ final class GuiStatePatchFactory {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
+    }
+
+    private static <T extends Enum<T>> T enumValue(Class<T> type, String value) {
+        return value == null || value.isBlank() ? null : Enum.valueOf(type, value);
     }
 }

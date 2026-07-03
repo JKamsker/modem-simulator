@@ -37,7 +37,13 @@ public record NetworkRuntime(
     }
 
     public NetworkRuntime withRegistration(int value) {
-        return new NetworkRuntime(cregN, value, lac, ci, act, rejectCauseType, rejectCause,
+        if (value == 1 || value == 5) {
+            NetworkRuntime fallback = registered();
+            return new NetworkRuntime(cregN, value, lac == null ? fallback.lac() : lac,
+                    ci == null ? fallback.ci() : ci, act == null ? fallback.act() : act,
+                    rejectCauseType, rejectCause, operator, smsRateLimit, delays);
+        }
+        return new NetworkRuntime(cregN, value, null, null, null, rejectCauseType, rejectCause,
                 operator, smsRateLimit, delays);
     }
 }

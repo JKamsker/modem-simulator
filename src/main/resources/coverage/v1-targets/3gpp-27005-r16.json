@@ -16,6 +16,6 @@
     {"command": "+CNMI", "status": "implemented_stub", "handler": "SmsHandler"},
     {"command": "+CPMS", "status": "implemented_full", "handler": "SmsHandler"},
     {"command": "+CSCA", "status": "implemented_full", "handler": "SmsHandler"},
-    {"command": "+CSCS", "status": "implemented_stub", "handler": "unsupported_declared"}
+    {"command": "+CSCS", "status": "implemented_stub", "handler": "SmsHandler"}
   ]
 }

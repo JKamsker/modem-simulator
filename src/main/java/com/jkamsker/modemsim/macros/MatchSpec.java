@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.macros;
 
+import com.jkamsker.modemsim.parser.CommandKind;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 
 import java.util.Locale;
@@ -16,9 +17,13 @@ public record MatchSpec(
         Pattern destinationRegex,
         String bodyEquals,
         String bodyContains,
-        Pattern bodyRegex
+        Pattern bodyRegex,
+        String timerId
 ) {
     public boolean matchesCommand(ParsedCommand parsed) {
+        if (!modeMatches(parsed)) {
+            return false;
+        }
         String raw = parsed.rawText();
         if (rawGlob != null && glob(rawGlob).matcher(raw).matches()) {
             return true;
@@ -37,6 +42,10 @@ public record MatchSpec(
                 && stringMatches(body, bodyEquals, bodyContains, bodyRegex);
     }
 
+    public boolean matchesTimer(String id) {
+        return "timer".equals(type) && (timerId == null || timerId.equals(id));
+    }
+
     private Pattern glob(String value) {
         StringBuilder regex = new StringBuilder();
         for (char ch : value.toCharArray()) {
@@ -51,6 +60,24 @@ public record MatchSpec(
 
     public String normalizedMode() {
         return mode == null ? null : mode.toLowerCase(Locale.ROOT);
+    }
+
+    private boolean modeMatches(ParsedCommand parsed) {
+        String expected = normalizedMode();
+        if (expected == null) {
+            return true;
+        }
+        return switch (expected) {
+            case "basic" -> parsed.kind() == CommandKind.BASIC || parsed.kind() == CommandKind.SPECIAL_ESCAPE
+                    || parsed.kind() == CommandKind.SPECIAL_REPEAT;
+            case "exec" -> parsed.kind() == CommandKind.EXTENDED_EXEC;
+            case "set" -> parsed.kind() == CommandKind.EXTENDED_SET || parsed.kind() == CommandKind.S_REGISTER_WRITE;
+            case "read" -> parsed.kind() == CommandKind.EXTENDED_READ || parsed.kind() == CommandKind.S_REGISTER_READ;
+            case "test" -> parsed.kind() == CommandKind.EXTENDED_TEST;
+            case "sms-entry" -> parsed.entryMode().name().startsWith("SMS_");
+            case "data" -> parsed.entryMode().name().startsWith("ONLINE_");
+            default -> false;
+        };
     }
 
     private boolean stringMatches(String value, String equals, String contains, Pattern regex) {

@@ -85,8 +85,20 @@ public final class XmlSecurity {
         if (text != null && text.length() > MAX_TEXT_LENGTH) {
             throw new ValidationException("XML text exceeds maximum length");
         }
+        checkAttributeLengths(node);
         for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
             checkDepth(child, depth + 1);
+        }
+    }
+
+    private static void checkAttributeLengths(Node node) {
+        if (!node.hasAttributes()) {
+            return;
+        }
+        for (int i = 0; i < node.getAttributes().getLength(); i++) {
+            if (node.getAttributes().item(i).getNodeValue().length() > MAX_TEXT_LENGTH) {
+                throw new ValidationException("XML attribute exceeds maximum length");
+            }
         }
     }
 

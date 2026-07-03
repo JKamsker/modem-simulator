@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 public final class EventRedactor {
     private static final String REDACTED = "<redacted>";
-    private static final Pattern MSISDN = Pattern.compile("\\+\\d{6,15}");
+    private static final Pattern MSISDN = Pattern.compile("(?<!\\d)\\+?\\d{6,15}(?!\\d)");
     private static final Pattern LONG_IDENTIFIER = Pattern.compile("(?<!\\d)\\d{14,22}(?!\\d)");
 
     public RedactedPayload redactRaw(
@@ -25,10 +25,13 @@ public final class EventRedactor {
         if (smsBodyEntry && type == EventType.RX_BYTES && direction == Direction.DTE_TO_DCE) {
             return fullyRedacted("rawHex", "textEscaped", "sms-body");
         }
-        if (isSensitiveCpinSet(command) || rawLooksLikeCpinSet(raw)) {
-            return fullyRedacted("rawHex", "textEscaped", cpinClasses(command));
+        if (type == EventType.TX_BYTES && direction == Direction.DCE_TO_DTE && containsSmsStorageBody(raw)) {
+            return fullyRedacted("rawHex", "textEscaped", "sms-body");
         }
-        List<String> identifierClasses = identifierClasses(raw.ascii());
+        if (isSensitiveCpinSet(command) || rawLooksLikeCpinSet(raw)) {
+            return fullyRedacted("rawHex", "textEscaped", cpinClasses(command, raw));
+        }
+        List<String> identifierClasses = identifierClasses(raw.ascii(), command);
         if (!identifierClasses.isEmpty()) {
             return fullyRedacted("rawHex", "textEscaped", identifierClasses);
         }
@@ -36,7 +39,7 @@ public final class EventRedactor {
     }
 
     public String redactCommandArguments(ParsedCommand command) {
-        if (isSensitiveCpinSet(command) || !identifierClasses(command.arguments()).isEmpty()) {
+        if (isSensitiveCpinSet(command) || !identifierClasses(command.arguments(), command).isEmpty()) {
             return REDACTED;
         }
         return command.arguments();
@@ -57,10 +60,11 @@ public final class EventRedactor {
                 RedactionInfo.applied(List.of(firstField, secondField), redactionClasses));
     }
 
-    private List<String> cpinClasses(ParsedCommand command) {
+    private List<String> cpinClasses(ParsedCommand command, RawBytes raw) {
         List<String> classes = new ArrayList<>();
         classes.add("pin");
-        if (command != null && command.arguments().contains(",")) {
+        if ((command != null && command.arguments().contains(","))
+                || (raw != null && raw.ascii().contains(","))) {
             classes.add("puk");
         }
         return classes;
@@ -77,12 +81,17 @@ public final class EventRedactor {
         return raw.ascii().toUpperCase().contains("+CPIN=");
     }
 
-    private List<String> identifierClasses(String text) {
+    private boolean containsSmsStorageBody(RawBytes raw) {
+        String text = raw.ascii().toUpperCase();
+        return text.contains("+CMGR") || text.contains("+CMGL");
+    }
+
+    private List<String> identifierClasses(String text, ParsedCommand command) {
         List<String> classes = new ArrayList<>();
         if (text == null) {
             return classes;
         }
-        if (MSISDN.matcher(text).find()) {
+        if (containsMsisdn(text, command)) {
             classes.add("msisdn");
         }
         if (LONG_IDENTIFIER.matcher(text).find()) {
@@ -91,6 +100,18 @@ public final class EventRedactor {
             classes.add("iccid");
         }
         return classes;
+    }
+
+    private boolean containsMsisdn(String text, ParsedCommand command) {
+        String upper = text.toUpperCase();
+        if (upper.contains("+CREG:") || upper.contains("+CGREG:") || upper.contains("+CEREG:")) {
+            return false;
+        }
+        if (upper.contains("+CSCA") || upper.contains("+CMGS") || upper.contains("ATD")) {
+            return MSISDN.matcher(text).find();
+        }
+        return command != null && (command.isBasic("ATD") || command.isExtended("+CSCA") || command.isExtended("+CMGS"))
+                && MSISDN.matcher(text).find();
     }
 
     private String escape(String text) {

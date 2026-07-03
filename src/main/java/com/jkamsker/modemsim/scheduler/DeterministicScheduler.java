@@ -12,6 +12,7 @@ import java.util.SplittableRandom;
 public final class DeterministicScheduler {
     private final long sessionSeed;
     private final PriorityQueue<ScheduledEmission> queue = new PriorityQueue<>();
+    private final List<ScheduledEmission> cancelled = new ArrayList<>();
 
     public DeterministicScheduler(long sessionSeed) {
         this.sessionSeed = sessionSeed;
@@ -45,6 +46,8 @@ public final class DeterministicScheduler {
             ScheduledEmission emission = queue.poll();
             if (!emission.cancelOnStateChange() || emission.stateVersion() == stateVersion) {
                 due.add(emission);
+            } else {
+                cancelled.add(emission);
             }
         }
         return due;
@@ -59,6 +62,20 @@ public final class DeterministicScheduler {
         return drained;
     }
 
+    public List<ScheduledEmission> cancelAll() {
+        List<ScheduledEmission> result = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            result.add(queue.poll());
+        }
+        return result;
+    }
+
+    public List<ScheduledEmission> cancelledSinceLastCheck() {
+        List<ScheduledEmission> result = List.copyOf(cancelled);
+        cancelled.clear();
+        return result;
+    }
+
     public int size() {
         return queue.size();
     }
@@ -67,7 +84,8 @@ public final class DeterministicScheduler {
         if (delay == null || delay.maxMs() == delay.minMs()) {
             return delay == null ? 0 : delay.minMs();
         }
-        byte[] bytes = operation.getBytes(StandardCharsets.UTF_8);
+        String sampleKey = delay.operation() == null || delay.operation().isBlank() ? operation : delay.operation();
+        byte[] bytes = sampleKey.getBytes(StandardCharsets.UTF_8);
         long hash = 1125899906842597L;
         for (byte value : bytes) {
             hash = 31 * hash + value;

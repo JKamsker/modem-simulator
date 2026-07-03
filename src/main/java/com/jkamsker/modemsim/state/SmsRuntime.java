@@ -9,6 +9,8 @@ public record SmsRuntime(
         String smsc,
         String cnmi,
         SmsStorage storage,
+        SmsStorage writeStorage,
+        SmsStorage receiveStorage,
         int nextMessageReference,
         Map<Integer, SmsMessage> messages
 ) {
@@ -20,37 +22,51 @@ public record SmsRuntime(
         return new SmsRuntime(true, "+491710760000", "0,0,0,0,0", SmsStorage.ME, 42, Map.of());
     }
 
+    public SmsRuntime(
+            boolean textMode, String smsc, String cnmi, SmsStorage storage,
+            int nextMessageReference, Map<Integer, SmsMessage> messages) {
+        this(textMode, smsc, cnmi, storage, storage, storage, nextMessageReference, messages);
+    }
+
     public SmsRuntime withTextMode(boolean value) {
-        return new SmsRuntime(value, smsc, cnmi, storage, nextMessageReference, messages);
+        return copy(value, smsc, cnmi, storage, writeStorage, receiveStorage, nextMessageReference, messages);
     }
 
     public SmsRuntime withSmsc(String value) {
-        return new SmsRuntime(textMode, value, cnmi, storage, nextMessageReference, messages);
+        return copy(textMode, value, cnmi, storage, writeStorage, receiveStorage, nextMessageReference, messages);
     }
 
     public SmsRuntime withCnmi(String value) {
-        return new SmsRuntime(textMode, smsc, value, storage, nextMessageReference, messages);
+        return copy(textMode, smsc, value, storage, writeStorage, receiveStorage, nextMessageReference, messages);
     }
 
     public SmsRuntime withStorage(SmsStorage value) {
-        return new SmsRuntime(textMode, smsc, cnmi, value, nextMessageReference, messages);
+        return withStorages(value, value, value);
+    }
+
+    public SmsRuntime withStorages(SmsStorage read, SmsStorage write, SmsStorage receive) {
+        return copy(textMode, smsc, cnmi, read, write, receive, nextMessageReference, messages);
     }
 
     public SmsRuntime incrementReference() {
-        return new SmsRuntime(textMode, smsc, cnmi, storage, nextMessageReference + 1, messages);
+        return copy(textMode, smsc, cnmi, storage, writeStorage, receiveStorage, nextMessageReference + 1, messages);
     }
 
     public SmsRuntime storeOutbound(String recipient, String text, String pdu) {
+        return storeOutbound(recipient, text, pdu, OffsetDateTime.parse("2026-01-01T00:00:00Z"));
+    }
+
+    public SmsRuntime storeOutbound(String recipient, String text, String pdu, OffsetDateTime timestamp) {
         int index = messages.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
         Map<Integer, SmsMessage> next = new LinkedHashMap<>(messages);
-        next.put(index, new SmsMessage(index, storage, "STO SENT", null, recipient, OffsetDateTime.now(), text, pdu));
-        return new SmsRuntime(textMode, smsc, cnmi, storage, nextMessageReference + 1, next);
+        next.put(index, new SmsMessage(index, writeStorage, "STO SENT", null, recipient, timestamp, text, pdu));
+        return copy(textMode, smsc, cnmi, storage, writeStorage, receiveStorage, nextMessageReference + 1, next);
     }
 
     public SmsRuntime delete(int index) {
         Map<Integer, SmsMessage> next = new LinkedHashMap<>(messages);
         next.remove(index);
-        return new SmsRuntime(textMode, smsc, cnmi, storage, nextMessageReference, next);
+        return copy(textMode, smsc, cnmi, storage, writeStorage, receiveStorage, nextMessageReference, next);
     }
 
     public Map<Integer, SmsMessage> messagesInSelectedStorage() {
@@ -80,6 +96,12 @@ public record SmsRuntime(
     }
 
     public boolean selectedStorageFull() {
-        return used(storage) >= capacity(storage);
+        return used(writeStorage) >= capacity(writeStorage);
+    }
+
+    private SmsRuntime copy(
+            boolean textMode, String smsc, String cnmi, SmsStorage read, SmsStorage write,
+            SmsStorage receive, int nextReference, Map<Integer, SmsMessage> messages) {
+        return new SmsRuntime(textMode, smsc, cnmi, read, write, receive, nextReference, messages);
     }
 }

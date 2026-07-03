@@ -3,6 +3,7 @@ package com.jkamsker.modemsim.session;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.NetworkRuntime;
+import com.jkamsker.modemsim.state.SimState;
 import com.jkamsker.modemsim.state.SmsRateLimit;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +66,8 @@ class SmsSessionTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMGR=1\r")).outputAscii())
                 .contains("+CMGR").contains("stored");
         assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii())
-                .contains("+CMGL: 1").contains("stored");
+                .contains("+CMGL: 1,\"STO SENT\"").doesNotContain("+CMGL: 1:")
+                .contains("stored");
         assertThat(session.receive(RawBytes.ascii("AT+CMGD=1\r")).outputAscii())
                 .isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().sms().messages()).isEmpty();
@@ -96,6 +98,8 @@ class SmsSessionTest {
         assertThat(session.snapshot().sms().messages().values())
                 .extracting(message -> message.pdu())
                 .containsOnly("0011");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGR=1\r")).outputAscii())
+                .contains("+CMGR").contains("0011").doesNotContain("null");
     }
 
     @Test
@@ -104,13 +108,48 @@ class SmsSessionTest {
 
         assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"SM\"\r")).outputAscii()).contains("OK");
         submitAndDrain(session, "stored in sm");
-        assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii()).contains("\"SM\",1,20");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii())
+                .contains("\"SM\",1,20,\"SM\",1,20,\"SM\",1,20");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=?\r")).outputAscii())
+                .contains("(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
         assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).contains("stored in sm");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"REC UNREAD\"\r")).outputAscii()).doesNotContain("stored in sm");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"BROKEN\"\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=?\r")).outputAscii()).contains("STO SENT");
 
         assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"ME\"\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii()).contains("\"ME\",0,50");
         assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).doesNotContain("stored in sm");
         assertThat(session.snapshot().sms().messages()).hasSize(1);
+    }
+
+    @Test
+    void cpmsStoresReadWriteAndReceiveMemoriesIndependently() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"SM\",\"ME\",\"MT\"\r")).outputAscii()).contains("OK");
+        submitAndDrain(session, "stored in me");
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii())
+                .contains("\"SM\",0,20,\"ME\",1,50,\"MT\",0,70");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).doesNotContain("stored in me");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"ME\",\"ME\",\"MT\"\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).contains("stored in me");
+    }
+
+    @Test
+    void cmgsPromptsBeforeSubmitTimeNetworkAndSimFailures() {
+        HeadlessSession noNetwork = smsSession(SmsRateLimit.none(), 4, SimState.READY, 2);
+        assertThat(noNetwork.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r")).outputHex())
+                .startsWith("0D0A3E20");
+        noNetwork.receive(RawBytes.ascii("body\u001A"));
+        assertThat(noNetwork.drainScheduled().outputAscii()).contains("+CMS ERROR: 500");
+
+        HeadlessSession simFailure = smsSession(SmsRateLimit.none(), 1, SimState.SIM_FAILURE, 2);
+        assertThat(simFailure.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r")).outputHex())
+                .startsWith("0D0A3E20");
+        simFailure.receive(RawBytes.ascii("body\u001A"));
+        assertThat(simFailure.drainScheduled().outputAscii()).contains("+CME ERROR: SIM failure");
     }
 
     @Test
@@ -141,6 +180,26 @@ class SmsSessionTest {
         assertThat(session.snapshot().sms().messages()).hasSize(2);
     }
 
+    @Test
+    void cscaRequiresQuotedSmscNumberAndStoresOnlyTheAddress() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        assertThat(session.receive(RawBytes.ascii("AT+CSCA=not-a-number\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(session.receive(RawBytes.ascii("AT+CSCA=\"+491710760001\",145\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+
+        assertThat(session.receive(RawBytes.ascii("AT+CSCA?\r")).outputAscii())
+                .contains("+CSCA: \"+491710760001\",145");
+    }
+
+    @Test
+    void registrationStateChangesEmitCregUrcsWhenEnabled() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.applyFault("network-outage");
+
+        assertThat(response.outputAscii()).contains("+CREG: 4");
+    }
+
     private void submitAndDrain(HeadlessSession session, String body) {
         submitAndDrain(session, body, "+491701234567");
     }
@@ -156,11 +215,19 @@ class SmsSessionTest {
     }
 
     private HeadlessSession smsSession(SmsRateLimit rateLimit) {
+        return smsSession(rateLimit, 1, SimState.READY, 0);
+    }
+
+    private HeadlessSession smsSession(SmsRateLimit rateLimit, int registration, SimState simState, int cmee) {
         var base = BuiltinProfiles.acceptanceSierra();
         NetworkRuntime network = base.initialState().network();
         NetworkRuntime updated = new NetworkRuntime(
-                network.cregN(), network.stat(), network.lac(), network.ci(), network.act(),
+                network.cregN(), registration, network.lac(), network.ci(), network.act(),
                 network.rejectCauseType(), network.rejectCause(), network.operator(), rateLimit, network.delays());
-        return new HeadlessSession("sms", base.withInitialState(base.initialState().withNetwork(updated)), 12345);
+        var state = base.initialState()
+                .withNetwork(updated)
+                .withSim(base.initialState().sim().withState(simState))
+                .withSettings(base.initialState().settings().withCmee(cmee));
+        return new HeadlessSession("sms", base.withInitialState(state), 12345);
     }
 }

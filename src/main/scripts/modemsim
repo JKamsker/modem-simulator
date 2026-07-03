@@ -7,6 +7,7 @@ JAVA_EXE=${JAVA_EXE:-java}
 
 exec "$JAVA_EXE" \
   --enable-native-access=ALL-UNNAMED \
+  -Dmodemsim.home="$APP_HOME" \
   ${MODEMSIM_JAVA_OPTS:-} \
   -cp "$APP_HOME/lib/*" \
   com.jkamsker.modemsim.app.ModemSimCli "$@"

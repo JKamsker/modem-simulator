@@ -10,6 +10,19 @@ import java.util.Map;
 import java.util.Set;
 
 public final class CoverageValidator {
+    private static final Set<String> HAYES = Set.of(
+            "AT", "A/", "+++", "ATE", "ATQ", "ATV", "ATZ", "AT&F", "AT&W", "AT&V",
+            "AT&D", "AT&C", "ATD", "ATH", "ATO", "ATS");
+    private static final Set<String> CELLULAR = Set.of(
+            "+CGMI", "+CGMM", "+CGMR", "+CGSN", "+CPIN", "+CMEE", "+CREG", "+CGREG",
+            "+CEREG", "+CSQ", "+COPS", "+CCLK", "+CFUN");
+    private static final Set<String> SMS = Set.of(
+            "+CMGF", "+CMGS", "+CMGR", "+CMGL", "+CMGD", "+CNMI", "+CPMS", "+CSCA", "+CSCS");
+    private static final Set<String> SIERRA_VENDOR = Set.of("+KCNXCFG", "+KCNXTIMER", "+WDSI", "+WDSR", "+KSIMSLOT");
+    private static final Set<String> WESTERMO_VENDOR = Set.of("+WIND", "+WIOR", "+WIOW", "+STSF", "+CCED");
+    private static final Set<String> SIERRA = union(HAYES, CELLULAR, SMS, Set.of("ATI"), SIERRA_VENDOR);
+    private static final Set<String> WESTERMO_ANALOG = union(HAYES, Set.of("ATI"));
+    private static final Set<String> WESTERMO_CELLULAR = union(HAYES, CELLULAR, SMS, Set.of("ATI"), WESTERMO_VENDOR);
     private static final Set<String> V1_TARGETS = Set.of(
             "generic-hayes-v250",
             "3gpp-27007-r18",
@@ -22,14 +35,16 @@ public final class CoverageValidator {
             "westermo-gd01-6196-2220",
             "westermo-gdw11-6615-2220");
     private static final Map<String, Set<String>> REQUIRED_COMMANDS = Map.of(
-            "generic-hayes-v250", Set.of(
-                    "AT", "A/", "+++", "ATE", "ATQ", "ATV", "ATZ", "AT&F", "AT&W", "AT&V",
-                    "AT&D", "AT&C", "ATD", "ATH", "ATO", "ATS"),
-            "3gpp-27007-r18", Set.of(
-                    "+CGMI", "+CGMM", "+CGMR", "+CGSN", "+CPIN", "+CMEE", "+CREG", "+CGREG",
-                    "+CEREG", "+CSQ", "+COPS", "+CCLK", "+CFUN"),
-            "3gpp-27005-r16", Set.of(
-                    "+CMGF", "+CMGS", "+CMGR", "+CMGL", "+CMGD", "+CNMI", "+CPMS", "+CSCA", "+CSCS"));
+            "generic-hayes-v250", HAYES,
+            "3gpp-27007-r18", CELLULAR,
+            "3gpp-27005-r16", SMS,
+            "sierra-common", SIERRA,
+            "sierra-hl6-hl8-v20", SIERRA,
+            "westermo-common", WESTERMO_ANALOG,
+            "westermo-td22-6177-2203", WESTERMO_ANALOG,
+            "westermo-td36-6618-2202", WESTERMO_ANALOG,
+            "westermo-gd01-6196-2220", WESTERMO_CELLULAR,
+            "westermo-gdw11-6615-2220", WESTERMO_CELLULAR);
 
     private final JsonSchemaValidator schemaValidator = new JsonSchemaValidator();
 
@@ -47,6 +62,7 @@ public final class CoverageValidator {
         }
         validateStatusCounts(root, report);
         validateRequiredCommands(root, report);
+        validateHandlers(root, report);
         if (root.path("unknown").asInt(-1) != 0) {
             report.error("coverage unknown must be zero");
         }
@@ -78,7 +94,11 @@ public final class CoverageValidator {
         ValidationReport fileReport = validate(path);
         report.merge(fileReport);
         if (fileReport.valid()) {
-            seen.add(schemaValidator.readJson(path).path("profile").asText());
+            String profile = schemaValidator.readJson(path).path("profile").asText();
+            if (!V1_TARGETS.contains(profile)) {
+                report.error("Unexpected v1 coverage report for " + profile);
+            }
+            seen.add(profile);
         }
     }
 
@@ -112,5 +132,40 @@ public final class CoverageValidator {
                 report.error("missing required coverage command: " + command);
             }
         }
+    }
+
+    private void validateHandlers(JsonNode root, ValidationReport report) {
+        root.path("commands").forEach(command -> {
+            String status = command.path("status").asText();
+            if (!status.startsWith("implemented_")) {
+                return;
+            }
+            String name = command.path("command").asText();
+            String handler = command.path("handler").asText();
+            if (handler.isBlank()) {
+                report.error("implemented command missing handler: " + name);
+            } else if (!handler.equals(expectedHandler(name))) {
+                report.error("handler mismatch for " + name + ": " + handler);
+            }
+        });
+    }
+
+    private String expectedHandler(String command) {
+        if (SMS.contains(command)) {
+            return "SmsHandler";
+        }
+        if (CELLULAR.contains(command)) {
+            return "CellularHandler";
+        }
+        return "HayesHandler";
+    }
+
+    @SafeVarargs
+    private static Set<String> union(Set<String>... sets) {
+        Set<String> result = new HashSet<>();
+        for (Set<String> set : sets) {
+            result.addAll(set);
+        }
+        return Set.copyOf(result);
     }
 }

@@ -79,6 +79,15 @@ class XmlSecurityTest {
     }
 
     @Test
+    void rejectsExcessiveAttributeLength() throws Exception {
+        Path xml = write("attribute.xml", "<root value=\"" + "a".repeat(50_001) + "\"/>");
+
+        assertThatThrownBy(() -> XmlSecurity.parse(xml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("attribute");
+    }
+
+    @Test
     void rejectsOversizedFiles() throws Exception {
         Path xml = write("oversized.xml", "<root>" + "a".repeat(1_000_001) + "</root>");
 

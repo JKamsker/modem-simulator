@@ -32,13 +32,19 @@ class ReadOnlyPolicyTest {
                 .contains(
                         "session.mainPort",
                         "session.snifferPort",
+                        "session.initialScenario",
+                        "session.seed",
                         "log.table",
+                        "log.filter",
+                        "log.selection",
                         "state.simState",
                         "state.lines",
                         "inject.rawDteToDce",
                         "fault.networkOutage",
                         "macro.reload",
+                        "macro.id",
                         "replay.mode",
-                        "export.jsonl");
+                        "export.jsonl",
+                        "export.replayReport");
     }
 }

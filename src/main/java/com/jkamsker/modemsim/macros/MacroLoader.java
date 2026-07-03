@@ -14,24 +14,22 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 public final class MacroLoader {
-    private static final Set<String> STATE_PATHS = Set.of(
-            "state.sim.state",
-            "state.network.stat",
-            "state.signal.rssi",
-            "state.signal.ber",
-            "state.modem.lifecycle",
-            "state.modem.freezeMode",
-            "state.modem.bootDelayMs",
-            "state.modemLines.dtr",
-            "state.modemLines.dsr",
-            "state.modemLines.dcd",
-            "state.modemLines.ri",
-            "state.modemLines.rts",
-            "state.modemLines.cts");
+    private final MacroXmlSemanticValidator xmlSemanticValidator;
+
+    public MacroLoader() {
+        this(false);
+    }
+
+    public MacroLoader(boolean timerDefinitionsAvailable) {
+        this.xmlSemanticValidator = new MacroXmlSemanticValidator(timerDefinitionsAvailable);
+    }
+
+    public MacroLoader(java.util.Set<String> timerIds) {
+        this.xmlSemanticValidator = new MacroXmlSemanticValidator(timerIds);
+    }
 
     public MacroSet load(Path path) {
         ValidationReport report = validate(path);
@@ -43,7 +41,7 @@ public final class MacroLoader {
         ValidationReport report = ValidationReport.ok();
         try {
             XmlSecurity.validate(path, SchemaLocator.schemaPath("macro-schema-draft.xsd"));
-            validateXmlSemantics(XmlSecurity.parse(path).getDocumentElement(), report);
+            xmlSemanticValidator.validate(XmlSecurity.parse(path).getDocumentElement(), report);
             validateCompiledSemantics(parse(path), report);
         } catch (Exception e) {
             report.error(e.getMessage());
@@ -63,7 +61,7 @@ public final class MacroLoader {
                     rules.add(parseCustomResponse(child, order++));
                 }
             }
-            return new MacroSet(hash(path), rules);
+            return new MacroSet(hash(path), randomSeed(root), rules);
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse macro file: " + path, e);
         }
@@ -81,6 +79,7 @@ public final class MacroLoader {
                 order,
                 phase(macro.getAttribute("phase")),
                 Dom.boolAttr(macro, "enabled", true),
+                parseCondition(Dom.child(macro, "when")),
                 match,
                 actions);
     }
@@ -99,10 +98,28 @@ public final class MacroLoader {
                 null,
                 null,
                 null,
+                null,
                 null);
         MacroAction action = new MacroAction("send", attributes(send), null);
         return new MacroRule(custom.getAttribute("id"), Dom.intAttr(custom, "priority", 0),
-                order, MacroPhase.REPLACE, Dom.boolAttr(custom, "enabled", true), match, List.of(action));
+                order, MacroPhase.REPLACE, Dom.boolAttr(custom, "enabled", true),
+                MacroCondition.always(), match, List.of(action));
+    }
+
+    private MacroCondition parseCondition(Element when) {
+        if (when == null) {
+            return MacroCondition.always();
+        }
+        List<MacroStatePredicate> states = new ArrayList<>();
+        for (Element state : Dom.children(when, "state")) {
+            states.add(new MacroStatePredicate(
+                    state.getAttribute("path"), comparator(state), comparatorValue(state)));
+        }
+        List<MacroProfilePredicate> profiles = new ArrayList<>();
+        for (Element profile : Dom.children(when, "profile")) {
+            profiles.add(new MacroProfilePredicate(Dom.attr(profile, "id", null), Dom.attr(profile, "status", null)));
+        }
+        return new MacroCondition(states, profiles);
     }
 
     private MatchSpec parseMatch(Element match) {
@@ -119,7 +136,8 @@ public final class MacroLoader {
                 regex(Dom.attr(destination, "regex", null)),
                 Dom.attr(body, "equals", null),
                 Dom.attr(body, "contains", null),
-                regex(Dom.attr(body, "regex", null)));
+                regex(Dom.attr(body, "regex", null)),
+                Dom.attr(match, "timerId", null));
     }
 
     private MacroAction action(Element action) {
@@ -139,99 +157,6 @@ public final class MacroLoader {
         return value == null ? null : Pattern.compile(value, Pattern.CASE_INSENSITIVE);
     }
 
-    private void validateXmlSemantics(Element root, ValidationReport report) {
-        Set<String> ids = new java.util.HashSet<>();
-        for (Element child : Dom.children(root, null)) {
-            String id = child.getAttribute("id");
-            if (!ids.add(id)) {
-                report.error("duplicate macro id: " + id);
-            }
-            if (child.getTagName().equals("custom-response")) {
-                validateCustomResponse(child, report);
-            } else {
-                validateMacroElement(child, report);
-            }
-        }
-    }
-
-    private void validateCustomResponse(Element custom, ValidationReport report) {
-        Element ifElement = Dom.child(custom, "if");
-        int matchCount = countAttributes(ifElement, "command", "rawGlob", "rawRegex");
-        if (matchCount != 1) {
-            report.error(custom.getAttribute("id") + ": custom-response if must declare exactly one match criterion");
-        }
-        if (countAttributes(Dom.child(custom, "send"), "text", "rawHex", "line") != 1) {
-            report.error(custom.getAttribute("id") + ": custom-response send must declare exactly one payload");
-        }
-    }
-
-    private void validateMacroElement(Element macro, ValidationReport report) {
-        validateMatchElement(macro.getAttribute("id"), Dom.child(macro, "match"), report);
-        for (Element action : Dom.children(Dom.child(macro, "then"), null)) {
-            validateAction(macro.getAttribute("id"), action, report);
-        }
-        if (phase(macro.getAttribute("phase")) == MacroPhase.ON_TIMER) {
-            report.error(macro.getAttribute("id") + ": on-timer requires runtime timer configuration");
-        }
-    }
-
-    private void validateMatchElement(String id, Element match, ValidationReport report) {
-        int directCount = countAttributes(match, "command", "rawGlob", "rawRegex");
-        validateStringPredicate(id, "destination", Dom.child(match, "destination"), report);
-        validateStringPredicate(id, "body", Dom.child(match, "body"), report);
-        boolean hasSmsPredicate = Dom.child(match, "destination") != null || Dom.child(match, "body") != null;
-        if (directCount > 1) {
-            report.error(id + ": match must not mix command, rawGlob and rawRegex");
-        }
-        if (directCount == 0 && !hasSmsPredicate) {
-            report.error(id + ": match must declare a command, raw predicate, or SMS predicate");
-        }
-    }
-
-    private void validateStringPredicate(
-            String id, String name, Element predicate, ValidationReport report) {
-        if (predicate != null && countAttributes(predicate, "equals", "contains", "regex") != 1) {
-            report.error(id + ": " + name + " predicate must declare exactly one of equals, contains or regex");
-        }
-    }
-
-    private void validateAction(String id, Element action, ValidationReport report) {
-        switch (action.getTagName()) {
-            case "emit" -> validatePayloadAction(id, action, "emit", report);
-            case "set" -> {
-                if (!STATE_PATHS.contains(action.getAttribute("path"))) {
-                    report.error(id + ": unknown state path " + action.getAttribute("path"));
-                }
-            }
-            case "fault" -> validateFaultAction(id, action, report);
-            default -> {
-            }
-        }
-    }
-
-    private void validatePayloadAction(String id, Element action, String name, ValidationReport report) {
-        int payloads = countAttributes(action, "line", "raw", "rawHex")
-                + (action.getTextContent().trim().isEmpty() ? 0 : 1);
-        if (payloads != 1) {
-            report.error(id + ": " + name + " must declare exactly one payload");
-        }
-    }
-
-    private void validateFaultAction(String id, Element action, ValidationReport report) {
-        Set<String> allowed = switch (action.getAttribute("type")) {
-            case "network-restore" -> Set.of("stat", "rssi", "ber");
-            case "modem-reboot" -> Set.of("durationMs");
-            case "modem-freeze" -> Set.of("freezeMode");
-            default -> Set.of();
-        };
-        for (String attribute : List.of("durationMs", "stat", "rssi", "ber", "freezeMode")) {
-            if (action.hasAttribute(attribute) && !allowed.contains(attribute)) {
-                report.error(id + ": fault " + action.getAttribute("type")
-                        + " does not accept " + attribute);
-            }
-        }
-    }
-
     private void validateCompiledSemantics(MacroSet macroSet, ValidationReport report) {
         for (MacroRule rule : macroSet.rules()) {
             if (rule.actions().isEmpty()) {
@@ -249,20 +174,7 @@ public final class MacroLoader {
                 && (!blank(match.destinationEquals()) || !blank(match.destinationContains())
                 || match.destinationRegex() != null || !blank(match.bodyEquals())
                 || !blank(match.bodyContains()) || match.bodyRegex() != null);
-        return command || sms || "state-change".equals(match.type());
-    }
-
-    private int countAttributes(Element element, String... names) {
-        if (element == null) {
-            return 0;
-        }
-        int count = 0;
-        for (String name : names) {
-            if (element.hasAttribute(name) && !element.getAttribute(name).isBlank()) {
-                count++;
-            }
-        }
-        return count;
+        return command || sms || "state-change".equals(match.type()) || "timer".equals(match.type());
     }
 
     private MacroPhase phase(String value) {
@@ -272,6 +184,11 @@ public final class MacroLoader {
     private String hash(Path path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         return "sha256:" + java.util.HexFormat.of().formatHex(digest.digest(Files.readAllBytes(path)));
+    }
+
+    private Long randomSeed(Element root) {
+        String value = root.getAttribute("randomSeed");
+        return value == null || value.isBlank() ? null : Long.valueOf(value);
     }
 
     public static FaultAction fault(MacroAction action) {
@@ -284,8 +201,27 @@ public final class MacroLoader {
                 action.attr("freezeMode") == null ? null : FreezeMode.valueOf(action.attr("freezeMode")));
     }
 
+    public static MacroStatePatch statePatch(MacroAction action) {
+        return new MacroStatePatch(action.attr("path"), action.attr("value"));
+    }
+
+    public static MacroEventAction event(MacroAction action) {
+        return new MacroEventAction(action.attr("type"), action.attr("message"));
+    }
+
     private static Integer integer(String value) {
         return value == null || value.isBlank() ? null : Integer.valueOf(value);
+    }
+
+    private String comparator(Element state) {
+        if (state.hasAttribute("equals")) {
+            return "equals";
+        }
+        return state.hasAttribute("lessThan") ? "lessThan" : "greaterThan";
+    }
+
+    private String comparatorValue(Element state) {
+        return state.getAttribute(comparator(state));
     }
 
     private boolean blank(String value) {

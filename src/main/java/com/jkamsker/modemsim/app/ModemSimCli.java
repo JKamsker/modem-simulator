@@ -8,12 +8,17 @@ import com.jkamsker.modemsim.replay.ReplayStepLoader;
 import com.jkamsker.modemsim.replay.ReplayValidator;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.transport.PortDiscovery;
+import com.jkamsker.modemsim.scheduler.ClockMode;
 import com.jkamsker.modemsim.testkit.AcceptanceResult;
 import com.jkamsker.modemsim.testkit.AcceptanceSuite;
 import com.jkamsker.modemsim.validation.ConfigValidator;
 import com.jkamsker.modemsim.validation.CoverageValidator;
+import com.jkamsker.modemsim.validation.SchemaLocator;
 import com.jkamsker.modemsim.validation.ScenarioValidator;
 import com.jkamsker.modemsim.validation.ValidationReport;
+import com.jkamsker.modemsim.transport.FlowControl;
+import com.jkamsker.modemsim.transport.Parity;
+import com.jkamsker.modemsim.transport.SerialConfig;
 
 import java.nio.file.Path;
 import java.io.PrintStream;
@@ -61,6 +66,7 @@ public final class ModemSimCli {
         private int dispatch(String[] args) {
             return switch (args[0]) {
                 case "run" -> runRuntime(args);
+                case "headless" -> headless(args);
                 case "validate-profile" -> report(new ProfileXmlLoader().validate(pathArg(args, 1)));
                 case "validate-macros" -> report(new MacroLoader().validate(pathArg(args, 1)));
                 case "validate-scenario" -> report(new ScenarioValidator().validate(pathArg(args, 1)));
@@ -77,8 +83,9 @@ public final class ModemSimCli {
         }
 
         private int runRuntime(String[] args) {
-            Path configPath = pathOption(args, "--config");
-            RuntimeConfig config = new RuntimeConfigLoader().load(configPath);
+            RuntimeConfig config = option(args, "--config", null) == null
+                    ? directRuntimeConfig(args)
+                    : new RuntimeConfigLoader().load(pathOption(args, "--config"));
             RuntimeResult result = new ModemRuntime().run(config, runInputs(args), intOption(args, "--max-reads", -1));
             out.println("RUN " + result.sessionId()
                     + " reads=" + result.readsProcessed()
@@ -87,20 +94,42 @@ public final class ModemSimCli {
             return 0;
         }
 
-        private int replay(String[] args) {
-            Path logPath = pathArg(args, 1);
-            String mode = option(args, "--mode", "validate-recompute");
-            if (!mode.equals("validate-recompute")) {
-                err.println("Unsupported replay mode for CLI: " + mode);
-                return 2;
+        private RuntimeConfig directRuntimeConfig(String[] args) {
+            String port = option(args, "--port", null);
+            if (port == null) {
+                throw new IllegalArgumentException("Missing option: --config or --port");
             }
+            EndpointType endpoint = EndpointType.fromConfig(option(args, "--endpoint", "serial"));
+            String seedOption = option(args, "--seed", null);
+            long seed = seedOption == null && endpoint != EndpointType.HEADLESS
+                    ? new java.security.SecureRandom().nextLong(1, Long.MAX_VALUE)
+                    : (seedOption == null ? 12345L : Long.parseLong(seedOption));
+            return new RuntimeConfig(
+                    seed,
+                    endpoint == EndpointType.HEADLESS ? ClockMode.VIRTUAL : ClockMode.MONOTONIC,
+                    false,
+                    false,
+                    null,
+                    new SerialConfig(intOption(args, "--baud", 115200), 8, 1, Parity.NONE, FlowControl.NONE),
+                    java.util.List.of(new PortBinding(
+                            "modem", endpoint, PortRole.MODEM_SIMULATION,
+                            endpoint == EndpointType.HEADLESS ? null : port, true,
+                            option(args, "--profile", "sierra-hl6-hl8-v20"), "tagged-text")));
+        }
+
+        private int replay(String[] args) {
+            return new ReplayCommand(out, err).run(args);
+        }
+
+        private int headless(String[] args) {
             String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
+            Path script = pathOption(args, "--script");
             long seed = longOption(args, "--seed", 12345L);
-            var steps = new ReplayStepLoader().load(logPath);
-            HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed);
+            var steps = new ReplayStepLoader().load(script);
+            HeadlessSession session = new HeadlessSession("headless", new ProfileResolver().resolve(profile), seed);
             ReplayReport report = new ReplayValidator().validateRecompute(session, steps);
             if (report.valid()) {
-                out.println("REPLAY OK steps=" + steps.size());
+                out.println("HEADLESS OK steps=" + steps.size());
                 return 0;
             }
             report.divergences().forEach(divergence -> err.println("DIVERGENCE: " + divergence));
@@ -111,7 +140,7 @@ public final class ModemSimCli {
             if (args.length >= 3 && args[1].equals("verify") && args[2].equals("--profiles")) {
                 Path dir = args.length >= 4 && !args[3].equals("v1-targets")
                         ? Path.of(args[3])
-                        : Path.of("src/main/resources/coverage/v1-targets");
+                        : SchemaLocator.projectPath("src/main/resources/coverage/v1-targets");
                 return report(new CoverageValidator().verifyV1Targets(dir));
             }
             usage();
@@ -119,8 +148,13 @@ public final class ModemSimCli {
         }
 
         private int test(String[] args) {
-            String caseId = option(args, "--case", "all");
             AcceptanceSuite suite = new AcceptanceSuite();
+            String suiteName = option(args, "--suite", "acceptance");
+            String tagName = option(args, "--tags", null);
+            String defaultCase = tagName == null
+                    ? suite.defaultCaseForSuite(suiteName)
+                    : suite.defaultCaseForSuite(tagName);
+            String caseId = option(args, "--case", defaultCase);
             var results = caseId.equals("all")
                     ? suite.caseIds().stream().map(suite::run).toList()
                     : java.util.List.of(suite.run(caseId));
@@ -200,6 +234,8 @@ public final class ModemSimCli {
             err.println("""
                     Usage:
                       modemsim run --config config.yaml
+                      modemsim run --port COM7 --baud 115200 --profile sierra-hl6-hl8-v20
+                      modemsim headless --profile sierra-hl6-hl8-v20 --script tests/transcript.jsonl
                       modemsim validate-profile <profile.xml>
                       modemsim validate-macros <macros.xml>
                       modemsim validate-scenario <scenario.xml>

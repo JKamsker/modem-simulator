@@ -56,6 +56,7 @@
     <xs:attribute name="rawGlob" type="xs:string" use="optional"/>
     <xs:attribute name="rawRegex" type="xs:string" use="optional"/>
     <xs:attribute name="type" type="MatchInputType" use="optional"/>
+    <xs:attribute name="timerId" type="xs:string" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="StringPredicateType">

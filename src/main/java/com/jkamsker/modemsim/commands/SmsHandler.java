@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.ModemState;
+import com.jkamsker.modemsim.state.SimState;
 import com.jkamsker.modemsim.state.SmsMessage;
 import com.jkamsker.modemsim.state.SmsStorage;
 
@@ -22,6 +23,7 @@ public final class SmsHandler implements CommandHandler {
             case "+CNMI" -> cnmi(state, command);
             case "+CPMS" -> cpms(state, command);
             case "+CSCA" -> csca(state, command);
+            case "+CSCS" -> cscs(state, command);
             default -> null;
         };
     }
@@ -64,17 +66,25 @@ public final class SmsHandler implements CommandHandler {
         if (message == null) {
             return CmsError.INVALID_INDEX.result(state, "SmsHandler");
         }
-        return new CommandResult(state, messageFrames("+CMGR", message), ResultCode.OK, "SmsHandler", false);
+        return new CommandResult(state, messageFrames("+CMGR", message, false), ResultCode.OK, "SmsHandler", false);
     }
 
     private CommandResult cmgl(ModemState state, ParsedCommand command) {
+        if (command.kind().name().endsWith("TEST")) {
+            return line(state, "+CMGL: (\"REC UNREAD\",\"REC READ\",\"STO UNSENT\",\"STO SENT\",\"ALL\")");
+        }
         List<ResponseFrame> frames = new ArrayList<>();
         String stat = unquote(command.arguments());
-        if (!stat.isBlank() && !stat.equalsIgnoreCase("ALL")) {
+        if (stat.isBlank()) {
+            stat = "ALL";
+        }
+        if (!validCmglStat(stat)) {
             return CommandResult.error(state, "SmsHandler");
         }
         for (SmsMessage message : state.sms().messagesInSelectedStorage().values()) {
-            frames.addAll(messageFrames("+CMGL: " + message.index(), message));
+            if (stat.equalsIgnoreCase("ALL") || message.status().equalsIgnoreCase(stat)) {
+                frames.addAll(messageFrames("+CMGL", message, true));
+            }
         }
         return new CommandResult(state, frames, ResultCode.OK, "SmsHandler", false);
     }
@@ -100,21 +110,33 @@ public final class SmsHandler implements CommandHandler {
 
     private CommandResult cpms(ModemState state, ParsedCommand command) {
         if (command.kind().name().endsWith("READ")) {
-            String store = state.sms().storage().name();
-            int used = state.sms().used(state.sms().storage());
-            int capacity = state.sms().capacity(state.sms().storage());
-            return line(state, "+CPMS: \"" + store + "\"," + used + "," + capacity
-                    + ",\"" + store + "\"," + used + "," + capacity);
+            return line(state, "+CPMS: " + memoryTuple(state, state.sms().storage().name()) + ","
+                    + memoryTuple(state, state.sms().writeStorage().name()) + ","
+                    + memoryTuple(state, state.sms().receiveStorage().name()));
         }
         if (command.kind().name().endsWith("SET")) {
-            String value = unquote(command.arguments().split(",")[0]);
+            String[] stores = command.arguments().split(",", -1);
+            SmsStorage[] selected = new SmsStorage[3];
+            for (String store : stores) {
+                if (!validStorage(unquote(store))) {
+                    return CommandResult.error(state, "SmsHandler");
+                }
+            }
             try {
-                return CommandResult.ok(state.withSms(state.sms().withStorage(SmsStorage.valueOf(value))), "SmsHandler");
+                selected[0] = SmsStorage.valueOf(unquote(stores[0]));
+                selected[1] = stores.length > 1 ? SmsStorage.valueOf(unquote(stores[1])) : selected[0];
+                selected[2] = stores.length > 2 ? SmsStorage.valueOf(unquote(stores[2])) : selected[1];
+                return CommandResult.ok(state.withSms(state.sms().withStorages(selected[0], selected[1], selected[2])), "SmsHandler");
             } catch (IllegalArgumentException e) {
                 return CommandResult.error(state, "SmsHandler");
             }
         }
-        return line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
+        return line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
+    }
+
+    private String memoryTuple(ModemState state, String store) {
+        SmsStorage storage = SmsStorage.valueOf(store);
+        return "\"" + store + "\"," + state.sms().used(storage) + "," + state.sms().capacity(storage);
     }
 
     private CommandResult csca(ModemState state, ParsedCommand command) {
@@ -122,9 +144,20 @@ public final class SmsHandler implements CommandHandler {
             return line(state, "+CSCA: \"" + state.sms().smsc() + "\",145");
         }
         if (command.kind().name().endsWith("SET")) {
-            return CommandResult.ok(state.withSms(state.sms().withSmsc(unquote(command.arguments()))), "SmsHandler");
+            String smsc = validSmsc(command.arguments());
+            return smsc == null ? CommandResult.error(state, "SmsHandler")
+                    : CommandResult.ok(state.withSms(state.sms().withSmsc(smsc)), "SmsHandler");
         }
         return CommandResult.error(state, "SmsHandler");
+    }
+
+    private CommandResult cscs(ModemState state, ParsedCommand command) {
+        return switch (command.kind()) {
+            case EXTENDED_READ -> line(state, "+CSCS: \"GSM\"");
+            case EXTENDED_TEST -> line(state, "+CSCS: (\"GSM\",\"IRA\",\"UCS2\")");
+            case EXTENDED_SET -> CommandResult.ok(state, "SmsHandler");
+            default -> CommandResult.error(state, "SmsHandler");
+        };
     }
 
     private boolean validCmgsArguments(ModemState state, String arguments) {
@@ -135,10 +168,17 @@ public final class SmsHandler implements CommandHandler {
         return parseInt(arguments, -1) >= 0;
     }
 
-    private List<ResponseFrame> messageFrames(String prefix, SmsMessage message) {
+    private List<ResponseFrame> messageFrames(String prefix, SmsMessage message, boolean list) {
+        String header = list ? prefix + ": " + message.index() + "," : prefix + ": ";
+        if (message.pdu() != null) {
+            return List.of(
+                    new TextFrame(header + "\"" + message.status() + "\",," + (message.pdu().length() / 2)),
+                    new TextFrame(message.pdu()));
+        }
         String text = message.text() == null ? "" : message.text();
+        String recipient = message.recipient() == null ? "" : message.recipient();
         return List.of(
-                new TextFrame(prefix + ": \"" + message.status() + "\",\"" + message.recipient() + "\""),
+                new TextFrame(header + "\"" + message.status() + "\",\"" + recipient + "\""),
                 new TextFrame(text));
     }
 
@@ -167,6 +207,30 @@ public final class SmsHandler implements CommandHandler {
             }
         }
         return true;
+    }
+
+    private boolean validCmglStat(String stat) {
+        return List.of("REC UNREAD", "REC READ", "STO UNSENT", "STO SENT", "ALL")
+                .stream().anyMatch(value -> value.equalsIgnoreCase(stat));
+    }
+
+    private boolean validStorage(String value) {
+        try {
+            SmsStorage.valueOf(value);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private String validSmsc(String arguments) {
+        String[] parts = (arguments == null ? "" : arguments).split(",", 2);
+        String first = parts[0].trim();
+        String number = unquote(first);
+        if (!first.startsWith("\"") || !first.endsWith("\"") || !number.matches("\\+?[0-9]{3,20}")) {
+            return null;
+        }
+        return parts.length == 1 || parseInt(parts[1].trim(), -1) >= 0 ? number : null;
     }
 
     private String unquote(String value) {

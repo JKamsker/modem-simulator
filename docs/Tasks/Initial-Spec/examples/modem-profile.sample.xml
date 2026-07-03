@@ -55,6 +55,6 @@
       <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
       <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
     </initial-state>
-    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="0" unknown="0"/>
+    <coverage source="references/snapshots/sierra-hl6-hl8-v20.md" commandsTotal="44" unknown="0"/>
   </profile>
 </modem-simulator>

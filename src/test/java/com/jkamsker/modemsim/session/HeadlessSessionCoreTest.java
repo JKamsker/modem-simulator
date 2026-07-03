@@ -1,8 +1,11 @@
 package com.jkamsker.modemsim.session;
 
 import com.jkamsker.modemsim.parser.RawBytes;
+import com.jkamsker.modemsim.macros.FaultAction;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.CallMode;
+import com.jkamsker.modemsim.state.FreezeMode;
+import com.jkamsker.modemsim.state.SimRuntime;
 import com.jkamsker.modemsim.state.SimState;
 import org.junit.jupiter.api.Test;
 
@@ -67,14 +70,41 @@ class HeadlessSessionCoreTest {
     }
 
     @Test
+    void pinUnlockCanUseConfiguredTestPinReferenceWithoutClearPin() {
+        var base = BuiltinProfiles.acceptanceSierra().initialState();
+        SimRuntime sim = base.sim();
+        var locked = base.withSim(new SimRuntime(
+                SimState.SIM_PIN_REQUIRED, sim.pinQueryEnabled(), "TEST_SIM_PIN", null,
+                sim.pinRetries(), sim.pukRetries(), sim.imsi(), sim.iccid()));
+        HeadlessSession session = new HeadlessSession(
+                "locked", BuiltinProfiles.acceptanceSierra().withInitialState(locked), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"1234\"\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+
+        assertThat(session.snapshot().sim().state()).isEqualTo(SimState.READY);
+    }
+
+    @Test
+    void simBusyAndWrongMapToSpecifiedCmeErrors() {
+        assertThat(simStateSession(SimState.SIM_BUSY).receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii())
+                .contains("+CME ERROR: 14");
+        assertThat(simStateSession(SimState.SIM_WRONG).receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii())
+                .contains("+CME ERROR: 15");
+    }
+
+    @Test
     void dialEscapeAndHangupUpdateCarrierAndDcd() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 
-        assertThat(session.receive(RawBytes.ascii("ATD123\r")).outputAscii()).isEqualTo("\r\nCONNECT\r\n");
+        SessionResponse dial = session.receive(RawBytes.ascii("ATD123\r"));
+        assertThat(dial.outputHex()).isEmpty();
+        assertThat(dial.events()).extracting(event -> event.eventType().name()).contains("SCHEDULER_ENQUEUE");
+        assertThat(session.drainScheduled().outputAscii()).isEqualTo("\r\nCONNECT\r\n");
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
         assertThat(session.snapshot().lines().dcd()).isTrue();
         session.advanceTime(1_000);
-        assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.receive(RawBytes.ascii("+++")).outputHex()).isEmpty();
+        assertThat(session.advanceTime(1_000).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.receive(RawBytes.ascii("ATH\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().lines().dcd()).isFalse();
     }
@@ -84,6 +114,7 @@ class HeadlessSessionCoreTest {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 
         session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
         SessionResponse response = session.receive(RawBytes.ascii("AT\r"));
 
         assertThat(response.outputHex()).isEmpty();
@@ -93,16 +124,124 @@ class HeadlessSessionCoreTest {
     }
 
     @Test
+    void freezeModesDistinguishHeldTxAndIgnoredRx() {
+        HeadlessSession holdTx = new HeadlessSession("hold-tx", BuiltinProfiles.acceptanceSierra(), 12345);
+        holdTx.applyFault(new FaultAction("modem-freeze", null, null, null, null, FreezeMode.HOLD_TX));
+
+        assertThat(holdTx.receive(RawBytes.ascii("AT\r")).outputHex()).isEmpty();
+        assertThat(holdTx.applyFault(new FaultAction("modem-unfreeze", null, null, null, null, null)).outputAscii())
+                .isEqualTo("\r\nOK\r\n");
+
+        HeadlessSession holdRxTx = new HeadlessSession("hold-rx-tx", BuiltinProfiles.acceptanceSierra(), 12345);
+        holdRxTx.applyFault(new FaultAction("modem-freeze", null, null, null, null, FreezeMode.HOLD_RX_TX));
+        SessionResponse ignored = holdRxTx.receive(RawBytes.ascii("AT\r"));
+
+        assertThat(ignored.outputHex()).isEmpty();
+        assertThat(ignored.events()).extracting(event -> event.eventType().name()).containsExactly("RX_BYTES");
+    }
+
+    @Test
     void onlineDataModeRequiresGuardTimeBeforeEscapeSequence() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
 
         session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
+        session.receive(RawBytes.ascii("data"));
 
-        assertThat(session.receive(RawBytes.ascii("+++\r")).outputHex()).isEmpty();
+        assertThat(session.receive(RawBytes.ascii("+++")).outputHex()).isEmpty();
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
         session.advanceTime(1_000);
-        assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.receive(RawBytes.ascii("+++")).outputHex()).isEmpty();
+        assertThat(session.advanceTime(1_000).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_COMMAND);
+    }
+
+    @Test
+    void buffersSlowCommandBytesAcrossReads() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT")).outputHex()).isEmpty();
+
+        assertThat(session.receive(RawBytes.ascii("\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void parsesMultipleFramesAndSlowARepeatFromByteStream() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT\rAT\r")).outputAscii()).isEqualTo("\r\nOK\r\n\r\nOK\r\n");
+        assertThat(session.receive(RawBytes.ascii("A")).outputHex()).isEmpty();
+        assertThat(session.receive(RawBytes.ascii("/")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void crlfLineEndingDoesNotPoisonNextCommand() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT\r\n")).outputAscii()).isEqualTo("\r\nOK\r\n");
+
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.receive(RawBytes.ascii("AT\r\nAT\r")).outputAscii()).isEqualTo("\r\nOK\r\n\r\nOK\r\n");
+    }
+
+    @Test
+    void escapeSequenceSplitAcrossGuardIntervalsIsData() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
+        session.advanceTime(1_000);
+
+        assertThat(session.receive(RawBytes.ascii("+")).outputHex()).isEmpty();
+        session.advanceTime(1_000);
+        assertThat(session.receive(RawBytes.ascii("+")).outputHex()).isEmpty();
+        session.advanceTime(1_000);
+        assertThat(session.receive(RawBytes.ascii("+")).outputHex()).isEmpty();
+        assertThat(session.advanceTime(1_000).outputHex()).isEmpty();
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
+    }
+
+    @Test
+    void escapeSequenceSplitWithinGuardWindowIsAccepted() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
+        session.advanceTime(1_000);
+
+        session.receive(RawBytes.ascii("+"));
+        session.advanceTime(49);
+        session.receive(RawBytes.ascii("+"));
+        session.advanceTime(49);
+        session.receive(RawBytes.ascii("+"));
+
+        assertThat(session.advanceTime(50).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_COMMAND);
+    }
+
+    @Test
+    void escapeSequenceChunkWithLongByteSpanIsData() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
+        session.advanceTime(1_000);
+
+        session.receiveTimed(RawBytes.ascii("+++"), 1_000_000_000L, 1_100_000_000L);
+
+        assertThat(session.advanceTime(1_000).outputHex()).isEmpty();
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
+    }
+
+    @Test
+    void repeatCommandPublishesSpecialRepeatBeforeReplayingLastCommand() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("AT\r"));
+
+        SessionResponse repeated = session.receive(RawBytes.ascii("A/"));
+
+        assertThat(repeated.outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(repeated.events()).anySatisfy(event -> {
+            assertThat(event.eventType().name()).isEqualTo("PARSED_COMMAND");
+            assertThat(event.parsedCommand()).containsEntry("kind", "SPECIAL_REPEAT");
+        });
     }
 
     @Test
@@ -124,5 +263,13 @@ class HeadlessSessionCoreTest {
         assertThat(session.snapshot().settings().ampD()).isEqualTo(2);
         assertThat(session.snapshot().settings().ampC()).isZero();
         assertThat(session.snapshot().lines().dcd()).isTrue();
+    }
+
+    private HeadlessSession simStateSession(SimState state) {
+        HeadlessSession base = new HeadlessSession("base", BuiltinProfiles.acceptanceSierra(), 12345);
+        var next = base.snapshot()
+                .withSim(base.snapshot().sim().withState(state))
+                .withSettings(base.snapshot().settings().withCmee(1));
+        return new HeadlessSession("sim", BuiltinProfiles.acceptanceSierra().withInitialState(next), 12345);
     }
 }

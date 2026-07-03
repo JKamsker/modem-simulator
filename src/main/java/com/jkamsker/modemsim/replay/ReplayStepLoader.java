@@ -23,8 +23,19 @@ public final class ReplayStepLoader {
     }
 
     private List<ReplayStep> loadLines(List<String> lines) {
+        if (lines.stream().filter(line -> !line.isBlank()).findFirst().orElse("").trim().startsWith("{")) {
+            return loadJsonLines(lines);
+        }
+        return loadYamlLines(lines);
+    }
+
+    private List<ReplayStep> loadJsonLines(List<String> lines) {
         List<ReplayStep> steps = new ArrayList<>();
-        RawBytes pendingInput = null;
+        boolean active = false;
+        RawBytes pendingInput = RawBytes.empty();
+        RawBytes pendingOutput = RawBytes.empty();
+        boolean drainScheduled = false;
+        List<ReplayEventExpectation> pendingEvents = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
             if (line.isEmpty()) {
@@ -34,33 +45,81 @@ public final class ReplayStepLoader {
             if (node.has("inputHex")) {
                 steps.add(step(node));
             } else {
-                pendingInput = eventStep(steps, pendingInput, node);
+                validateEventNode(node, i + 1);
+                if (!replayRelevant(node)) {
+                    continue;
+                }
+                ReplayEventExpectation expectation = ReplayEventExpectation.from(node);
+                String eventType = node.path("eventType").asText();
+                String direction = node.path("direction").asText();
+                if (eventType.equals("RX_BYTES") && direction.equals("DTE_TO_DCE")) {
+                    if (active) {
+                        steps.add(new ReplayStep(pendingInput, pendingOutput, drainScheduled, pendingEvents));
+                    }
+                    active = true;
+                    pendingInput = rawHex(node.path("rawHex").asText());
+                    pendingOutput = RawBytes.empty();
+                    pendingEvents = new ArrayList<>();
+                    drainScheduled = false;
+                } else if (!active) {
+                    active = true;
+                    pendingInput = RawBytes.empty();
+                    pendingOutput = RawBytes.empty();
+                    pendingEvents = new ArrayList<>();
+                    drainScheduled = false;
+                }
+                pendingEvents.add(expectation);
+                if (eventType.equals("TX_BYTES") && direction.equals("DCE_TO_DTE")) {
+                    pendingOutput = pendingOutput.append(rawHex(node.path("rawHex").asText()));
+                }
+                if (eventType.equals("SCHEDULER_ENQUEUE") || eventType.equals("SCHEDULER_EMIT")) {
+                    drainScheduled = true;
+                }
             }
         }
-        if (pendingInput != null) {
-            steps.add(new ReplayStep(pendingInput, RawBytes.empty(), false));
+        if (active) {
+            steps.add(new ReplayStep(pendingInput, pendingOutput, drainScheduled, pendingEvents));
         }
         return steps;
+    }
+
+    private List<ReplayStep> loadYamlLines(List<String> lines) {
+        List<ReplayStep> steps = new ArrayList<>();
+        String input = null;
+        String output = null;
+        boolean drain = false;
+        for (String raw : lines) {
+            String line = raw.trim();
+            if (line.startsWith("- inputHex:") || line.startsWith("inputHex:")) {
+                if (input != null) {
+                    steps.add(new ReplayStep(rawHex(input), rawHex(output), drain));
+                }
+                input = value(line);
+                output = "";
+                drain = false;
+            } else if (line.startsWith("expectedOutputHex:") || line.startsWith("outputHex:")) {
+                output = value(line);
+            } else if (line.startsWith("drainScheduled:")) {
+                drain = Boolean.parseBoolean(value(line));
+            }
+        }
+        if (input != null) {
+            steps.add(new ReplayStep(rawHex(input), rawHex(output), drain));
+        }
+        return steps;
+    }
+
+    private String value(String line) {
+        String value = line.substring(line.indexOf(':') + 1).trim();
+        return value.replace("\"", "");
     }
 
     private ReplayStep step(JsonNode node) {
         return new ReplayStep(
                 rawHex(node.path("inputHex").asText()),
                 rawHex(node.path("expectedOutputHex").asText()),
-                node.path("drainScheduled").asBoolean(false));
-    }
-
-    private RawBytes eventStep(List<ReplayStep> steps, RawBytes pendingInput, JsonNode node) {
-        String eventType = node.path("eventType").asText();
-        String direction = node.path("direction").asText();
-        if (eventType.equals("RX_BYTES") && direction.equals("DTE_TO_DCE")) {
-            return rawHex(node.path("rawHex").asText());
-        }
-        if (eventType.equals("TX_BYTES") && direction.equals("DCE_TO_DTE") && pendingInput != null) {
-            steps.add(new ReplayStep(pendingInput, rawHex(node.path("rawHex").asText()), false));
-            return null;
-        }
-        return pendingInput;
+                node.path("drainScheduled").asBoolean(false),
+                List.of());
     }
 
     private JsonNode parse(String line, int lineNumber) {
@@ -68,6 +127,32 @@ public final class ReplayStepLoader {
             return JSON.readTree(line);
         } catch (IOException e) {
             throw new IllegalArgumentException("Invalid replay JSON at line " + lineNumber, e);
+        }
+    }
+
+    private void validateEventNode(JsonNode node, int lineNumber) {
+        require(node, lineNumber, "timestamp", "monotonicNanos", "sequence", "sessionId",
+                "eventType", "direction", "rawHex", "profileHash", "configHash",
+                "macroHash", "initialStateHash", "sessionSeed", "clockMode", "redaction");
+        require(node.path("redaction"), lineNumber, "applied", "policy", "fields", "classes");
+        String type = node.path("eventType").asText();
+        if (type.equals("SCHEDULER_ENQUEUE") || type.equals("SCHEDULER_EMIT")) {
+            JsonNode scheduler = node.path("scheduler");
+            require(scheduler, lineNumber, "dueMonotonicNanos", "sourceSequence",
+                    "sourcePriority", "operation", "sampledDelayMs", "cancelled");
+        }
+    }
+
+    private boolean replayRelevant(JsonNode node) {
+        String type = node.path("eventType").asText();
+        return !type.equals("SESSION_START") && !type.equals("SESSION_STOP");
+    }
+
+    private void require(JsonNode node, int lineNumber, String... fields) {
+        for (String field : fields) {
+            if (node == null || !node.has(field) || node.path(field).isNull()) {
+                throw new IllegalArgumentException("Replay event at line " + lineNumber + " missing " + field);
+            }
         }
     }
 
@@ -80,4 +165,5 @@ public final class ReplayStepLoader {
         }
         return RawBytes.hex(value);
     }
+
 }

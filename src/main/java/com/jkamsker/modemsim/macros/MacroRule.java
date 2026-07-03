@@ -8,6 +8,7 @@ public record MacroRule(
         int order,
         MacroPhase phase,
         boolean enabled,
+        MacroCondition condition,
         MatchSpec match,
         List<MacroAction> actions
 ) {

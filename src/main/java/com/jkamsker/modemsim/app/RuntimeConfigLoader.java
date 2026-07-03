@@ -12,24 +12,29 @@ import com.jkamsker.modemsim.validation.ConfigValidator;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 
 final class RuntimeConfigLoader {
     private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory());
+    private static final SecureRandom SEEDS = new SecureRandom();
 
     RuntimeConfig load(Path path) {
         new ConfigValidator().validate(path).throwIfInvalid();
         JsonNode root = read(path);
-        long sessionSeed = root.path("sessionSeed").asLong();
+        long sessionSeed = root.hasNonNull("sessionSeed") ? root.path("sessionSeed").asLong() : SEEDS.nextLong();
         return new RuntimeConfig(
                 sessionSeed,
                 clockMode(root.path("clockMode").asText("monotonic")),
                 root.path("strictOptionalPorts").asBoolean(false),
                 root.path("gui").path("allowUnsafeDceTransmit").asBoolean(false),
                 null,
+                scenarioPath(path, textOrNull(root, "initialScenario")),
+                scenarioPath(path, textOrNull(root, "macros")),
+                macroTimers(root.path("macroTimers")),
                 serialLine(root.path("serialLine")),
-                ports(root.path("ports")));
+                ports(path, root.path("ports")));
     }
 
     private JsonNode read(Path path) {
@@ -49,7 +54,7 @@ final class RuntimeConfigLoader {
                 FlowControl.valueOf(node.path("flowControl").asText()));
     }
 
-    private List<PortBinding> ports(JsonNode nodes) {
+    private List<PortBinding> ports(Path configPath, JsonNode nodes) {
         List<PortBinding> result = new ArrayList<>();
         for (JsonNode node : nodes) {
             result.add(new PortBinding(
@@ -59,7 +64,16 @@ final class RuntimeConfigLoader {
                     textOrNull(node, "name"),
                     node.path("enabled").asBoolean(false),
                     textOrNull(node, "profile"),
+                    scenarioPath(configPath, textOrNull(node, "initialScenario")),
                     node.path("snifferFormat").asText("tagged-text")));
+        }
+        return result;
+    }
+
+    private List<RuntimeTimer> macroTimers(JsonNode nodes) {
+        List<RuntimeTimer> result = new ArrayList<>();
+        for (JsonNode node : nodes) {
+            result.add(new RuntimeTimer(node.path("id").asText(), node.path("atMs").asLong()));
         }
         return result;
     }
@@ -74,5 +88,16 @@ final class RuntimeConfigLoader {
 
     private String textOrNull(JsonNode node, String field) {
         return node.hasNonNull(field) ? node.path(field).asText() : null;
+    }
+
+    private Path scenarioPath(Path configPath, String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        Path path = Path.of(value);
+        if (path.isAbsolute() || configPath.getParent() == null) {
+            return path.normalize();
+        }
+        return configPath.getParent().resolve(path).normalize();
     }
 }

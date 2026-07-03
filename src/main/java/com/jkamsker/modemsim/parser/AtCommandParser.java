@@ -19,18 +19,42 @@ public final class AtCommandParser {
 
     public List<ParsedCommand> parse(RawBytes source, EntryMode mode) {
         String edited = applyBackspace(source.toByteArray());
-        String line = beforeTerminator(edited);
+        if (!hasTerminator(edited)) {
+            if (edited.equals("A/")) {
+                return List.of(special(source, edited, "A/", CommandKind.SPECIAL_REPEAT, mode));
+            }
+            if (edited.equals("+++")) {
+                return List.of(special(source, edited, "+++", CommandKind.SPECIAL_ESCAPE, mode));
+            }
+            return List.of();
+        }
+        List<ParsedCommand> commands = new ArrayList<>();
+        int start = 0;
+        int terminatorIndex;
+        while ((terminatorIndex = edited.indexOf((char) terminator, start)) >= 0) {
+            String line = edited.substring(start, terminatorIndex);
+            if (!line.isEmpty()) {
+                commands.addAll(parseLine(source, line, mode));
+            }
+            start = nextLineStart(edited, terminatorIndex);
+        }
+        return commands;
+    }
+
+    private int nextLineStart(String text, int terminatorIndex) {
+        int next = terminatorIndex + 1;
+        return terminator == '\r' && next < text.length() && text.charAt(next) == '\n' ? next + 1 : next;
+    }
+
+    private List<ParsedCommand> parseLine(RawBytes source, String line, EntryMode mode) {
         if (line.equals("A/")) {
             return List.of(special(source, line, "A/", CommandKind.SPECIAL_REPEAT, mode));
         }
         if (line.equals("+++")) {
             return List.of(special(source, line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
         }
-        if (!hasTerminator(edited)) {
-            return List.of();
-        }
         if (!line.regionMatches(true, 0, "AT", 0, 2)) {
-            throw new AtParseException("AT command line must start with AT");
+            return List.of(command(RawBytes.ascii(line), line, "PARSE_ERROR", CommandKind.BASIC, "", 0, mode));
         }
         return parseBody(source, line, line.substring(2), mode);
     }
@@ -53,7 +77,8 @@ public final class AtCommandParser {
                 continue;
             }
             Slice slice = nextSlice(body, position);
-            commands.add(toCommand(source, rawLine, slice.text(), index++, mode));
+            RawBytes commandSource = RawBytes.ascii((index == 0 ? "AT" : "") + slice.text());
+            commands.add(toCommand(commandSource, rawLine, slice.text(), index++, mode));
             position = slice.next();
         }
         return commands;
@@ -187,11 +212,6 @@ public final class AtCommandParser {
 
     private boolean isExtendedPrefix(char ch) {
         return ch == '+' || ch == '%' || ch == '#' || ch == '!';
-    }
-
-    private String beforeTerminator(String text) {
-        int end = text.indexOf((char) terminator);
-        return end < 0 ? text : text.substring(0, end);
     }
 
     private boolean hasTerminator(String text) {
