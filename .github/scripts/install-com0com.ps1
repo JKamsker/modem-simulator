@@ -73,14 +73,34 @@ function Invoke-TimedProcess {
     Get-Process -Name "setupc" -ErrorAction SilentlyContinue | Stop-Process -Force
     Show-ProcessLog -Label "$Description stdout" -Path $stdout
     Show-ProcessLog -Label "$Description stderr" -Path $stderr
-    Disable-Com0Com -Reason "$Description timed out after $TimeoutSeconds seconds."
+    Write-Host "::warning title=com0com unavailable::$Description timed out after $TimeoutSeconds seconds."
+    return [pscustomobject]@{
+      TimedOut = $true
+      ExitCode = $null
+    }
   }
 
   Show-ProcessLog -Label "$Description stdout" -Path $stdout
   Show-ProcessLog -Label "$Description stderr" -Path $stderr
   Write-Host "$Description exit code: $($process.ExitCode)"
-  if ($process.ExitCode -ne 0) {
-    Disable-Com0Com -Reason "$Description failed with exit code $($process.ExitCode)."
+  return [pscustomobject]@{
+    TimedOut = $false
+    ExitCode = $process.ExitCode
+  }
+}
+
+function Assert-TimedProcessSucceeded {
+  param(
+    [Parameter(Mandatory = $true)] $Result,
+    [Parameter(Mandatory = $true)][int] $TimeoutSeconds,
+    [Parameter(Mandatory = $true)][string] $Description
+  )
+
+  if ($Result.TimedOut) {
+    Disable-Com0Com -Reason "$Description timed out after $TimeoutSeconds seconds."
+  }
+  if ($Result.ExitCode -ne 0) {
+    Disable-Com0Com -Reason "$Description failed with exit code $($Result.ExitCode)."
   }
 }
 
@@ -90,11 +110,14 @@ function Invoke-Setupc {
     [Parameter(Mandatory = $true)][string[]] $SetupArgs
   )
 
-  Invoke-TimedProcess `
+  $timeoutSeconds = 90
+  $description = "setupc $($SetupArgs -join ' ')"
+  $result = Invoke-TimedProcess `
     -FilePath $Setupc.FullName `
     -ArgumentList $SetupArgs `
-    -TimeoutSeconds 90 `
-    -Description "setupc $($SetupArgs -join ' ')"
+    -TimeoutSeconds $timeoutSeconds `
+    -Description $description
+  Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $timeoutSeconds -Description $description
 }
 
 function Find-Setupc {
@@ -131,11 +154,27 @@ Write-Host "Using com0com installer: $($installer.FullName)"
 $env:CNC_INSTALL_START_MENU_SHORTCUTS = "NO"
 $env:CNC_INSTALL_CNCA0_CNCB0_PORTS = "NO"
 $env:CNC_INSTALL_COMX_COMX_PORTS = "NO"
-Invoke-TimedProcess -FilePath $installer.FullName -ArgumentList @("/S") -TimeoutSeconds 120 -Description "com0com installer"
+$installerTimeoutSeconds = 120
+$installerResult = Invoke-TimedProcess `
+  -FilePath $installer.FullName `
+  -ArgumentList @("/S") `
+  -TimeoutSeconds $installerTimeoutSeconds `
+  -Description "com0com installer"
 
 $setupc = Find-Setupc -WorkDirectory $work
 if (-not $setupc) {
+  if ($installerResult.TimedOut) {
+    Disable-Com0Com -Reason "com0com installer timed out after $installerTimeoutSeconds seconds and setupc.exe was not found."
+  }
+  if ($installerResult.ExitCode -ne 0) {
+    Disable-Com0Com -Reason "com0com installer failed with exit code $($installerResult.ExitCode) and setupc.exe was not found."
+  }
   Disable-Com0Com -Reason "setupc.exe was not found after com0com installation."
+}
+if ($installerResult.TimedOut) {
+  Write-Host "Installer timed out, but setupc.exe exists. Trying bounded setupc provisioning fallback."
+} elseif ($installerResult.ExitCode -ne 0) {
+  Write-Host "Installer returned exit code $($installerResult.ExitCode), but setupc.exe exists. Trying bounded setupc provisioning fallback."
 }
 Write-Host "Using setupc: $($setupc.FullName)"
 
