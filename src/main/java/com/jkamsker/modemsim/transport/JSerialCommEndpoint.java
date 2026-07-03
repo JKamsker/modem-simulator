@@ -38,7 +38,7 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     @Override
     public SerialRead read() throws IOException {
         if (disconnected.get() || port == null || !port.isOpen()) {
-            throw new IOException("Serial port lost: " + portName);
+            throw new SerialPortLostException("Serial port lost: " + portName);
         }
         if (rxOverflow.getAndSet(false)) {
             throw new SerialOverflowException("RX overflow on " + portName);
@@ -48,17 +48,29 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
         int count = port.readBytes(buffer, buffer.length);
         long last = System.nanoTime();
         if (count < 0) {
+            if (!portPresent()) {
+                throw new SerialPortLostException("Serial port disappeared: " + portName);
+            }
             throw new IOException("Serial read failed on " + portName);
         }
         if (count == 0 && !portPresent()) {
-            throw new IOException("Serial port disappeared: " + portName);
+            throw new SerialPortLostException("Serial port disappeared: " + portName);
         }
         return new SerialRead(RawBytes.copyOf(java.util.Arrays.copyOf(buffer, count)), first, last);
     }
 
     @Override
     public void write(byte[] buffer, int offset, int length) throws IOException {
+        if (disconnected.get() || port == null || !port.isOpen()) {
+            throw new SerialPortLostException("Serial port lost: " + portName);
+        }
         int written = port.writeBytes(buffer, length, offset);
+        if (written < 0) {
+            if (!portPresent()) {
+                throw new SerialPortLostException("Serial port disappeared: " + portName);
+            }
+            throw new IOException("Serial write failed on " + portName);
+        }
         if (written != length) {
             throw new SerialOverflowException("TX overflow on " + portName + ": wrote " + written + " of " + length);
         }

@@ -12,6 +12,7 @@ import com.jkamsker.modemsim.transport.HeadlessEndpoint;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
 import com.jkamsker.modemsim.transport.SerialException;
 import com.jkamsker.modemsim.transport.SerialOverflowException;
+import com.jkamsker.modemsim.transport.SerialPortLostException;
 import com.jkamsker.modemsim.transport.SerialRead;
 
 import java.io.IOException;
@@ -217,7 +218,10 @@ final class ModemRuntime {
 
     private RuntimeResult handlePortLoss(
             HeadlessSession session, SerialEndpoint endpoint, PortBinding binding,
-            RawBytes output, int reads, IOException e) {
+            RawBytes output, int reads, IOException e) throws IOException {
+        if (!(e instanceof SerialPortLostException)) {
+            throw e;
+        }
         session.portLost("port-lost:" + binding.id() + ":" + e.getMessage());
         endpoint.writeLines(session.snapshot().lines());
         return new RuntimeResult("main", reads, output);

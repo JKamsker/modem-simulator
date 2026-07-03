@@ -8,6 +8,7 @@ import com.jkamsker.modemsim.transport.Parity;
 import com.jkamsker.modemsim.transport.SerialConfig;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
 import com.jkamsker.modemsim.transport.SerialException;
+import com.jkamsker.modemsim.transport.SerialPortLostException;
 import com.jkamsker.modemsim.transport.SerialRead;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -260,7 +261,7 @@ class ModemRuntimeTest {
 
         @Override
         public SerialRead read() throws IOException {
-            throw new IOException("port removed");
+            throw new SerialPortLostException("port removed");
         }
 
         @Override
@@ -281,4 +282,5 @@ class ModemRuntimeTest {
         public void close() {
         }
     }
+
 }
