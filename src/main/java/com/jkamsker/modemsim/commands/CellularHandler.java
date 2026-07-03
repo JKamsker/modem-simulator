@@ -133,11 +133,20 @@ public final class CellularHandler implements CommandHandler {
         if (values.length < 2) {
             return CmeError.INCORRECT_PASSWORD.result(state, "CellularHandler");
         }
+        if (state.sim().pukRetries() <= 0) {
+            return CmeError.SIM_FAILURE.result(state.withSim(state.sim().withState(SimState.SIM_FAILURE)),
+                    "CellularHandler");
+        }
+        if (!values[1].matches("[0-9]{4,8}")) {
+            return CmeError.INCORRECT_PASSWORD.result(state, "CellularHandler");
+        }
         if (values[0].equals(expectedPuk(state.sim()))) {
             SimRuntime sim = state.sim().withState(SimState.READY).withPin(values[1]).withPinRetries(3);
             return CommandResult.ok(state.withSim(sim), "CellularHandler");
         }
-        SimRuntime sim = state.sim().withPukRetries(Math.max(0, state.sim().pukRetries() - 1));
+        int retries = Math.max(0, state.sim().pukRetries() - 1);
+        SimState nextState = retries == 0 ? SimState.SIM_FAILURE : SimState.SIM_PUK_REQUIRED;
+        SimRuntime sim = state.sim().withPukRetries(retries).withState(nextState);
         return CmeError.INCORRECT_PASSWORD.result(state.withSim(sim), "CellularHandler");
     }
 

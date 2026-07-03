@@ -46,6 +46,11 @@ class GuiSessionControllerTest {
         assertThat(response.events()).extracting(event -> event.eventType())
                 .containsExactly(EventType.INJECTION, EventType.PARSED_COMMAND, EventType.HANDLER_RESULT, EventType.TX_BYTES);
         assertThat(response.events()).noneSatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.RX_BYTES));
+
+        SessionResponse malformed = controller.parsedCommand("AT+CPIN=\"1234");
+        assertThat(malformed.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(malformed.events()).extracting(event -> event.eventType())
+                .contains(EventType.INJECTION, EventType.PARSE_ERROR, EventType.TX_BYTES);
     }
 
     @Test

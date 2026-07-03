@@ -218,7 +218,20 @@ public final class AtCommandParser {
                     : "AT" + upper.charAt(0);
         };
         String args = upper.startsWith("&") ? upper.substring(2) : upper.substring(1);
+        validateBasicArguments(name, args);
         return command(source, rawLine, name, CommandKind.BASIC, args, index, mode, rawStart, rawEnd, quoted);
+    }
+
+    private void validateBasicArguments(String name, String args) {
+        if (List.of("ATE", "ATQ", "ATV").contains(name) && !args.matches("[01]?")) {
+            throw new AtParseException("invalid basic flag argument");
+        }
+        if (name.equals("AT&C") && !args.matches("[01]?")) {
+            throw new AtParseException("invalid &C argument");
+        }
+        if (name.equals("AT&D") && !args.matches("[0-3]?")) {
+            throw new AtParseException("invalid &D argument");
+        }
     }
 
     private ParsedCommand command(

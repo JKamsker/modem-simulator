@@ -104,10 +104,8 @@ public final class HeadlessSession implements SessionActor {
         if (state.settings().echo()) { output = output.append(bytes); }
         List<ParsedCommand> commands;
         try {
-            commands = new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(effective, SessionEntryMode.from(state.call().mode()));
-        } catch (com.jkamsker.modemsim.parser.AtParseException e) {
-            return SessionParseFailure.response(events, inputState, lastByteNanos, state, effective, output, start);
-        }
+            commands = parseCommands(effective);
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(events, inputState, lastByteNanos, state, effective, output, start); }
         if (commands.isEmpty()) {
             inputState.rememberIncomplete(effective);
             inputState.markDteRx(lastByteNanos);
@@ -182,8 +180,10 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state);
-        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes())
-                .parse(bytes, SessionEntryMode.from(state.call().mode()));
+        List<ParsedCommand> commands;
+        try {
+            commands = parseCommands(bytes);
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); }
         return commands.isEmpty() ? response(RawBytes.empty(), start)
                 : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
     }
@@ -263,6 +263,7 @@ public final class HeadlessSession implements SessionActor {
                 this::scheduleMacro, this::publishMacroDecision);
     }
     private SessionCommandExecutor commandExecutor(MacroCommandRouter router) { return new SessionCommandExecutor(router, scheduler, events); }
+    private List<ParsedCommand> parseCommands(RawBytes bytes) { return new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(bytes, SessionEntryMode.from(state.call().mode())); }
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
     private int eventCount() { return events.eventCount(); }
     private SessionResponse executeParsedCommands(List<ParsedCommand> commands, RawBytes output, long lastByteNanos, boolean markRx, int start) {

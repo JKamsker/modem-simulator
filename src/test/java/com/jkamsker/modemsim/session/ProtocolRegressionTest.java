@@ -153,6 +153,9 @@ class ProtocolRegressionTest {
 
         assertThat(response.outputAscii()).isEqualTo("\r\nERROR\r\n");
         assertThat(response.events()).anySatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.PARSE_ERROR));
+        SessionResponse invalidFlag = session.receive(RawBytes.ascii("ATE2\r"));
+        assertThat(invalidFlag.outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(invalidFlag.events()).anySatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.PARSE_ERROR));
         assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
     }
 

@@ -115,10 +115,22 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"00000000\",\"4321\"\r")).outputAscii())
                 .contains("+CME ERROR: 16");
         assertThat(session.snapshot().sim().pukRetries()).isEqualTo(9);
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"abcd\"\r")).outputAscii())
+                .contains("+CME ERROR: 16");
+        assertThat(session.snapshot().sim().state()).isEqualTo(SimState.SIM_PUK_REQUIRED);
         assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"4321\"\r")).outputAscii())
                 .isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().sim().state()).isEqualTo(SimState.READY);
         assertThat(session.snapshot().sim().testPin()).isEqualTo("4321");
+
+        var pukLocked = base.withSim(base.sim().withState(SimState.SIM_PUK_REQUIRED).withPukRetries(1));
+        HeadlessSession exhausted = new HeadlessSession(
+                "puk-exhausted", BuiltinProfiles.acceptanceSierra().withInitialState(pukLocked), 12345);
+        exhausted.receive(RawBytes.ascii("AT+CMEE=2\r"));
+        assertThat(exhausted.receive(RawBytes.ascii("AT+CPIN=\"00000000\",\"4321\"\r")).outputAscii())
+                .contains("+CME ERROR: incorrect password");
+        assertThat(exhausted.snapshot().sim().state()).isEqualTo(SimState.SIM_FAILURE);
+        assertThat(exhausted.snapshot().sim().pukRetries()).isZero();
     }
 
     @Test

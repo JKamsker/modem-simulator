@@ -7,6 +7,8 @@ import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
+import com.jkamsker.modemsim.state.CallMode;
+import com.jkamsker.modemsim.state.CallRuntime;
 import com.jkamsker.modemsim.state.SimState;
 import com.jkamsker.modemsim.state.SimRuntime;
 import com.jkamsker.modemsim.validation.JsonSchemaValidator;
@@ -165,6 +167,13 @@ class EventLogTest {
                 .contains("imei", "imsi", "iccid");
         assertThat(event(smsc.events(), EventType.TX_BYTES).redaction().classes()).contains("msisdn");
         assertThat(event(dial.events(), EventType.HANDLER_RESULT).stateAfter().call().dialedNumber())
+                .isEqualTo("<redacted>");
+
+        var incoming = BuiltinProfiles.acceptanceSierra().initialState()
+                .withCall(new CallRuntime(CallMode.RINGING, false, null, "+491709999999"));
+        SessionResponse ring = session.applyState(incoming, "incoming-call");
+        assertNoEventLeak(ring.events(), "+491709999999", RawBytes.ascii("+491709999999").toHex());
+        assertThat(event(ring.events(), EventType.STATE_CHANGE).stateAfter().call().incomingNumber())
                 .isEqualTo("<redacted>");
     }
 

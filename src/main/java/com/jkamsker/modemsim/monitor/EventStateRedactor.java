@@ -91,7 +91,7 @@ public final class EventStateRedactor {
     }
 
     private boolean containsCallNumber(CallRuntime call) {
-        return call != null && call.dialedNumber() != null;
+        return call != null && (call.dialedNumber() != null || call.incomingNumber() != null);
     }
 
     private SimRuntime redactedSim(SimRuntime sim) {

@@ -36,6 +36,7 @@ class MacroStateMutatorTest {
                 patch("state.call.mode", "online-data"),
                 patch("state.call.carrier", "true"),
                 patch("state.call.dialedNumber", "+491701234567"),
+                patch("state.call.incomingNumber", "+491709999999"),
                 patch("state.modem.lifecycle", "FROZEN"),
                 patch("state.modem.freezeMode", "HOLD_TX"),
                 patch("state.modem.bootDelayMs", "3000"),
@@ -47,6 +48,7 @@ class MacroStateMutatorTest {
                 patch("state.modemLines.cts", "false")));
 
         assertThat(next.sim().state()).isEqualTo(SimState.SIM_PIN_REQUIRED);
+        assertThat(next.sim().pukRef()).isEqualTo("TEST_SIM_PUK");
         assertThat(next.sim().pinRetries()).isEqualTo(2);
         assertThat(next.sim().pukRetries()).isEqualTo(7);
         assertThat(next.network().cregN()).isEqualTo(3);
@@ -63,6 +65,7 @@ class MacroStateMutatorTest {
         assertThat(next.call().mode()).isEqualTo(CallMode.ONLINE_DATA);
         assertThat(next.call().carrier()).isTrue();
         assertThat(next.call().dialedNumber()).isEqualTo("+491701234567");
+        assertThat(next.call().incomingNumber()).isEqualTo("+491709999999");
         assertThat(next.modem().lifecycle()).isEqualTo(ModemLifecycle.FROZEN);
         assertThat(next.modem().freezeMode()).isEqualTo(FreezeMode.HOLD_TX);
         assertThat(next.modem().bootDelayMs()).isEqualTo(3000);

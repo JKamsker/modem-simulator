@@ -30,9 +30,7 @@ public final class MacroStateMutator {
         return switch (patch.path()) {
             case "state.sim.state" -> state.withSim(state.sim().withState(SimState.valueOf(patch.value())));
             case "state.sim.pinRetries" -> state.withSim(state.sim().withPinRetries(integer(patch.value())));
-            case "state.sim.pukRetries" -> state.withSim(new SimRuntime(
-                    state.sim().state(), state.sim().pinQueryEnabled(), state.sim().pinRef(), state.sim().testPin(),
-                    state.sim().pinRetries(), integer(patch.value()), state.sim().imsi(), state.sim().iccid()));
+            case "state.sim.pukRetries" -> state.withSim(state.sim().withPukRetries(integer(patch.value())));
             case "state.network.cregN" -> state.withNetwork(network(state).withCregN(integer(patch.value())));
             case "state.network.stat" -> state.withNetwork(network(state).withRegistration(integer(patch.value())));
             case "state.network.lac", "state.network.ci", "state.network.act",
@@ -41,7 +39,8 @@ public final class MacroStateMutator {
             case "state.signal.ber" -> state.withSignal(new SignalRuntime(state.signal().rssi(), integer(patch.value())));
             case "state.sms.textMode" -> state.withSms(state.sms().withTextMode(Boolean.parseBoolean(patch.value())));
             case "state.sms.storage" -> state.withSms(state.sms().withStorage(SmsStorage.valueOf(patch.value())));
-            case "state.call.mode", "state.call.carrier", "state.call.dialedNumber" -> callPatch(state, patch);
+            case "state.call.mode", "state.call.carrier",
+                    "state.call.dialedNumber", "state.call.incomingNumber" -> callPatch(state, patch);
             case "state.modem.lifecycle", "state.modem.freezeMode", "state.modem.bootDelayMs" -> modemPatch(state, patch);
             case "state.modemLines.dtr", "state.modemLines.dsr", "state.modemLines.dcd",
                     "state.modemLines.ri", "state.modemLines.rts", "state.modemLines.cts" -> linePatch(state, patch);
