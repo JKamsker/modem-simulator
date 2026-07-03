@@ -66,7 +66,8 @@ final class ModemRuntime {
             openSidecars(config, session, sidecars);
             enqueueHeadlessInputs(modemEndpoint, headlessInputs);
             RuntimeResult result = processReads(
-                    session, modemEndpoint, modemPort, sidecars, maxReads, scenarioSteps, config.macroTimers(), dceWrites);
+                    session, modemEndpoint, modemPort, sidecars, maxReads, scenarioSteps,
+                    config.macroTimers(), dceWrites, config.allowUnsafeDceTransmit());
             session.stop("normal-stop");
             return new RuntimeResult(result.sessionId(), result.readsProcessed(), result.output(), config.eventLogPath());
         } catch (IOException e) {
@@ -79,7 +80,8 @@ final class ModemRuntime {
     private RuntimeResult processReads(
             HeadlessSession session, SerialEndpoint endpoint, PortBinding binding,
             List<RuntimeSidecar> sidecars, int maxReads,
-            List<InitialScenarioStep> scenarioSteps, List<RuntimeTimer> timers, java.util.Queue<RawBytes> dceWrites)
+            List<InitialScenarioStep> scenarioSteps, List<RuntimeTimer> timers,
+            java.util.Queue<RawBytes> dceWrites, boolean unsafeDceAllowed)
             throws IOException {
         RawBytes output = RawBytes.empty();
         int reads = 0;
@@ -90,7 +92,8 @@ final class ModemRuntime {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 output = output.append(io.processSidecars(session, endpoint, sidecars));
-                output = output.append(io.processQueuedDce(session, endpoint, sidecars, dceWrites));
+                output = output.append(io.processQueuedDce(
+                        session, endpoint, sidecars, dceWrites, unsafeDceAllowed));
                 output = output.append(io.processLineInputs(session, endpoint, sidecars));
             } catch (IOException e) {
                 return handlePortLoss(session, endpoint, binding, output, reads, e);

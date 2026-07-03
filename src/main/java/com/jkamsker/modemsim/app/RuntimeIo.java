@@ -83,10 +83,14 @@ final class RuntimeIo {
 
     RawBytes processQueuedDce(
             HeadlessSession session, SerialEndpoint endpoint, List<RuntimeSidecar> sidecars,
-            java.util.Queue<RawBytes> writes) throws IOException {
+            java.util.Queue<RawBytes> writes, boolean unsafeAllowed) throws IOException {
         RawBytes output = RawBytes.empty();
         RawBytes bytes;
         while ((bytes = writes.poll()) != null) {
+            if (!unsafeAllowed) {
+                session.diagnostic(EventType.AUDIT_FAILURE, "raw-dce-to-dte-disabled:queued");
+                continue;
+            }
             SessionResponse response = session.injectDce(bytes, "raw-dce-to-dte");
             writeResponse(endpoint, session, sidecars, response);
             output = output.append(response.output());

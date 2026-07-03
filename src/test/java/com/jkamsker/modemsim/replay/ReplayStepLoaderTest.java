@@ -54,4 +54,32 @@ class ReplayStepLoaderTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Cannot replay redacted rawHex");
     }
+
+    @Test
+    void rejectsInvalidHashFields() throws Exception {
+        Path log = tempDir.resolve("bad-hash.jsonl");
+        Files.writeString(log, """
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":0,"sequence":1,"sessionId":"main","eventType":"RX_BYTES","direction":"DTE_TO_DCE","rawHex":"41540D","profileHash":"sha256:not-a-real-hash","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                """);
+
+        assertThatThrownBy(() -> new ReplayStepLoader().load(log))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("invalid profileHash");
+    }
+
+    @Test
+    void preservesSessionStartAndStopEvents() throws Exception {
+        Path log = tempDir.resolve("lifecycle.jsonl");
+        Files.writeString(log, """
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":0,"sequence":1,"sessionId":"main","eventType":"SESSION_START","direction":"INTERNAL","rawHex":"","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":1,"sequence":2,"sessionId":"main","eventType":"SESSION_STOP","direction":"INTERNAL","rawHex":"","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                """);
+
+        var steps = new ReplayStepLoader().load(log);
+
+        assertThat(steps).singleElement().satisfies(step -> assertThat(step.expectedEvents())
+                .extracting(ReplayEventExpectation::eventType)
+                .containsExactly(com.jkamsker.modemsim.monitor.EventType.SESSION_START,
+                        com.jkamsker.modemsim.monitor.EventType.SESSION_STOP));
+    }
 }

@@ -92,10 +92,28 @@ class RuntimeIoIntegrationTest {
         dceWrites.add(RawBytes.ascii("+CREG: 4\r\n"));
 
         RuntimeResult result = new ModemRuntime(binding -> endpoint)
-                .run(config(List.of()), List.of(), 0, new InMemoryEventSink(), session -> { }, dceWrites);
+                .run(config(List.of(), 115200, true), List.of(), 0, new InMemoryEventSink(), session -> { }, dceWrites);
 
         assertThat(result.output().ascii()).isEqualTo("+CREG: 4\r\n");
         assertThat(endpoint.written().ascii()).contains("+CREG: 4\r\n");
+    }
+
+    @Test
+    void queuedDceWritesAreRejectedWhenUnsafeTransmitIsDisabled() throws Exception {
+        HeadlessEndpoint endpoint = new HeadlessEndpoint();
+        Queue<RawBytes> dceWrites = new ConcurrentLinkedQueue<>();
+        InMemoryEventSink sink = new InMemoryEventSink();
+        dceWrites.add(RawBytes.ascii("+CREG: 4\r\n"));
+
+        RuntimeResult result = new ModemRuntime(binding -> endpoint)
+                .run(config(List.of()), List.of(), 0, sink, session -> { }, dceWrites);
+
+        assertThat(result.output().isEmpty()).isTrue();
+        assertThat(endpoint.written().isEmpty()).isTrue();
+        assertThat(sink.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isEqualTo(EventType.AUDIT_FAILURE);
+            assertThat(event.result()).isEqualTo("raw-dce-to-dte-disabled:queued");
+        });
     }
 
     @Test
@@ -108,6 +126,7 @@ class RuntimeIoIntegrationTest {
         assertThat(result.output().ascii()).isEqualTo("\r\nOK\r\n");
         assertThat(Files.readString(result.eventLogPath()))
                 .contains("\"eventType\":\"TX_OVERFLOW\"")
+                .contains("\"replayDivergent\":true")
                 .doesNotContain("\"eventType\":\"PORT_LOST\"");
     }
 
@@ -119,7 +138,9 @@ class RuntimeIoIntegrationTest {
         RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config(List.of()), List.of(), 1);
 
         assertThat(result.output().ascii()).isEqualTo("\r\nOK\r\n");
-        assertThat(Files.readString(result.eventLogPath())).contains("\"eventType\":\"RX_OVERFLOW\"");
+        assertThat(Files.readString(result.eventLogPath()))
+                .contains("\"eventType\":\"RX_OVERFLOW\"")
+                .contains("\"replayDivergent\":true");
     }
 
     private RuntimeConfig config(List<PortBinding> sidecars) {
@@ -127,8 +148,12 @@ class RuntimeIoIntegrationTest {
     }
 
     private RuntimeConfig config(List<PortBinding> sidecars, int baudRate) {
+        return config(sidecars, baudRate, false);
+    }
+
+    private RuntimeConfig config(List<PortBinding> sidecars, int baudRate, boolean allowUnsafeDce) {
         return new RuntimeConfig(
-                12345, ClockMode.VIRTUAL, false, false, tempDir.resolve("runtime.jsonl"),
+                12345, ClockMode.VIRTUAL, false, allowUnsafeDce, tempDir.resolve("runtime.jsonl"),
                 new SerialConfig(baudRate, 8, 1, Parity.NONE, FlowControl.NONE),
                 ports(sidecars));
     }

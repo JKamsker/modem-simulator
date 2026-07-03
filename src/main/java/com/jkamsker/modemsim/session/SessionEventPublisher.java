@@ -101,6 +101,7 @@ final class SessionEventPublisher {
                 payload.rawHex(), payload.textEscaped(), ParsedCommandEventData.from(command, redactor), profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 macroId(result), result == null ? null : 0.0, null, 0,
+                replayDivergent(type),
                 result == null ? null : result.handler(),
                 result == null || result.finalResult() == null ? null : result.finalResult().name(),
                 null,
@@ -131,7 +132,7 @@ final class SessionEventPublisher {
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type,
                 Direction.INTERNAL, "", null, null, profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                macroId, null, null, 0, null, cancelled ? "cancelled" : null, data, null,
+                macroId, null, null, 0, false, null, cancelled ? "cancelled" : null, data, null,
                 stateRedacted ? stateRedactor.redactSensitiveData(state) : state,
                 mergeRedaction(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
     }
@@ -148,7 +149,7 @@ final class SessionEventPublisher {
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), null, profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                null, null, injectionType, 0, null, result, null,
+                null, null, injectionType, 0, replayDivergent(type), null, result, null,
                 stateBeforeRedacted ? stateRedactor.redactSensitiveData(before) : before,
                 stateAfterRedacted ? stateRedactor.redactSensitiveData(after) : after,
                 redaction));
@@ -170,7 +171,7 @@ final class SessionEventPublisher {
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, EventType.MACRO_DECISION,
                 Direction.INTERNAL, "", null, parsed, profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                decision.macroId(), null, null, 0, "MacroEngine", "matched", null, visibleState,
+                decision.macroId(), null, null, 0, false, "MacroEngine", "matched", null, visibleState,
                 visibleState,
                 mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
     }
@@ -185,7 +186,7 @@ final class SessionEventPublisher {
                     timestamp(), clock.nowNanos(), ++sequence, sessionId, EventType.MACRO_EVENT,
                     Direction.INTERNAL, "", null, parsed, profileId,
                     port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                    macroId, null, null, 0, "MacroEngine", action.type(), null,
+                    macroId, null, null, 0, false, "MacroEngine", action.type(), null,
                     visibleState, visibleState,
                     mergeRedaction(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
         }
@@ -194,6 +195,10 @@ final class SessionEventPublisher {
     void publishEvent(ModemEvent event) {
         eventSink.publish(event);
         sequence = Math.max(sequence, event.sequence());
+    }
+
+    private boolean replayDivergent(EventType type) {
+        return type == EventType.RX_OVERFLOW || type == EventType.TX_OVERFLOW;
     }
 
     long nextSequence() {

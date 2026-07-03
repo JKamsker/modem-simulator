@@ -26,6 +26,7 @@ public record ReplayEventExpectation(
         Boolean schedulerCancelled,
         Boolean redacted,
         Boolean rawPayloadRedacted,
+        Boolean replayDivergent,
         JsonNode stateBeforeJson,
         JsonNode stateAfterJson
 ) {
@@ -36,7 +37,7 @@ public record ReplayEventExpectation(
             Integer sampledDelayMs, Boolean redacted) {
         this(eventType, direction, sequence, null, rawHex, profileHash, configHash, macroHash,
                 initialStateHash, sessionSeed, clockMode, null, null, schedulerOperation, sampledDelayMs,
-                null, null, null, null, redacted, false, null, null);
+                null, null, null, null, redacted, false, false, null, null);
     }
 
     static ReplayEventExpectation from(JsonNode node) {
@@ -63,6 +64,7 @@ public record ReplayEventExpectation(
                 scheduler.has("cancelled") ? scheduler.path("cancelled").asBoolean() : null,
                 node.path("redaction").has("applied") ? node.path("redaction").path("applied").asBoolean() : null,
                 rawPayloadRedacted(node),
+                node.has("replayDivergent") ? node.path("replayDivergent").asBoolean() : false,
                 json(node, "stateBefore"),
                 json(node, "stateAfter"));
     }

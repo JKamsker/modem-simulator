@@ -51,6 +51,7 @@ public final class ModemEventJson {
         put(json, "latencyMs", event.latencyMs());
         put(json, "injectionType", event.injectionType());
         put(json, "droppedEventCount", event.droppedEventCount());
+        put(json, "replayDivergent", event.replayDivergent());
         put(json, "handler", event.handler());
         put(json, "result", event.result());
         put(json, "scheduler", event.scheduler());

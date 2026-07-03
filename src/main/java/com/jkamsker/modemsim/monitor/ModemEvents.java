@@ -84,6 +84,7 @@ public final class ModemEvents {
                 null,
                 injectionType,
                 0,
+                type == EventType.RX_OVERFLOW || type == EventType.TX_OVERFLOW,
                 null,
                 result,
                 null,

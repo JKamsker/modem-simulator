@@ -10,9 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public final class ReplayStepLoader {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Pattern SHA256 = Pattern.compile("^sha256:[0-9a-f]{64}$");
 
     public List<ReplayStep> load(Path path) {
         try {
@@ -36,6 +38,7 @@ public final class ReplayStepLoader {
         RawBytes pendingOutput = RawBytes.empty();
         boolean drainScheduled = false;
         List<ReplayEventExpectation> pendingEvents = new ArrayList<>();
+        List<ReplayEventExpectation> preambleEvents = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
             if (line.isEmpty()) {
@@ -46,9 +49,6 @@ public final class ReplayStepLoader {
                 steps.add(step(node));
             } else {
                 validateEventNode(node, i + 1);
-                if (!replayRelevant(node)) {
-                    continue;
-                }
                 ReplayEventExpectation expectation = ReplayEventExpectation.from(node);
                 String eventType = node.path("eventType").asText();
                 String direction = node.path("direction").asText();
@@ -59,14 +59,12 @@ public final class ReplayStepLoader {
                     active = true;
                     pendingInput = rawHex(node.path("rawHex").asText());
                     pendingOutput = RawBytes.empty();
-                    pendingEvents = new ArrayList<>();
+                    pendingEvents = new ArrayList<>(preambleEvents);
+                    preambleEvents.clear();
                     drainScheduled = false;
                 } else if (!active) {
-                    active = true;
-                    pendingInput = RawBytes.empty();
-                    pendingOutput = RawBytes.empty();
-                    pendingEvents = new ArrayList<>();
-                    drainScheduled = false;
+                    preambleEvents.add(expectation);
+                    continue;
                 }
                 pendingEvents.add(expectation);
                 if (eventType.equals("TX_BYTES") && direction.equals("DCE_TO_DTE")) {
@@ -79,6 +77,8 @@ public final class ReplayStepLoader {
         }
         if (active) {
             steps.add(new ReplayStep(pendingInput, pendingOutput, drainScheduled, pendingEvents));
+        } else if (!preambleEvents.isEmpty()) {
+            steps.add(new ReplayStep(RawBytes.empty(), RawBytes.empty(), false, preambleEvents));
         }
         return steps;
     }
@@ -141,17 +141,23 @@ public final class ReplayStepLoader {
             require(scheduler, lineNumber, "dueMonotonicNanos", "sourceSequence",
                     "sourcePriority", "operation", "sampledDelayMs", "cancelled");
         }
-    }
-
-    private boolean replayRelevant(JsonNode node) {
-        String type = node.path("eventType").asText();
-        return !type.equals("SESSION_START") && !type.equals("SESSION_STOP");
+        requireHash(node, lineNumber, "profileHash", "configHash", "macroHash", "initialStateHash");
     }
 
     private void require(JsonNode node, int lineNumber, String... fields) {
         for (String field : fields) {
             if (node == null || !node.has(field) || node.path(field).isNull()) {
                 throw new IllegalArgumentException("Replay event at line " + lineNumber + " missing " + field);
+            }
+        }
+    }
+
+    private void requireHash(JsonNode node, int lineNumber, String... fields) {
+        for (String field : fields) {
+            String value = node.path(field).asText("");
+            if (!SHA256.matcher(value).matches()) {
+                throw new IllegalArgumentException("Replay event at line " + lineNumber
+                        + " has invalid " + field);
             }
         }
     }

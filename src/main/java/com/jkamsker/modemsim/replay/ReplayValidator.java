@@ -10,9 +10,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public final class ReplayValidator {
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Pattern SHA256 = Pattern.compile("^sha256:[0-9a-f]{64}$");
     public ReplayReport validateRecompute(HeadlessSession session, List<ReplayStep> steps) {
         return validateRecompute(session, steps, false);
     }
@@ -20,15 +22,19 @@ public final class ReplayValidator {
     public ReplayReport validateRecompute(HeadlessSession session, List<ReplayStep> steps, boolean requireEventMetadata) {
         ReplayReport report = new ReplayReport();
         long lastSequence = 0;
+        List<ModemEvent> initialEvents = session.events();
         for (int i = 0; i < steps.size(); i++) {
             ReplayStep step = steps.get(i);
+            List<ModemEvent> events = new ArrayList<>();
+            if (i == 0) {
+                events.addAll(initialEvents);
+            }
             if (requireEventMetadata && step.expectedEvents().isEmpty()) {
                 report.divergence("step " + (i + 1) + " missing event metadata");
             }
             if (requireEventMetadata) {
                 validateExpectedMetadata(i + 1, step.expectedEvents(), report);
             }
-            List<ModemEvent> events = new ArrayList<>();
             RawBytes output = RawBytes.empty();
             if (!step.input().isEmpty() || expectsDteRx(step)) {
                 SessionResponse response = session.receive(step.input());
@@ -40,12 +46,19 @@ public final class ReplayValidator {
                 output = output.append(drained.output());
                 events.addAll(drained.events());
             }
+            if (expectsEvent(step, com.jkamsker.modemsim.monitor.EventType.SESSION_STOP)) {
+                events.addAll(session.stop("replay-stop").events());
+            }
             if (!output.toHex().equals(step.expectedOutput().toHex())) {
                 report.divergence("step " + (i + 1) + " expected "
                         + step.expectedOutput().toHex() + " but got " + output.toHex());
+                return report;
             }
             lastSequence = validateMetadata(i + 1, events, lastSequence, report);
             validateExpectedEvents(i + 1, events, step.expectedEvents(), report);
+            if (!report.valid()) {
+                return report;
+            }
         }
         return report;
     }
@@ -60,6 +73,10 @@ public final class ReplayValidator {
             requireHash(stepNumber, event, "profileHash", event.profileHash(), report);
             requireHash(stepNumber, event, "configHash", event.configHash(), report);
             requireHash(stepNumber, event, "initialStateHash", event.initialStateHash(), report);
+            requireHash(stepNumber, event, "macroHash", event.macroHash(), report);
+            if (event.replayDivergent()) {
+                report.divergence("step " + stepNumber + " replay divergent event " + event.eventType());
+            }
             if (event.sessionSeed() == null) {
                 report.divergence("step " + stepNumber + " missing sessionSeed on " + event.eventType());
             }
@@ -103,6 +120,10 @@ public final class ReplayValidator {
             requireExpected(stepNumber, "sessionSeed", expectation.sessionSeed(), report);
             requireExpected(stepNumber, "clockMode", expectation.clockMode(), report);
             requireExpected(stepNumber, "redaction.applied", expectation.redacted(), report);
+            if (Boolean.TRUE.equals(expectation.replayDivergent())) {
+                report.divergence("step " + stepNumber + " expected replay divergent event "
+                        + expectation.eventType());
+            }
             if (expectation.eventType() == com.jkamsker.modemsim.monitor.EventType.SCHEDULER_ENQUEUE
                     || expectation.eventType() == com.jkamsker.modemsim.monitor.EventType.SCHEDULER_EMIT) {
                 requireExpected(stepNumber, "scheduler.dueMonotonicNanos", expectation.schedulerDueMonotonicNanos(), report);
@@ -144,6 +165,7 @@ public final class ReplayValidator {
         compare(stepNumber, "portRole", expectation.portRole(), event.portRole(), report);
         compare(stepNumber, "redaction", expectation.redacted(),
                 event.redaction() == null ? null : event.redaction().applied(), report);
+        compare(stepNumber, "replayDivergent", expectation.replayDivergent(), event.replayDivergent(), report);
         compare(stepNumber, "stateBefore", expectation.stateBeforeJson(), stateJson(event, "stateBefore"), report);
         compare(stepNumber, "stateAfter", expectation.stateAfterJson(), stateJson(event, "stateAfter"), report);
         compareScheduler(stepNumber, event, expectation, report);
@@ -153,6 +175,10 @@ public final class ReplayValidator {
         return step.expectedEvents().stream().anyMatch(event ->
                 event.eventType() == com.jkamsker.modemsim.monitor.EventType.RX_BYTES
                         && event.direction() == com.jkamsker.modemsim.monitor.Direction.DTE_TO_DCE);
+    }
+
+    private boolean expectsEvent(ReplayStep step, com.jkamsker.modemsim.monitor.EventType eventType) {
+        return step.expectedEvents().stream().anyMatch(event -> event.eventType() == eventType);
     }
 
     private com.fasterxml.jackson.databind.JsonNode stateJson(ModemEvent event, String field) {
@@ -179,7 +205,7 @@ public final class ReplayValidator {
 
     private void requireHash(
             int stepNumber, ModemEvent event, String name, String value, ReplayReport report) {
-        if (value == null || !value.startsWith("sha256:")) {
+        if (value == null || !SHA256.matcher(value).matches()) {
             report.divergence("step " + stepNumber + " missing " + name + " on " + event.eventType());
         }
     }

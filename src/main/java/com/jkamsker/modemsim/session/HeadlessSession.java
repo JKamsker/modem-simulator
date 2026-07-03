@@ -9,6 +9,7 @@ import com.jkamsker.modemsim.monitor.Direction;
 import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
+import com.jkamsker.modemsim.monitor.ModemEvent;
 import com.jkamsker.modemsim.parser.AtCommandParser;
 import com.jkamsker.modemsim.parser.CommandKind;
 import com.jkamsker.modemsim.parser.ParsedCommand;
@@ -165,6 +166,7 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse drainScheduled() { return scheduledResponse(() -> scheduler.drainScheduled(state)); }
     @Override
     public synchronized ModemState snapshot() { return state; }
+    public synchronized List<ModemEvent> events() { return events.eventsSince(0); }
     public synchronized SessionResponse injectDce(RawBytes bytes, String injectionType) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, state, state);

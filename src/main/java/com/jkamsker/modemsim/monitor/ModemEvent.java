@@ -28,6 +28,7 @@ public record ModemEvent(
         Double latencyMs,
         String injectionType,
         long droppedEventCount,
+        boolean replayDivergent,
         String handler,
         String result,
         Map<String, Object> scheduler,

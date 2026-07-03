@@ -9,8 +9,10 @@ import com.jkamsker.modemsim.transport.SerialEndpoint;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public final class ReplayPlayback {
+    private static final Pattern SHA256 = Pattern.compile("^sha256:[0-9a-f]{64}$");
     public ReplayReport validate(List<ReplayStep> steps) {
         ReplayReport report = new ReplayReport();
         for (int i = 0; i < steps.size(); i++) {
@@ -76,6 +78,9 @@ public final class ReplayPlayback {
         if (Boolean.TRUE.equals(event.rawPayloadRedacted())) {
             report.divergence("step " + stepNumber + " contains redacted replay bytes " + event.eventType());
         }
+        if (Boolean.TRUE.equals(event.replayDivergent())) {
+            report.divergence("step " + stepNumber + " contains replay divergent event " + event.eventType());
+        }
         requireHash(stepNumber, "profileHash", event.profileHash(), report);
         requireHash(stepNumber, "configHash", event.configHash(), report);
         requireHash(stepNumber, "initialStateHash", event.initialStateHash(), report);
@@ -96,7 +101,7 @@ public final class ReplayPlayback {
     }
 
     private void requireHash(int stepNumber, String name, String value, ReplayReport report) {
-        if (value == null || !value.startsWith("sha256:")) {
+        if (value == null || !SHA256.matcher(value).matches()) {
             report.divergence("step " + stepNumber + " missing " + name);
         }
     }

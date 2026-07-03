@@ -247,6 +247,9 @@
     "droppedEventCount": {
       "type": "integer",
       "minimum": 0
+    },
+    "replayDivergent": {
+      "type": "boolean"
     }
   }
 }
