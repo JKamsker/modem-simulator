@@ -67,6 +67,31 @@ class MacroSchedulerSemanticsTest {
     }
 
     @Test
+    void macroFaultCancelsPendingSchedulerOutputImmediately() throws Exception {
+        HeadlessSession session = session("""
+                <macro id="delayed-output" priority="100" phase="replace">
+                  <match rawGlob="AT+PING"/>
+                  <then><delay ms="1000"/><emit line="+PING"/></then>
+                </macro>
+                <macro id="freeze" priority="100" phase="replace">
+                  <match rawGlob="AT+FREEZE"/>
+                  <then><fault type="modem-freeze" freezeMode="NO_RESPONSE"/></then>
+                </macro>
+                """);
+
+        session.receive(RawBytes.ascii("AT+PING\r"));
+        SessionResponse fault = session.receive(RawBytes.ascii("AT+FREEZE\r"));
+        SessionResponse drained = session.drainScheduled();
+
+        assertThat(drained.outputHex()).isEmpty();
+        assertThat(fault.events()).anySatisfy(event -> {
+            assertThat(event.eventType()).isEqualTo(EventType.SCHEDULER_EMIT);
+            assertThat(event.scheduler()).containsEntry("operation", "macro-delayed-output");
+            assertThat(event.scheduler()).containsEntry("cancelled", true);
+        });
+    }
+
+    @Test
     void sameDueDelayedMacroStatesCommitInSchedulerOrder() throws Exception {
         HeadlessSession session = session("""
                 <macro id="delayed-state-four" priority="100" phase="replace">
@@ -88,6 +113,27 @@ class MacroSchedulerSemanticsTest {
                 .filter(event -> event.eventType() == EventType.STATE_CHANGE)
                 .filter(event -> "macro-control".equals(event.injectionType())))
                 .hasSize(2);
+    }
+
+    @Test
+    void sameDueDelayedMacroStatesApplyAsPatchesToCurrentState() throws Exception {
+        HeadlessSession session = session("""
+                <macro id="delayed-registration" priority="100" phase="replace">
+                  <match rawGlob="AT+DELAYREG"/>
+                  <then><delay ms="1000"/><set path="state.network.stat" value="4"/></then>
+                </macro>
+                <macro id="delayed-signal" priority="100" phase="replace">
+                  <match rawGlob="AT+DELAYSIGNAL"/>
+                  <then><delay ms="1000"/><set path="state.signal.rssi" value="12"/></then>
+                </macro>
+                """);
+
+        session.receive(RawBytes.ascii("AT+DELAYREG\r"));
+        session.receive(RawBytes.ascii("AT+DELAYSIGNAL\r"));
+        session.advanceTime(1_000);
+
+        assertThat(session.snapshot().network().stat()).isEqualTo(4);
+        assertThat(session.snapshot().signal().rssi()).isEqualTo(12);
     }
 
     @Test

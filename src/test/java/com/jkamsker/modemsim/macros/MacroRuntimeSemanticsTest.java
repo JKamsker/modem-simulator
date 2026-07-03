@@ -55,6 +55,45 @@ class MacroRuntimeSemanticsTest {
     }
 
     @Test
+    void timerFaultArmsRebootCompletion() throws Exception {
+        MacroSet macros = new MacroLoader(true).load(write("timer-reboot.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="reboot" phase="on-timer">
+                    <match type="timer" timerId="reboot"/>
+                    <then><fault type="modem-reboot" durationMs="1000"/></then>
+                  </macro>
+                </macros>
+                """));
+        HeadlessSession session = session(macros);
+
+        session.fireTimer("reboot");
+        assertThat(session.snapshot().modem().lifecycle()).isEqualTo(
+                com.jkamsker.modemsim.state.ModemLifecycle.REBOOTING);
+
+        session.advanceTime(1_000);
+
+        assertThat(session.snapshot().modem().lifecycle()).isEqualTo(
+                com.jkamsker.modemsim.state.ModemLifecycle.READY);
+    }
+
+    @Test
+    void rawGlobMatchesCompleteIncomingAtLine() throws Exception {
+        MacroSet macros = new MacroLoader().load(write("line-match.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="compound-line" phase="replace">
+                    <match rawGlob="AT+FIRST;+SECOND"/>
+                    <then><emit line="+FULL-LINE"/></then>
+                  </macro>
+                </macros>
+                """));
+
+        assertThat(session(macros).receive(RawBytes.ascii("AT+FIRST;+SECOND\r")).outputAscii())
+                .contains("+FULL-LINE");
+    }
+
+    @Test
     void macroControlDoesNotSwitchEngineWhenAuditSinkFails() throws Exception {
         MacroSet macros = new MacroLoader().load(write("replace-at.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>

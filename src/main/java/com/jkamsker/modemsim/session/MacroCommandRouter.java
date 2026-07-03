@@ -98,7 +98,7 @@ final class MacroCommandRouter {
                 next = delayedState;
             } else {
                 pendingDelayedTransitions = List.of(new PendingMacroTransition(
-                        delayedState, eventType(decision), operation, scheduled.scheduledSequence()));
+                        ordered.delayedActions(), eventType(ordered.delayedActions()), operation, scheduled.scheduledSequence()));
             }
         }
         decisionSink.publish(decision, state, next);
@@ -112,19 +112,23 @@ final class MacroCommandRouter {
         boolean delayed = false;
         var immediateFrames = new java.util.ArrayList<ResponseFrame>();
         var delayedFrames = new java.util.ArrayList<ResponseFrame>();
+        var delayedActions = new java.util.ArrayList<MacroAction>();
         for (MacroAction action : decision.actions()) {
             delayed = delayed || action.type().equals("delay");
             if (action.type().equals("fault")) {
                 pending = faultService.apply(pending, MacroLoader.fault(action));
+                if (delayed) { delayedActions.add(action); }
                 if (!delayed) { immediate = pending; }
             } else if (action.type().equals("set")) {
                 pending = stateMutator.apply(pending, List.of(MacroLoader.statePatch(action)));
+                if (delayed) { delayedActions.add(action); }
                 if (!delayed) { immediate = pending; }
             } else if (action.type().equals("emit") || action.type().equals("send")) {
                 (delayed ? delayedFrames : immediateFrames).add(frame(action));
             }
         }
-        return new OrderedMacroResult(immediate, delayed ? pending : null, immediateFrames, delayedFrames);
+        return new OrderedMacroResult(immediate, delayed ? pending : null,
+                List.copyOf(delayedActions), immediateFrames, delayedFrames);
     }
 
     private ResponseFrame frame(MacroAction action) {
@@ -161,6 +165,18 @@ final class MacroCommandRouter {
         return stateMutator.apply(applyFaults(source, decision), decision.statePatches());
     }
 
+    ModemState applyDelayedActions(ModemState source, PendingMacroTransition transition) {
+        ModemState next = source;
+        for (MacroAction action : transition.actions()) {
+            if (action.type().equals("fault")) {
+                next = faultService.apply(next, MacroLoader.fault(action));
+            } else if (action.type().equals("set")) {
+                next = stateMutator.apply(next, List.of(MacroLoader.statePatch(action)));
+            }
+        }
+        return next;
+    }
+
     private CommandResult appendUsingExtraResult(CommandResult current, CommandResult extra) {
         var frames = new java.util.ArrayList<ResponseFrame>(current.frames());
         frames.addAll(extra.frames());
@@ -175,8 +191,9 @@ final class MacroCommandRouter {
                 current.handler() + "+" + extra.handler(), current.stopLine());
     }
 
-    private EventType eventType(MacroDecision decision) {
-        return decision.faults().isEmpty() ? EventType.STATE_CHANGE : EventType.FAULT_TRIGGERED;
+    private EventType eventType(List<MacroAction> actions) {
+        return actions.stream().anyMatch(action -> action.type().equals("fault"))
+                ? EventType.FAULT_TRIGGERED : EventType.STATE_CHANGE;
     }
 
     interface FrameRenderer {
@@ -193,6 +210,7 @@ final class MacroCommandRouter {
 
     private record OrderedMacroResult(
             ModemState immediateState, ModemState pendingState,
+            List<MacroAction> delayedActions,
             List<ResponseFrame> immediateFrames, List<ResponseFrame> delayedFrames) {
     }
 }

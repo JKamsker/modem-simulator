@@ -24,7 +24,7 @@ public record MatchSpec(
         if (!modeMatches(parsed)) {
             return false;
         }
-        String raw = parsed.rawText();
+        String raw = parsed.sourceLine().isEmpty() ? parsed.rawText() : parsed.sourceLine().ascii();
         if (rawGlob != null && glob(rawGlob).matcher(raw).matches()) {
             return true;
         }
