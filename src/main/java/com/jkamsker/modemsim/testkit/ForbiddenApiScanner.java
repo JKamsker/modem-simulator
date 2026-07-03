@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 final class ForbiddenApiScanner {
     private static final List<String> NEEDLES = List.of(
@@ -25,6 +27,13 @@ final class ForbiddenApiScanner {
         scanForNeedles(SchemaLocator.projectPath("src/main/java"), hits);
         scanForNeedles(SchemaLocator.projectPath("pom.xml"), hits);
         scanLibraryNames(SchemaLocator.projectPath("lib"), hits);
+        scanCurrentProcessListeners(hits);
+        return hits;
+    }
+
+    List<String> scanCurrentProcessListeners() {
+        var hits = new ArrayList<String>();
+        scanCurrentProcessListeners(hits);
         return hits;
     }
 
@@ -74,6 +83,80 @@ final class ForbiddenApiScanner {
             }
         } catch (IOException e) {
             throw new IllegalStateException("cannot scan " + path, e);
+        }
+    }
+
+    private void scanCurrentProcessListeners(List<String> hits) {
+        if (System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            scanWindowsListeners(hits);
+            return;
+        }
+        Path proc = Path.of("/proc", Long.toString(ProcessHandle.current().pid()));
+        if (Files.isDirectory(proc)) {
+            scanLinuxListeners(proc, hits);
+        }
+    }
+
+    private void scanLinuxListeners(Path proc, List<String> hits) {
+        Set<String> sockets = socketInodes(proc.resolve("fd"));
+        if (sockets.isEmpty()) {
+            return;
+        }
+        scanLinuxTcpTable(Path.of("/proc/net/tcp"), sockets, hits, "tcp4");
+        scanLinuxTcpTable(Path.of("/proc/net/tcp6"), sockets, hits, "tcp6");
+    }
+
+    private Set<String> socketInodes(Path fdDir) {
+        Set<String> result = new HashSet<>();
+        try (var fds = Files.list(fdDir)) {
+            fds.forEach(fd -> {
+                try {
+                    String target = Files.readSymbolicLink(fd).toString();
+                    if (target.startsWith("socket:[") && target.endsWith("]")) {
+                        result.add(target.substring(8, target.length() - 1));
+                    }
+                } catch (IOException ignored) {
+                    // File descriptors can disappear while we inspect them.
+                }
+            });
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot inspect process file descriptors", e);
+        }
+        return result;
+    }
+
+    private void scanLinuxTcpTable(Path table, Set<String> sockets, List<String> hits, String protocol) {
+        if (!Files.isRegularFile(table)) {
+            return;
+        }
+        try {
+            for (String line : Files.readAllLines(table).stream().skip(1).toList()) {
+                String[] columns = line.trim().split("\\s+");
+                if (columns.length > 9 && columns[3].equals("0A") && sockets.contains(columns[9])) {
+                    hits.add("process-listener:" + protocol + ":" + columns[1]);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot inspect TCP listeners", e);
+        }
+    }
+
+    private void scanWindowsListeners(List<String> hits) {
+        try {
+            Process process = new ProcessBuilder("netstat", "-ano", "-p", "tcp").start();
+            String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            String pid = Long.toString(ProcessHandle.current().pid());
+            for (String line : output.lines().toList()) {
+                if (line.contains("LISTENING") && line.trim().endsWith(" " + pid)) {
+                    hits.add("process-listener:tcp:" + line.trim());
+                }
+            }
+        } catch (IOException e) {
+            // Windows images without netstat cannot prove a listener, so keep the source/dependency scan authoritative.
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while inspecting TCP listeners", e);
         }
     }
 }
