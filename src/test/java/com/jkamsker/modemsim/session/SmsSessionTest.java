@@ -73,7 +73,7 @@ class SmsSessionTest {
         session.receive(RawBytes.ascii("AT+CMGF=0\r"));
 
         session.receive(RawBytes.ascii("AT+CMGS=2\r"));
-        session.receive(RawBytes.ascii("0011\u001B"));
+        session.receive(RawBytes.ascii("00AABB\u001B"));
 
         assertThat(session.drainScheduled().outputAscii()).contains("OK");
         assertThat(session.snapshot().sms().messages()).isEmpty();
@@ -131,13 +131,13 @@ class SmsSessionTest {
         assertThat(session.snapshot().sms().messages()).isEmpty();
 
         session.receive(RawBytes.ascii("AT+CMGS=2\r"));
-        session.receive(RawBytes.ascii("0011\u001A"));
+        session.receive(RawBytes.ascii("00AABB\u001A"));
         session.drainScheduled();
         assertThat(session.snapshot().sms().messages().values())
                 .extracting(message -> message.pdu())
-                .containsOnly("0011");
+                .containsOnly("00AABB");
         assertThat(session.receive(RawBytes.ascii("AT+CMGR=1\r")).outputAscii())
-                .contains("+CMGR").contains("0011").doesNotContain("null");
+                .contains("+CMGR").contains("00AABB").doesNotContain("null");
     }
 
     @Test

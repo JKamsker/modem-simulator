@@ -103,9 +103,12 @@ public final class SmsSubmitProcessor {
         return acceptedSubmitNanos.computeIfAbsent(key, ignored -> new ArrayDeque<>());
     }
 
-    private boolean validPduLength(String body, int expectedOctets) {
-        return body.length() % 2 == 0
-                && body.length() / 2 == expectedOctets
-                && body.matches("(?i)[0-9a-f]*");
+    private boolean validPduLength(String body, int tpduOctets) {
+        if (body.length() % 2 != 0 || !body.matches("(?i)[0-9a-f]*") || body.length() < 2) {
+            return false;
+        }
+        int totalOctets = body.length() / 2;
+        int smscLength = Integer.parseInt(body.substring(0, 2), 16);
+        return totalOctets == 1 + smscLength + tpduOctets;
     }
 }

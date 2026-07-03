@@ -178,7 +178,7 @@ public final class AcceptanceSuite {
         HeadlessSession s = session();
         s.receive(RawBytes.ascii("AT+CMGF=0\r"));
         s.receive(RawBytes.ascii("AT+CMGS=2\r"));
-        s.receive(RawBytes.ascii("0011\u001A"));
+        s.receive(RawBytes.ascii("00AABB\u001A"));
         s.drainScheduled();
         requireContains(s.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii(), "+CMGL");
     }
