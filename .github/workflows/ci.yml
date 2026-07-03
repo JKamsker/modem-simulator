@@ -7,11 +7,6 @@ on:
       - master
       - 'codex/**'
   workflow_dispatch:
-    inputs:
-      run_windows_serial_it:
-        description: Run Windows serial-it against MODEMSIM_WINDOWS_SERIAL_* secrets or runner env
-        required: false
-        default: 'false'
 
 permissions:
   contents: read
@@ -190,12 +185,8 @@ jobs:
           fi
 
   serial-it-windows:
-    name: Serial integration tests (Windows hardware/com0com)
-    if: github.event_name == 'workflow_dispatch' && inputs.run_windows_serial_it == 'true'
+    name: Serial integration tests (Windows com0com)
     runs-on: windows-2025
-    env:
-      MODEMSIM_SERIAL_MODEM_PORT: ${{ secrets.MODEMSIM_WINDOWS_SERIAL_MODEM_PORT }}
-      MODEMSIM_SERIAL_DTE_PORT: ${{ secrets.MODEMSIM_WINDOWS_SERIAL_DTE_PORT }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -205,12 +196,57 @@ jobs:
           distribution: temurin
           java-version: '24'
           cache: maven
-      - name: Require Windows serial fixture
+      - name: Install com0com virtual serial pair
         shell: pwsh
         run: |
-          if (-not $env:MODEMSIM_SERIAL_MODEM_PORT -or -not $env:MODEMSIM_SERIAL_DTE_PORT) {
-            throw "Set MODEMSIM_WINDOWS_SERIAL_MODEM_PORT and MODEMSIM_WINDOWS_SERIAL_DTE_PORT secrets for this manual lane."
+          $ErrorActionPreference = "Stop"
+          $work = Join-Path $env:RUNNER_TEMP "com0com"
+          $installDir = Join-Path $work "install"
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+
+          $zip = Join-Path $work "com0com.zip"
+          Invoke-WebRequest `
+            -Uri "https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download" `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $work -Force
+          $installer = Get-ChildItem -Path $work -Filter "*x64_signed.exe" -Recurse | Select-Object -First 1
+          if (-not $installer) {
+            throw "Could not find com0com x64 signed installer in downloaded package."
           }
+
+          $env:CNC_INSTALL_START_MENU_SHORTCUTS = "NO"
+          $env:CNC_INSTALL_CNCA0_CNCB0_PORTS = "YES"
+          $env:CNC_INSTALL_COMX_COMX_PORTS = "NO"
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "com0com installer failed with exit code $($process.ExitCode)."
+          }
+
+          $setupc = Get-ChildItem -Path $installDir -Filter "setupc.exe" -Recurse | Select-Object -First 1
+          if (-not $setupc) {
+            throw "Could not find setupc.exe after com0com installation."
+          }
+
+          & $setupc.FullName list
+          & $setupc.FullName change CNCA0 PortName=COM50
+          & $setupc.FullName change CNCB0 PortName=COM51
+          & $setupc.FullName change CNCA0 EmuBR=yes
+          & $setupc.FullName change CNCB0 EmuOverrun=yes
+          & $setupc.FullName list
+
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $ports = [System.IO.Ports.SerialPort]::GetPortNames()
+            if (($ports -contains "COM50") -and ($ports -contains "COM51")) {
+              break
+            }
+            Start-Sleep -Seconds 1
+          }
+          $ports = [System.IO.Ports.SerialPort]::GetPortNames()
+          if (-not (($ports -contains "COM50") -and ($ports -contains "COM51"))) {
+            throw "com0com ports did not appear. Available ports: $($ports -join ', ')"
+          }
+          "MODEMSIM_SERIAL_MODEM_PORT=COM50" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "MODEMSIM_SERIAL_DTE_PORT=COM51" | Out-File -FilePath $env:GITHUB_ENV -Append
       - name: Serial lane
         shell: pwsh
         run: .\mvnw.cmd -B -DexcludedGroups= -Dgroups=serial-it test
