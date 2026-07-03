@@ -209,7 +209,6 @@ Nach XSD-Validierung ist ein Semantic-Validation-Pass verpflichtend. Er lehnt mi
 
 - `profileKind=cellular` ohne `sim`, `network` oder `signal`,
 - `profileKind=pstn|isdn` mit verpflichtenden Mobilfunkannahmen in Acceptance/Coverage,
-- Runtime-Zielprofil ohne effektive Error-Policy,
 - `pinQueryEnabled=true` ohne `pinRef` oder explizit als Testfixture erlaubtes `pin`,
 - gleichzeitige Verwendung von `pin` und `pinRef`,
 - gleichzeitige Verwendung von `puk` und `pukRef`,
@@ -226,4 +225,4 @@ Nach XSD-Validierung ist ein Semantic-Validation-Pass verpflichtend. Er lehnt mi
 - Profilvererbungszyklen,
 - Konflikte, die nicht durch Linearisierung oder Deviation erklaert sind.
 
-Fuer jeden Punkt muss es mindestens ein negatives CI-Fixture geben. Die Fixture-Sammlung muss explizit diese Grenzfaelle enthalten: fehlende effektive Error-Policy, `pin` und `pinRef` gleichzeitig, `puk` und `pukRef` gleichzeitig, `SIM_PUK_REQUIRED` ohne PUK-Material, `delay/@minMs > delay/@maxMs`, `operator/@numeric` ungleich `mcc+mnc` und Macro-`delay/@jitterMs` ohne reproduzierbaren Session-Seed.
+Fuer jeden Punkt muss es mindestens ein negatives CI-Fixture geben. Die Fixture-Sammlung muss explizit diese Grenzfaelle enthalten: `pin` und `pinRef` gleichzeitig, `puk` und `pukRef` gleichzeitig, `SIM_PUK_REQUIRED` ohne PUK-Material, `delay/@minMs > delay/@maxMs`, `operator/@numeric` ungleich `mcc+mnc` und Macro-`delay/@jitterMs` ohne reproduzierbaren Session-Seed.

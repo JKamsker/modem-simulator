@@ -21,6 +21,7 @@
     <initial-state>
       <sim state="SIM_PUK_REQUIRED"
            pinQueryEnabled="true"
+           pinRef="TEST_SIM_PIN"
            pukRetries="10"/>
       <network cregN="0" stat="0"/>
       <signal rssi="99" ber="99"/>

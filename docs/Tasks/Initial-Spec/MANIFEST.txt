@@ -9,7 +9,6 @@ examples/macros.sms-error-123.xml
 examples/modem-profile.sample.xml
 examples/negative/macros.jitter-without-session-seed.xml
 examples/negative/profile.delay-min-gt-max.xml
-examples/negative/profile.missing-effective-error-policy.xml
 examples/negative/profile.operator-numeric-mismatch.xml
 examples/negative/profile.pin-and-pinref.xml
 examples/negative/profile.puk-and-pukref.xml
