@@ -6,6 +6,12 @@ on:
     branches:
       - master
       - 'codex/**'
+  workflow_dispatch:
+    inputs:
+      run_serial_it:
+        description: Run serial-it tagged tests when external loopback fixtures are available
+        required: false
+        default: 'false'
 
 jobs:
   verify:
@@ -24,4 +30,60 @@ jobs:
           java-version: '24'
           cache: maven
       - name: Verify
+        shell: bash
         run: ./mvnw -B verify
+      - name: Log native access target
+        shell: bash
+        run: |
+          echo "native-access target from packaged launchers:"
+          grep -ho -- '--enable-native-access=[^ ]*' src/main/scripts/modemsim src/main/scripts/modemsim.cmd | sort -u
+          grep -R -- '--enable-native-access=ALL-UNNAMED' pom.xml src/main/scripts
+
+  gui-headless:
+    name: GUI headless tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - name: GUI lane
+        run: ./mvnw -B -Dtest=GuiSessionControllerTest,ReadOnlyPolicyTest test
+
+  distribution:
+    name: Distribution smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - name: Package ZIP distribution
+        run: ./mvnw -B -DskipTests package
+      - name: Inspect distribution
+        run: unzip -l target/*-dist.zip
+      - name: Smoke launcher
+        shell: bash
+        run: |
+          rm -rf target/dist-smoke
+          unzip -q target/*-dist.zip -d target/dist-smoke
+          launcher=$(find target/dist-smoke -path '*/bin/modemsim' -type f | head -n 1)
+          "$launcher" test --suite acceptance --case A01
+
+  serial-it:
+    name: Serial integration tests
+    if: github.event_name == 'workflow_dispatch' && inputs.run_serial_it == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - name: Serial lane
+        run: ./mvnw -B -Dgroups=serial-it -DfailIfNoTests=false test

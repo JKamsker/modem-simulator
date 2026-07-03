@@ -51,6 +51,15 @@ Build, test, validate coverage, and run the source-size guard:
 ./mvnw -B clean verify
 ```
 
+Build the ZIP distribution:
+
+```bash
+./mvnw -B package
+unzip -l target/modem-simulator-*-dist.zip
+```
+
+The distribution contains `bin/modemsim` and `bin/modemsim.cmd`. Both launchers run the CLI with `--enable-native-access=ALL-UNNAMED`, which is required for classpath use of jSerialComm on Java 24.
+
 Run the full acceptance suite:
 
 ```bash
@@ -232,6 +241,8 @@ CI runs the same Maven verify target on:
 
 - `ubuntu-latest`
 - `windows-latest`
+
+CI also has a Linux GUI-headless lane, a ZIP distribution smoke lane, and an opt-in `serial-it` lane for environments with external serial loopback fixtures.
 
 ## Development Notes
 
