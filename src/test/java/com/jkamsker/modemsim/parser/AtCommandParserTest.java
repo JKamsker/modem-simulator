@@ -29,8 +29,25 @@ class AtCommandParserTest {
         assertThat(commands).extracting(ParsedCommand::rawText).containsExactly("AT+CMEE=2", "+X=\"a;b\"", "+CSQ");
         assertThat(commands.get(1).rawStartOffset()).isEqualTo(10);
         assertThat(commands.get(1).rawEndOffset()).isEqualTo(18);
+        assertThat(commands.get(1).sourceLine().ascii()).isEqualTo("AT+CMEE=2;+X=\"a;b\";+CSQ");
+        assertThat(commands.get(1).span()).isEqualTo(new CommandSpan(10, 18));
+        assertThat(commands.get(1).typedTokens()).isNotEmpty();
         assertThat(commands.get(1).quoted()).isTrue();
         assertThat(commands.get(2).quoted()).isFalse();
+    }
+
+    @Test
+    void chainedCommandSpansIndexIntoFullSourceLine() {
+        var commands = parser.parse(RawBytes.ascii("AT+CMEE=2;+CREG=2;+CSQ\r"), EntryMode.COMMAND);
+
+        assertThat(commands).hasSize(3);
+        assertThat(commands).allSatisfy(command ->
+                assertThat(command.sourceLine().ascii()).isEqualTo("AT+CMEE=2;+CREG=2;+CSQ"));
+        assertThat(commands.get(1).rawText()).isEqualTo("+CREG=2");
+        assertThat(commands.get(1).span()).isEqualTo(new CommandSpan(10, 17));
+        assertThat(commands.get(1).sourceLine().ascii()
+                .substring(commands.get(1).span().startOffset(), commands.get(1).span().endOffset()))
+                .isEqualTo("+CREG=2");
     }
 
     @Test

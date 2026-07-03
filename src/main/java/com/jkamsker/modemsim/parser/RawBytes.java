@@ -42,6 +42,12 @@ public final class RawBytes {
         return Arrays.copyOf(bytes, bytes.length);
     }
 
+    public RawBytes slice(int from, int to) {
+        int start = Math.max(0, Math.min(from, bytes.length));
+        int end = Math.max(start, Math.min(to, bytes.length));
+        return copyOf(Arrays.copyOfRange(bytes, start, end));
+    }
+
     public int length() {
         return bytes.length;
     }

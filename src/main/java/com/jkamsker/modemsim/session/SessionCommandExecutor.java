@@ -43,7 +43,7 @@ final class SessionCommandExecutor {
         CommandResult lineResult = null;
         boolean lineDelayedDial = false;
         for (int i = 0; i < commands.size(); i++) {
-            ParsedCommand command = commands.get(i);
+            ParsedCommand command = withSessionContext(commands.get(i), state);
             if (command.commandIndexInLine() == 0 && lineResult != null) {
                 output = output.append(finishCommandLine(lineOutput, lineResult, lineDelayedDial, state));
                 lineOutput = RawBytes.empty();
@@ -124,5 +124,12 @@ final class SessionCommandExecutor {
     private boolean isUnknownRestart(CommandResult result) {
         return "UnknownPolicy".equals(result.handler())
                 && result.state().modem().lifecycle() == ModemLifecycle.REBOOTING;
+    }
+
+    private ParsedCommand withSessionContext(ParsedCommand command, ModemState state) {
+        if (command.normalizedName().equals("+CMGS") && state.sms() != null && !state.sms().textMode()) {
+            return command.withPduContext(true);
+        }
+        return command;
     }
 }

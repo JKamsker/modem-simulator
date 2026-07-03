@@ -121,16 +121,18 @@ public final class HeadlessSession implements SessionActor {
     }
     private SessionResponse receiveSmsEntry(RawBytes bytes) {
         int start = eventCount();
-        events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null, true);
-        pendingSmsBytes = pendingSmsBytes.append(bytes);
+        SessionBytes.SmsEntry entry = SessionBytes.smsEntry(pendingSmsBytes, bytes);
+        if (!entry.rxBytes().isEmpty()) { events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, entry.rxBytes(), null, null, state, null, true); }
+        pendingSmsBytes = entry.buffered();
+        if (!entry.complete()) { return response(RawBytes.empty(), start); }
         byte[] raw = pendingSmsBytes.toByteArray();
         SmsSubmitResult result;
         NetworkDelay macroDelay = null;
         String macroOperation = null;
-        String body = SessionBytes.entryPayload(raw);
-        if (SessionBytes.contains(raw, 27)) {
+        String body = SessionBytes.entryPayload(raw, entry.terminator());
+        if (entry.abort()) {
             result = smsSubmitProcessor.abort(state);
-        } else if (SessionBytes.contains(raw, 26)) {
+        } else {
             MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
             if (decision.matched()) {
                 ModemState macroState = commandRouter.applyEffects(state.withCall(CallRuntime.command()), decision);
@@ -142,8 +144,6 @@ public final class HeadlessSession implements SessionActor {
             } else {
                 result = smsSubmitProcessor.submit(pendingSms, body, clock.nowNanos(), state);
             }
-        } else {
-            return response(RawBytes.empty(), start);
         }
         pendingSmsBytes = RawBytes.empty();
         ModemState before = state;
@@ -155,9 +155,8 @@ public final class HeadlessSession implements SessionActor {
         String handler = macroOperation == null ? "SmsSubmitProcessor" : "Macro:" + macroOperation.substring("macro-".length());
         events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
                 new CommandResult(state, List.of(), null, handler, false), true);
-        if (!output.isEmpty()) {
-            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
-        }
+        if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
+        if (!entry.tailBytes().isEmpty()) { output = output.append(receive(entry.tailBytes()).output()); }
         return response(output, start);
     }
     @Override

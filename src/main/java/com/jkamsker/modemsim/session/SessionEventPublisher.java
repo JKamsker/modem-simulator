@@ -98,7 +98,7 @@ final class SessionEventPublisher {
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
         eventSink.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
-                payload.rawHex(), payload.textEscaped(), parsed(command), profileId,
+                payload.rawHex(), payload.textEscaped(), ParsedCommandEventData.from(command, redactor), profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 macroId(result), result == null ? null : 0.0, null, 0,
                 result == null ? null : result.handler(),
@@ -218,23 +218,6 @@ final class SessionEventPublisher {
         }
         List<ModemEvent> events = memorySink.events();
         return new ArrayList<>(events.subList(Math.min(start, events.size()), events.size()));
-    }
-
-    private Map<String, Object> parsed(ParsedCommand command) {
-        if (command == null) {
-            return null;
-        }
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("name", command.normalizedName());
-        data.put("kind", command.kind().name());
-        data.put("arguments", redactor.redactCommandArguments(command));
-        data.put("rawText", redactor.redactCommandRawText(command));
-        data.put("rawStartOffset", command.rawStartOffset());
-        data.put("rawEndOffset", command.rawEndOffset());
-        data.put("quoted", command.quoted());
-        data.put("pduContext", command.pduContext());
-        data.put("entryMode", command.entryMode().name());
-        return data;
     }
 
     private Map<String, Object> eventData(MacroEventAction event) {

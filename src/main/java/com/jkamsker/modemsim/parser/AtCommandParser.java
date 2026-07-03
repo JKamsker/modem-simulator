@@ -48,10 +48,10 @@ public final class AtCommandParser {
 
     private List<ParsedCommand> parseLine(RawBytes source, String line, EntryMode mode) {
         if (line.equals("A/")) {
-            return List.of(special(source, line, "A/", CommandKind.SPECIAL_REPEAT, mode));
+            return List.of(special(RawBytes.ascii(line), line, "A/", CommandKind.SPECIAL_REPEAT, mode));
         }
         if (line.equals("+++")) {
-            return List.of(special(source, line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
+            return List.of(special(RawBytes.ascii(line), line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
         }
         if (!line.regionMatches(true, 0, "AT", 0, 2)) {
             return List.of(command(RawBytes.ascii(line), line, "PARSE_ERROR", CommandKind.BASIC, "", 0, mode,
@@ -66,8 +66,9 @@ public final class AtCommandParser {
     }
 
     private List<ParsedCommand> parseBody(RawBytes source, String rawLine, String body, EntryMode mode) {
+        RawBytes lineSource = RawBytes.ascii(rawLine);
         if (body.isEmpty()) {
-            return List.of(command(source, rawLine, "AT", CommandKind.BASIC, "", 0, mode));
+            return List.of(command(lineSource, rawLine, "AT", CommandKind.BASIC, "", 0, mode));
         }
         List<ParsedCommand> commands = new ArrayList<>();
         int index = 0;
@@ -78,8 +79,8 @@ public final class AtCommandParser {
                 continue;
             }
             Slice slice = nextSlice(body, position);
-            RawBytes commandSource = RawBytes.ascii((index == 0 ? "AT" : "") + slice.text());
-            commands.add(toCommand(commandSource, commandSource.ascii(), slice.text(), index++, mode,
+            String rawText = (index == 0 ? "AT" : "") + slice.text();
+            commands.add(toCommand(lineSource, rawText, slice.text(), index++, mode,
                     2 + position, 2 + slice.end(), slice.quoted()));
             position = slice.next();
         }

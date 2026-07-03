@@ -18,16 +18,46 @@ final class SessionBytes {
     }
 
     static String entryPayload(byte[] raw) {
-        int end = 0;
-        while (end < raw.length && raw[end] != 26) {
-            end++;
+        int terminator = firstSmsTerminator(raw);
+        return entryPayload(raw, terminator < 0 ? raw.length : terminator);
+    }
+
+    static String entryPayload(byte[] raw, int end) {
+        return new String(raw, 0, Math.max(0, Math.min(end, raw.length)), StandardCharsets.US_ASCII);
+    }
+
+    static SmsEntry smsEntry(RawBytes pending, RawBytes bytes) {
+        int previousLength = pending.length();
+        RawBytes buffered = pending.append(bytes);
+        byte[] raw = buffered.toByteArray();
+        int terminator = firstSmsTerminator(raw);
+        if (terminator < 0) {
+            return new SmsEntry(buffered, bytes, RawBytes.empty(), -1, false);
         }
-        return new String(raw, 0, end, StandardCharsets.US_ASCII);
+        int split = Math.max(0, Math.min(bytes.length(), terminator - previousLength + 1));
+        return new SmsEntry(buffered, bytes.slice(0, split), bytes.slice(split, bytes.length()),
+                terminator, raw[terminator] == 27);
+    }
+
+    private static int firstSmsTerminator(byte[] raw) {
+        for (int i = 0; i < raw.length; i++) {
+            int value = raw[i] & 0xFF;
+            if (value == 26 || value == 27) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     static boolean isEscapeSequence(RawBytes bytes, int terminator, int escapeChar) {
         String text = bytes.ascii();
         String escape = String.valueOf((char) escapeChar).repeat(3);
         return text.equals(escape);
+    }
+
+    record SmsEntry(RawBytes buffered, RawBytes rxBytes, RawBytes tailBytes, int terminator, boolean abort) {
+        boolean complete() {
+            return terminator >= 0;
+        }
     }
 }
