@@ -126,25 +126,7 @@ public final class HeadlessSession implements SessionActor {
             events.publishParsed(new ParsedCommand(bytes, "A/", "A/", CommandKind.SPECIAL_REPEAT, "", List.of("A/"), 0, SessionEntryMode.from(state.call().mode())), state);
         }
         inputState.rememberParsed(effective, state.settings().s3());
-        ModemState beforeExecution = state;
-        CommandExecutionResult execution = commandExecutor.execute(commands, state);
-        state = StateInvariants.normalize(execution.state());
-        var stateMacro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, beforeExecution, state);
-        state = StateInvariants.normalize(stateMacro.state());
-        rebootTimer.arm(state);
-        pendingSms = execution.pendingSms();
-        if (pendingSms != null) {
-            pendingSmsBytes = RawBytes.empty();
-        }
-        pendingDialConnectedState = execution.pendingDialConnectedState();
-        pendingMacroTransition = execution.pendingMacroTransition();
-        output = output.append(execution.output()).append(stateChangeOutput(beforeExecution, state)).append(stateMacro.output());
-        output = holdTxIfNeeded(output);
-        if (!output.isEmpty()) {
-            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
-        }
-        inputState.markDteRx(lastByteNanos);
-        return response(output, start);
+        return executeParsedCommands(commands, output, lastByteNanos, true, start);
     }
     private SessionResponse receiveSmsEntry(RawBytes bytes) {
         int start = eventCount();
@@ -205,6 +187,14 @@ public final class HeadlessSession implements SessionActor {
         SessionResponse processed = receive(bytes);
         return response(processed.output(), start);
     }
+    public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
+        int start = eventCount();
+        events.publishAudit(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state);
+        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5(), state.settings().s3())
+                .parse(bytes, SessionEntryMode.from(state.call().mode()));
+        return commands.isEmpty() ? response(RawBytes.empty(), start)
+                : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
+    }
     public synchronized SessionResponse applyState(ModemState next, String injectionType) {
         return applyState(next, injectionType, EventType.STATE_CHANGE);
     }
@@ -234,8 +224,8 @@ public final class HeadlessSession implements SessionActor {
         return response(RawBytes.empty(), start);
     }
     private SessionResponse applyState(ModemState next, String injectionType, EventType eventType) { return applyState(next, injectionType, null, eventType); }
-    public synchronized void diagnostic(EventType eventType, String result) {
-        events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state);
+    public synchronized SessionResponse diagnostic(EventType eventType, String result) {
+        int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state); return response(RawBytes.empty(), start);
     }
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
         int start = eventCount();
@@ -279,6 +269,17 @@ public final class HeadlessSession implements SessionActor {
     private SessionCommandExecutor commandExecutor(MacroCommandRouter router) { return new SessionCommandExecutor(router, scheduler, events); }
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
     private int eventCount() { return events.eventCount(); }
+    private SessionResponse executeParsedCommands(List<ParsedCommand> commands, RawBytes output, long lastByteNanos, boolean markRx, int start) {
+        ModemState before = state; CommandExecutionResult execution = commandExecutor.execute(commands, state);
+        state = StateInvariants.normalize(execution.state());
+        var macro = SessionStateChangeMacros.run(macroEngine, commandRouter, profile, before, state); state = StateInvariants.normalize(macro.state());
+        rebootTimer.arm(state); pendingSms = execution.pendingSms(); if (pendingSms != null) { pendingSmsBytes = RawBytes.empty(); }
+        pendingDialConnectedState = execution.pendingDialConnectedState(); pendingMacroTransition = execution.pendingMacroTransition();
+        output = holdTxIfNeeded(output.append(execution.output()).append(stateChangeOutput(before, state)).append(macro.output()));
+        if (!output.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null); }
+        if (markRx) { inputState.markDteRx(lastByteNanos); }
+        return response(output, start);
+    }
     private SessionResponse scheduledResponse(ScheduledAction action) {
         int start = eventCount();
         RawBytes output = action.run();

@@ -3,6 +3,8 @@ package com.jkamsker.modemsim.gui;
 import com.jkamsker.modemsim.app.InitialScenarioLoader;
 import com.jkamsker.modemsim.app.RuntimeSessionLauncher;
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.EventType;
+import com.jkamsker.modemsim.macros.FaultAction;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
 import com.jkamsker.modemsim.macros.MacroRule;
@@ -51,10 +53,6 @@ final class GuiSessionController {
         this.activeProfile = BuiltinProfiles.acceptanceSierra();
     }
 
-    SessionResponse start(String profile, String port, long seed) {
-        return start(GuiSessionOptions.of(profile, port, "", "", "", Long.toString(seed), "115200", "8", "1", "NONE", "NONE"));
-    }
-
     SessionResponse start(GuiSessionOptions options) {
         return enqueue("session-start", () -> {
             closeRuntime();
@@ -86,10 +84,6 @@ final class GuiSessionController {
         });
     }
 
-    SessionResponse reconnect(String profile, String port, long seed) {
-        return reconnect(GuiSessionOptions.of(profile, port, "", "", "", Long.toString(seed), "115200", "8", "1", "NONE", "NONE"));
-    }
-
     SessionResponse reconnect(GuiSessionOptions options) {
         stop();
         return start(options);
@@ -102,7 +96,7 @@ final class GuiSessionController {
 
     SessionResponse parsedCommand(String text) {
         return enqueue("parsed-command",
-                () -> session.injectDte(RawBytes.ascii(ensureTerminator(text)), "parsed-command"));
+                () -> session.injectParsedCommand(RawBytes.ascii(ensureTerminator(text)), "parsed-command"));
     }
 
     SessionResponse rawDceToDte(String text, boolean confirmed) {
@@ -126,6 +120,10 @@ final class GuiSessionController {
 
     SessionResponse fault(String type) {
         return enqueue("fault", () -> session.applyFault(type));
+    }
+
+    SessionResponse fault(FaultAction action) {
+        return enqueue("fault", () -> session.applyFault(action));
     }
 
     ModemState snapshot() {
@@ -171,8 +169,12 @@ final class GuiSessionController {
     }
 
     ReplaySummary replay(Path logPath, String mode, boolean virtualClock, boolean confirmed) {
+        return replay(logPath, mode, virtualClock, confirmed, false);
+    }
+
+    ReplaySummary replay(Path logPath, String mode, boolean virtualClock, boolean confirmed, boolean divergenceConfirmed) {
         ReplaySummary summary = replayService.replay(session, logPath, mode, virtualClock, allowUnsafeDceTransmit,
-                confirmed, activeProfile, activeSeed, activePort, activeMacroEngine);
+                confirmed, divergenceConfirmed, activeProfile, activeSeed, activePort, activeMacroEngine);
         if (mode.equals("play-to-dte")) {
             writeRuntimeDce(summary.response().output());
         }
@@ -183,7 +185,10 @@ final class GuiSessionController {
         MacroLoader loader = new MacroLoader();
         ValidationReport report = loader.validate(path);
         if (!report.valid()) {
-            return new MacroSummary("", String.join("; ", report.errors()), "", "");
+            String errors = String.join("; ", report.errors());
+            SessionResponse response = enqueue("audit-failure",
+                    () -> session.diagnostic(EventType.AUDIT_FAILURE, "macro-reload-failed:" + path + ":" + errors));
+            return new MacroSummary("", errors, "", "", response);
         }
         activeMacroSet = loader.load(path);
         var ids = activeMacroSet.rules().stream().map(MacroRule::id).collect(Collectors.toSet());
@@ -288,12 +293,4 @@ final class GuiSessionController {
         return value.replace("\\r", "\r").replace("\\n", "\n").replace("\\u001A", "\u001A");
     }
 
-    record MacroSummary(String hash, String errors, String customResponses, String enabled, SessionResponse response) {
-        MacroSummary(String hash, String errors, String customResponses, String enabled) {
-            this(hash, errors, customResponses, enabled, new SessionResponse(RawBytes.empty(), List.of()));
-        }
-    }
-
-    record ReplaySummary(String hashStatus, String message, SessionResponse response) {
-    }
 }

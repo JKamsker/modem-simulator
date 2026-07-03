@@ -17,18 +17,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class GuiReplayService {
-    GuiSessionController.ReplaySummary replay(
+    ReplaySummary replay(
             HeadlessSession session, Path logPath, String mode, boolean virtualClock, boolean unsafeAllowed,
-            boolean confirmed, Profile profile, long seed, String port, MacroEngine macros) {
+            boolean confirmed, boolean divergenceConfirmed, Profile profile, long seed, String port, MacroEngine macros) {
         List<ReplayStep> steps = new ReplayStepLoader().load(logPath);
         return switch (mode) {
             case "drive-from-captured-input" -> drive(session, steps, virtualClock, profile, seed, port, macros);
-            case "play-to-dte" -> play(session, steps, unsafeAllowed, confirmed, virtualClock, profile, seed, port, macros);
+            case "play-to-dte" -> play(session, steps, unsafeAllowed, confirmed, divergenceConfirmed,
+                    virtualClock, profile, seed, port, macros);
             default -> validate(steps, mode, virtualClock, profile, seed, port, macros);
         };
     }
 
-    private GuiSessionController.ReplaySummary validate(
+    private ReplaySummary validate(
             List<ReplayStep> steps, String mode, boolean virtualClock, Profile profile, long seed,
             String port, MacroEngine macros) {
         ReplayReport report = validationReport(steps, virtualClock, profile, seed, port, macros);
@@ -36,25 +37,25 @@ final class GuiReplayService {
                 : "DIVERGENCE: " + String.join("; ", report.divergences()), emptyResponse());
     }
 
-    private GuiSessionController.ReplaySummary drive(
+    private ReplaySummary drive(
             HeadlessSession session, List<ReplayStep> steps, boolean virtualClock, Profile profile, long seed,
             String port, MacroEngine macros) {
         ReplayReport report = validationReport(steps, virtualClock, profile, seed, port, macros);
         if (!report.valid()) {
             return summary(report, "DIVERGENCE: " + String.join("; ", report.divergences()), emptyResponse());
         }
-        return new GuiSessionController.ReplaySummary("hashes valid",
+        return new ReplaySummary("hashes valid",
                 "DRIVE_FROM_CAPTURED_INPUT OK steps=" + steps.size(), driveSteps(session, steps));
     }
 
-    private GuiSessionController.ReplaySummary play(
-            HeadlessSession session, List<ReplayStep> steps, boolean unsafeAllowed, boolean confirmed,
+    private ReplaySummary play(
+            HeadlessSession session, List<ReplayStep> steps, boolean unsafeAllowed, boolean confirmed, boolean divergenceConfirmed,
             boolean virtualClock, Profile profile, long seed, String port, MacroEngine macros) {
         if (!unsafeAllowed || !confirmed) {
             throw new IllegalStateException("Unsafe DCE transmit is disabled");
         }
         ReplayReport hashReport = validationReport(steps, virtualClock, profile, seed, port, macros);
-        if (!hashReport.valid()) {
+        if (!hashReport.valid() && !divergenceConfirmed) {
             return summary(hashReport, "DIVERGENCE: " + String.join("; ", hashReport.divergences()), emptyResponse());
         }
         ReplayPlayback playback = new ReplayPlayback();
@@ -64,7 +65,8 @@ final class GuiReplayService {
         }
         RawBytes bytes = playback.combinedOutput(steps);
         SessionResponse response = session.injectDce(bytes, "replay");
-        return new GuiSessionController.ReplaySummary("hashes valid", "PLAY_TO_DTE bytes=" + bytes.toHex(), response);
+        String hashStatus = hashReport.valid() ? "hashes valid" : "hash divergence confirmed";
+        return new ReplaySummary(hashStatus, "PLAY_TO_DTE bytes=" + bytes.toHex(), response);
     }
 
     private ReplayReport validationReport(
@@ -86,9 +88,9 @@ final class GuiReplayService {
         return new SessionResponse(output, events);
     }
 
-    private GuiSessionController.ReplaySummary summary(
+    private ReplaySummary summary(
             ReplayReport report, String message, SessionResponse response) {
-        return new GuiSessionController.ReplaySummary(report.valid() ? "hashes valid" : "hash divergence",
+        return new ReplaySummary(report.valid() ? "hashes valid" : "hash divergence",
                 message, response);
     }
 

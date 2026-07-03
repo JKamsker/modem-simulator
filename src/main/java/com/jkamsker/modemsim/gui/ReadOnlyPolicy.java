@@ -8,6 +8,7 @@ public final class ReadOnlyPolicy {
             "macro.reload",
             "macro.enable",
             "macro.disable",
+            "replay.driveFromCapturedInput",
             "replay.playToDte",
             "session.reconnect");
 

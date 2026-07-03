@@ -18,6 +18,7 @@ class ReadOnlyPolicyTest {
         assertThat(controls).filteredOn(control -> control.id().equals("macro.reload")
                         || control.id().equals("macro.enable")
                         || control.id().equals("macro.disable")
+                        || control.id().equals("replay.driveFromCapturedInput")
                         || control.id().equals("replay.playToDte")
                         || control.id().equals("session.reconnect"))
                 .allSatisfy(control -> assertThat(control.enabled()).isFalse());
@@ -41,9 +42,13 @@ class ReadOnlyPolicyTest {
                         "state.lines",
                         "inject.rawDteToDce",
                         "fault.networkOutage",
+                        "fault.durationMs",
+                        "fault.freezeMode",
                         "macro.reload",
                         "macro.id",
                         "replay.mode",
+                        "replay.driveFromCapturedInput",
+                        "replay.divergenceConfirm",
                         "export.jsonl",
                         "export.replayReport");
     }

@@ -30,6 +30,7 @@ class SimulatorViewHeadlessTest {
                     find(root, "inject.sendDte").isDisabled(),
                     find(root, "fault.networkOutage").isDisabled(),
                     find(root, "macro.reload").isDisabled(),
+                    find(root, "replay.driveFromCapturedInput").isDisabled(),
                     find(root, "replay.playToDte").isDisabled(),
                     find(root, "log.export").isDisabled(),
                     find(root, "export.jsonl").isDisabled());
@@ -37,7 +38,7 @@ class SimulatorViewHeadlessTest {
 
         assertThat(find(root, "session.initialScenario")).isNotNull();
         assertThat(find(root, "macro.id")).isNotNull();
-        assertThat(disabled).containsExactly(true, true, true, true, true, false, false);
+        assertThat(disabled).containsExactly(true, true, true, true, true, true, false, false);
     }
 
     private static void startToolkit() throws Exception {

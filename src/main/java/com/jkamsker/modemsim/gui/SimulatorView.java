@@ -184,12 +184,7 @@ final class SimulatorView {
     }
 
     private Node faultPane() {
-        return new HBox(8,
-                faultButton("fault.networkOutage", "Network outage", "network-outage"),
-                faultButton("fault.networkRestore", "Network restore", "network-restore"),
-                faultButton("fault.modemReboot", "Reboot", "modem-reboot"),
-                faultButton("fault.modemFreeze", "Freeze", "modem-freeze"),
-                faultButton("fault.modemUnfreeze", "Unfreeze", "modem-unfreeze"));
+        return new GuiFaultPane(ui, controller, this::handle).node();
     }
 
     private Node macroPane() {
@@ -203,7 +198,7 @@ final class SimulatorView {
         Button enable = ui.button("macro.enable", "Enable");
         Button disable = ui.button("macro.disable", "Disable");
         reload.setOnAction(event -> {
-            GuiSessionController.MacroSummary summary = controller.reloadMacros(Path.of(file.getText()));
+            MacroSummary summary = controller.reloadMacros(Path.of(file.getText()));
             hash.setText(summary.hash().isBlank() ? "sha256:" : summary.hash());
             errors.setText(summary.errors());
             customResponses.setText(summary.customResponses());
@@ -224,25 +219,34 @@ final class SimulatorView {
         ComboBox<String> mode = ui.combo("replay.mode", "validate-recompute", "drive-from-captured-input", "play-to-dte");
         CheckBox virtualClock = ui.register(new CheckBox("Virtual clock"), "replay.virtualClock");
         CheckBox confirm = ui.register(new CheckBox("Confirm DCE transmit"), "replay.safetyConfirm");
+        CheckBox divergenceConfirm = ui.register(new CheckBox("Confirm divergence"), "replay.divergenceConfirm");
         virtualClock.setSelected(true);
         Button validate = ui.button("replay.validate", "Validate");
+        Button drive = ui.button("replay.driveFromCapturedInput", "Drive Input");
         Button play = ui.button("replay.playToDte", "Play to DTE");
         validate.setOnAction(event -> {
-            GuiSessionController.ReplaySummary result = controller.replay(Path.of(logFile.getText()), mode.getValue(), virtualClock.isSelected());
+            ReplaySummary result = controller.replay(Path.of(logFile.getText()), "validate-recompute", virtualClock.isSelected());
+            hashStatus.setText(result.hashStatus());
+            divergences.setText(result.message());
+            handle(result.response());
+        });
+        drive.setOnAction(event -> {
+            ReplaySummary result = controller.replay(Path.of(logFile.getText()), "drive-from-captured-input", virtualClock.isSelected());
             hashStatus.setText(result.hashStatus());
             divergences.setText(result.message());
             handle(result.response());
         });
         play.setOnAction(event -> {
-            GuiSessionController.ReplaySummary result = controller.replay(
-                    Path.of(logFile.getText()), "play-to-dte", virtualClock.isSelected(), confirm.isSelected());
+            ReplaySummary result = controller.replay(
+                    Path.of(logFile.getText()), "play-to-dte", virtualClock.isSelected(),
+                    confirm.isSelected(), divergenceConfirm.isSelected());
             divergences.setText(result.message());
             handle(result.response());
         });
         return new VBox(8,
                 mode, logFile,
-                hashStatus, virtualClock, confirm, divergences,
-                new HBox(8, validate, play));
+                hashStatus, virtualClock, confirm, divergenceConfirm, divergences,
+                new HBox(8, validate, drive, play));
     }
 
     private Node exportPane() {
@@ -278,12 +282,6 @@ final class SimulatorView {
         } catch (RuntimeException e) {
             output.appendText(e.getMessage() + "\n");
         }
-    }
-
-    private Button faultButton(String id, String text, String type) {
-        Button button = ui.button(id, text);
-        button.setOnAction(event -> handle(controller.fault(type)));
-        return button;
     }
 
     @FunctionalInterface

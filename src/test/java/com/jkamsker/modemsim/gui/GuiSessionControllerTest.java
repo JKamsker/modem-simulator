@@ -4,9 +4,11 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.macros.MacroEngine;
+import com.jkamsker.modemsim.macros.FaultAction;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.session.SessionResponse;
+import com.jkamsker.modemsim.state.FreezeMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,6 +34,18 @@ class GuiSessionControllerTest {
                         EventType.HANDLER_RESULT,
                         EventType.TX_BYTES);
         assertThat(response.events().getFirst().injectionType()).isEqualTo("raw-dte-to-dce");
+    }
+
+    @Test
+    void parsedCommandInjectionDoesNotPublishRawRxBytes() {
+        GuiSessionController controller = controller();
+
+        SessionResponse response = controller.parsedCommand("AT+CSQ");
+
+        assertThat(response.outputAscii()).contains("+CSQ");
+        assertThat(response.events()).extracting(event -> event.eventType())
+                .containsExactly(EventType.INJECTION, EventType.PARSED_COMMAND, EventType.HANDLER_RESULT, EventType.TX_BYTES);
+        assertThat(response.events()).noneSatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.RX_BYTES));
     }
 
     @Test
@@ -70,10 +84,26 @@ class GuiSessionControllerTest {
     }
 
     @Test
+    void parameterizedFaultActionUsesGuiValues() {
+        GuiSessionController controller = controller();
+
+        controller.fault(new FaultAction("network-outage", null, null, null, null, null));
+        SessionResponse restored = controller.fault(new FaultAction("network-restore", null, 5, 10, 3, null));
+        SessionResponse frozen = controller.fault(new FaultAction("modem-freeze", null, null, null, null, FreezeMode.HOLD_RX_TX));
+
+        assertThat(restored.events().getFirst().stateAfter().network().stat()).isEqualTo(5);
+        assertThat(restored.events().getFirst().stateAfter().signal().rssi()).isEqualTo(10);
+        assertThat(restored.events().getFirst().stateAfter().signal().ber()).isEqualTo(3);
+        assertThat(frozen.events().getFirst().stateAfter().modem().freezeMode()).isEqualTo(FreezeMode.HOLD_RX_TX);
+    }
+
+    @Test
     void lifecycleStartAndExpandedStatePatchAffectActiveSession() {
         GuiSessionController controller = controller();
 
-        SessionResponse started = controller.start("westermo-td22-6177-2203", "headless", 77);
+        SessionResponse started = controller.start(GuiSessionOptions.of(
+                "westermo-td22-6177-2203", "headless", "", "", "",
+                "77", "115200", "8", "1", "NONE", "NONE"));
         SessionResponse state = controller.applyState(GuiStatePatchFactory.fromValues(
                 "READY", "2", "9", "1", "2", "00C3", "00001234", "7", "20,1", "",
                 "15", "SM", "ONLINE_COMMAND", "FROZEN", "NO_RESPONSE", "DTR DSR DCD RI RTS CTS"));
@@ -129,16 +159,31 @@ class GuiSessionControllerTest {
         assertThatThrownBy(() -> controller().replay(log, "play-to-dte", true, false))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Unsafe DCE transmit");
-        GuiSessionController.ReplaySummary play = controller(true).replay(log, "play-to-dte", true, true);
+        ReplaySummary play = controller(true).replay(log, "play-to-dte", true, true);
         assertThat(play.message()).contains("PLAY_TO_DTE");
         assertThat(play.response().outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void replayPlayRequiresDivergenceConfirmation(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        Path log = matchingReplayLog(tempDir.resolve("session.jsonl"));
+        Files.writeString(log, Files.readString(log).replaceFirst(
+                "sha256:[0-9a-f]{64}", "sha256:" + "f".repeat(64)));
+
+        ReplaySummary blocked = controller(true).replay(log, "play-to-dte", true, true, false);
+        ReplaySummary confirmed = controller(true).replay(log, "play-to-dte", true, true, true);
+
+        assertThat(blocked.hashStatus()).isEqualTo("hash divergence");
+        assertThat(blocked.response().outputHex()).isEmpty();
+        assertThat(confirmed.hashStatus()).isEqualTo("hash divergence confirmed");
+        assertThat(confirmed.response().outputAscii()).isEqualTo("\r\nOK\r\n");
     }
 
     @Test
     void macroReloadReportsHashAndValidationErrors() throws Exception {
         GuiSessionController controller = controller();
 
-        GuiSessionController.MacroSummary summary = controller.reloadMacros(
+        MacroSummary summary = controller.reloadMacros(
                 Path.of("docs/Tasks/Initial-Spec/examples/macros.faults-and-custom-responses.xml"));
 
         assertThat(summary.hash()).startsWith("sha256:");
@@ -148,6 +193,18 @@ class GuiSessionControllerTest {
         assertThat(controller.macroToggleStatus("disable", "cmsg-error")).contains("disabled");
         assertThat(controller.macroToggleStatus("enable", "cmsg-error")).contains("enabled");
         assertThat(controller.macroToggleStatus("disable", "missing")).contains("Unknown macro ID");
+    }
+
+    @Test
+    void macroReloadFailureIsAudited(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        Path invalid = tempDir.resolve("invalid.xml");
+        Files.writeString(invalid, "<macros version=\"1.0\"><macro id=\"broken\"></macros>");
+
+        MacroSummary summary = controller().reloadMacros(invalid);
+
+        assertThat(summary.errors()).isNotBlank();
+        assertThat(summary.response().events()).extracting(event -> event.eventType())
+                .contains(EventType.AUDIT_FAILURE);
     }
 
     @Test
@@ -161,7 +218,7 @@ class GuiSessionControllerTest {
         controller.reloadMacros(first);
         assertThat(controller.macroToggleStatus("disable", "reintroduced")).contains("disabled");
         controller.reloadMacros(second);
-        GuiSessionController.MacroSummary summary = controller.reloadMacros(first);
+        MacroSummary summary = controller.reloadMacros(first);
 
         assertThat(summary.enabled()).contains("reintroduced");
         assertThat(controller.rawDteToDce("AT+REINTRODUCED\\r").outputAscii()).contains("+ONE");
