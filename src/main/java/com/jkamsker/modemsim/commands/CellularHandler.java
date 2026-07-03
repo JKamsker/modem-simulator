@@ -30,6 +30,9 @@ public final class CellularHandler implements CommandHandler {
         if (state.network() == null) {
             return CommandResult.error(state, "CellularHandler");
         }
+        if (state.sim().state() != SimState.READY) {
+            return simStateError(state);
+        }
         return switch (command.kind()) {
             case EXTENDED_SET -> setRegistrationMode(state, command);
             case EXTENDED_READ -> registrationRead(state, command.normalizedName());
@@ -41,8 +44,8 @@ public final class CellularHandler implements CommandHandler {
     }
 
     private CommandResult setRegistrationMode(ModemState state, ParsedCommand command) {
-        int cregN = Integer.parseInt(command.arguments());
-        if (cregN < 0 || cregN > 3) {
+        Integer cregN = parseNumber(command.arguments());
+        if (cregN == null || cregN < 0 || cregN > 3) {
             return CommandResult.error(state, "CellularHandler");
         }
         return CommandResult.ok(state.withNetwork(state.network().withCregN(cregN)), "CellularHandler");
@@ -51,7 +54,7 @@ public final class CellularHandler implements CommandHandler {
     private CommandResult registrationRead(ModemState state, String name) {
         NetworkRuntime network = state.network();
         String line = name + ": " + network.cregN() + "," + network.stat();
-        if (network.registeredForCircuitServices()) {
+        if (network.registeredForCircuitServices() && network.cregN() >= 2) {
             line += ",\"" + network.lac() + "\",\"" + network.ci() + "\"," + network.act();
         } else if (network.cregN() == 3 && network.stat() == 3) {
             line += "," + valueOrZero(network.rejectCauseType()) + "," + valueOrDefault(network.rejectCause(), 11);
@@ -60,6 +63,9 @@ public final class CellularHandler implements CommandHandler {
     }
 
     private CommandResult csq(ModemState state, ParsedCommand command) {
+        if (state.sim().state() != SimState.READY) {
+            return simStateError(state);
+        }
         if (command.kind().name().endsWith("TEST")) {
             return new CommandResult(state, List.of(new TextFrame("+CSQ: (0-31,99),(0-7,99)")),
                     ResultCode.OK, "CellularHandler", false);
@@ -107,6 +113,9 @@ public final class CellularHandler implements CommandHandler {
         if (state.network() == null) {
             return CommandResult.error(state, "CellularHandler");
         }
+        if (state.sim().state() != SimState.READY) {
+            return simStateError(state);
+        }
         if (command.kind().name().endsWith("READ")) {
             var operator = state.network().operator();
             String line = "+COPS: " + operator.selectionModeCode() + ","
@@ -121,12 +130,28 @@ public final class CellularHandler implements CommandHandler {
 
     private CommandResult cmee(ModemState state, ParsedCommand command) {
         return switch (command.kind()) {
-            case EXTENDED_SET -> CommandResult.ok(
-                    state.withSettings(state.settings().withCmee(Integer.parseInt(command.arguments()))),
-                    "CellularHandler");
+            case EXTENDED_SET -> setCmee(state, command.arguments());
             case EXTENDED_READ -> line(state, "+CMEE: " + state.settings().cmee());
             case EXTENDED_TEST -> line(state, "+CMEE: (0-2)");
             default -> CommandResult.ok(state, "CellularHandler");
+        };
+    }
+
+    private CommandResult setCmee(ModemState state, String arguments) {
+        Integer mode = parseNumber(arguments);
+        if (mode == null || mode < 0 || mode > 2) {
+            return CommandResult.error(state, "CellularHandler");
+        }
+        return CommandResult.ok(state.withSettings(state.settings().withCmee(mode)), "CellularHandler");
+    }
+
+    private CommandResult simStateError(ModemState state) {
+        return switch (state.sim().state()) {
+            case SIM_PIN_REQUIRED -> CmeError.SIM_PIN_REQUIRED.result(state, "CellularHandler");
+            case SIM_PUK_REQUIRED -> CmeError.SIM_PUK_REQUIRED.result(state, "CellularHandler");
+            case SIM_NOT_INSERTED -> CmeError.SIM_NOT_INSERTED.result(state, "CellularHandler");
+            case SIM_FAILURE -> CmeError.SIM_FAILURE.result(state, "CellularHandler");
+            default -> CmeError.OPERATION_NOT_ALLOWED.result(state, "CellularHandler");
         };
     }
 
@@ -145,6 +170,14 @@ public final class CellularHandler implements CommandHandler {
 
     private int valueOrDefault(Integer value, int fallback) {
         return value == null ? fallback : value;
+    }
+
+    private Integer parseNumber(String value) {
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private String unquote(String value) {

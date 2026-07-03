@@ -37,6 +37,13 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CGMR\r")).outputAscii()).contains("SIM-HL6HL8-v20");
         assertThat(session.receive(RawBytes.ascii("AT+CGSN\r")).outputAscii()).contains("359762080000001");
         assertThat(session.receive(RawBytes.ascii("AT+CREG=?\r")).outputAscii()).contains("(0-3)");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG=1\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii())
+                .contains("+CREG: 1,1")
+                .doesNotContain("00C3");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG=2\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("+CREG: 2,1,\"00C3\"");
+        assertThat(session.receive(RawBytes.ascii("AT+CREG=abc\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CREG=3\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CREG=4\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CREG\r")).outputAscii()).contains("OK");
@@ -46,6 +53,8 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMEE=2\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CMEE?\r")).outputAscii()).contains("+CMEE: 2");
         assertThat(session.receive(RawBytes.ascii("AT+CMEE=?\r")).outputAscii()).contains("(0-2)");
+        assertThat(session.receive(RawBytes.ascii("AT+CMEE=9\r")).outputAscii()).contains("ERROR");
+        assertThat(session.receive(RawBytes.ascii("AT+CMEE=abc\r")).outputAscii()).contains("ERROR");
     }
 
     @Test
@@ -70,6 +79,10 @@ class CommandBranchCoverageTest {
         assertPinState(SimState.SIM_BUSY, "+CME ERROR: operation not allowed");
 
         HeadlessSession locked = lockedSession();
+        locked.receive(RawBytes.ascii("AT+CMEE=2\r"));
+        assertThat(locked.receive(RawBytes.ascii("AT+CSQ\r")).outputAscii())
+                .contains("+CME ERROR: SIM PIN required");
+        locked = lockedSession();
         locked.receive(RawBytes.ascii("AT+CMEE=1\r"));
         assertThat(locked.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii())
                 .contains("+CME ERROR: 16");
@@ -84,9 +97,13 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMGF=9\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CMGS?\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CNMI=1,2,0,0,0\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CNMI?\r")).outputAscii()).contains("+CNMI: 1,2,0,0,0");
+        assertThat(session.receive(RawBytes.ascii("AT+CNMI=?\r")).outputAscii()).contains("(0-3)");
+        assertThat(session.receive(RawBytes.ascii("AT+CNMI=1,2,3,0,0\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii()).contains("+CPMS:");
         assertThat(session.receive(RawBytes.ascii("AT+CPMS=?\r")).outputAscii()).contains("\"ME\"");
         assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"SM\"\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"XX\"\r")).outputAscii()).contains("ERROR");
         assertThat(session.receive(RawBytes.ascii("AT+CSCA?\r")).outputAscii()).contains("+CSCA:");
         assertThat(session.receive(RawBytes.ascii("AT+CSCA=\"+123\"\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT+CSCA\r")).outputAscii()).contains("ERROR");

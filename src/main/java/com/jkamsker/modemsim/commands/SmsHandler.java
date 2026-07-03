@@ -19,7 +19,7 @@ public final class SmsHandler implements CommandHandler {
             case "+CMGR" -> cmgr(state, command);
             case "+CMGL" -> cmgl(state, command);
             case "+CMGD" -> cmgd(state, command);
-            case "+CNMI" -> CommandResult.ok(state, "SmsHandler");
+            case "+CNMI" -> cnmi(state, command);
             case "+CPMS" -> cpms(state, command);
             case "+CSCA" -> csca(state, command);
             default -> null;
@@ -80,6 +80,17 @@ public final class SmsHandler implements CommandHandler {
         return CommandResult.ok(state.withSms(state.sms().delete(index)), "SmsHandler");
     }
 
+    private CommandResult cnmi(ModemState state, ParsedCommand command) {
+        return switch (command.kind()) {
+            case EXTENDED_SET -> validCnmi(command.arguments())
+                    ? CommandResult.ok(state.withSms(state.sms().withCnmi(command.arguments())), "SmsHandler")
+                    : CommandResult.error(state, "SmsHandler");
+            case EXTENDED_READ -> line(state, "+CNMI: " + state.sms().cnmi());
+            case EXTENDED_TEST -> line(state, "+CNMI: (0-3),(0-3),(0,2),(0,1),(0,1)");
+            default -> CommandResult.ok(state, "SmsHandler");
+        };
+    }
+
     private CommandResult cpms(ModemState state, ParsedCommand command) {
         if (command.kind().name().endsWith("READ")) {
             int used = state.sms().messages().size();
@@ -88,7 +99,11 @@ public final class SmsHandler implements CommandHandler {
         }
         if (command.kind().name().endsWith("SET")) {
             String value = unquote(command.arguments().split(",")[0]);
-            return CommandResult.ok(state.withSms(state.sms().withStorage(SmsStorage.valueOf(value))), "SmsHandler");
+            try {
+                return CommandResult.ok(state.withSms(state.sms().withStorage(SmsStorage.valueOf(value))), "SmsHandler");
+            } catch (IllegalArgumentException e) {
+                return CommandResult.error(state, "SmsHandler");
+            }
         }
         return line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
     }
@@ -120,6 +135,21 @@ public final class SmsHandler implements CommandHandler {
         } catch (RuntimeException e) {
             return fallback;
         }
+    }
+
+    private boolean validCnmi(String arguments) {
+        String[] parts = arguments.split(",");
+        if (parts.length != 5) {
+            return false;
+        }
+        int[] max = {3, 3, 2, 1, 1};
+        for (int i = 0; i < parts.length; i++) {
+            int value = parseInt(parts[i].trim(), -1);
+            if (value < 0 || value > max[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String unquote(String value) {

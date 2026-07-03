@@ -93,6 +93,6 @@ public final class EventStateRedactor {
                     message.text() == null ? null : REDACTED,
                     message.pdu() == null ? null : REDACTED));
         }
-        return new SmsRuntime(sms.textMode(), sms.smsc(), sms.storage(), sms.nextMessageReference(), messages);
+        return new SmsRuntime(sms.textMode(), sms.smsc(), sms.cnmi(), sms.storage(), sms.nextMessageReference(), messages);
     }
 }

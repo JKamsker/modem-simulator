@@ -202,6 +202,7 @@ public final class ProfileXmlLoader {
         return sms == null ? fallback : new SmsRuntime(
                 Dom.boolAttr(sms, "textMode", true),
                 Dom.attr(sms, "smsc", fallback.smsc()),
+                fallback.cnmi(),
                 SmsStorage.valueOf(Dom.attr(sms, "storage", fallback.storage().name())),
                 fallback.nextMessageReference(),
                 fallback.messages());
