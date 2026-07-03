@@ -167,14 +167,14 @@ public final class HeadlessSession implements SessionActor {
         int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
         events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, before, before);
         events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
-        events.publishAuditWithLatency(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
+        publishInjectionResult(Direction.DCE_TO_DTE, injectionType, bytes, before, startedNanos, start);
         return response(bytes, start);
     }
     public synchronized SessionResponse injectDte(RawBytes bytes, String injectionType) {
         int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
         events.publishAudit(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, null, bytes, before, before);
         SessionResponse processed = receive(bytes);
-        events.publishAuditWithLatency(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
+        publishInjectionResult(Direction.DTE_TO_DCE, injectionType, bytes, before, startedNanos, start);
         return response(processed.output(), start);
     }
     public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
@@ -183,9 +183,9 @@ public final class HeadlessSession implements SessionActor {
         List<ParsedCommand> commands;
         try {
             commands = parseCommands(bytes);
-        } catch (com.jkamsker.modemsim.parser.AtParseException e) { SessionResponse failed = SessionParseFailure.response(profile.errorPolicy(), events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, injectionType, "failed", bytes, before, state, injectionLatency(startedNanos, start)); return response(failed.output(), start); }
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { SessionResponse failed = SessionParseFailure.response(profile.errorPolicy(), events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); publishInjectionResult(Direction.INTERNAL, injectionType, bytes, before, startedNanos, start); return response(failed.output(), start); }
         SessionResponse result = commands.isEmpty() ? response(RawBytes.empty(), start) : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
-        events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, injectionType, "completed", bytes, before, state, injectionLatency(startedNanos, start));
+        publishInjectionResult(Direction.INTERNAL, injectionType, bytes, before, startedNanos, start);
         return response(result.output(), start);
     }
     public synchronized SessionResponse applyState(ModemState next, String injectionType) { return applyState(next, injectionType, EventType.STATE_CHANGE); }
@@ -225,7 +225,7 @@ public final class HeadlessSession implements SessionActor {
         pendingMacroTransitions.removeCancelled(scheduler.cancelMacroReloadable(state));
         events.replaceMacroHash(next.hash());
         macroEngine = next; commandRouter = commandRouter(next); commandExecutor = commandExecutor(commandRouter);
-        events.publishAuditWithLatency(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), before, state, injectionLatency(startedNanos, start));
+        publishInjectionResult(Direction.INTERNAL, "macro-control", RawBytes.empty(), before, startedNanos, start);
         return response(RawBytes.empty(), start);
     }
     private SessionResponse applyState(ModemState next, String injectionType, String result, EventType eventType) {
@@ -265,6 +265,7 @@ public final class HeadlessSession implements SessionActor {
     private List<ParsedCommand> parseCommands(RawBytes bytes) { return new AtCommandParser(state.settings().s5(), state.settings().s3(), profile.dialect().extendedPrefixes()).parse(bytes, SessionEntryMode.from(state.call().mode())); }
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
     private int eventCount() { return events.eventCount(); }
+    private void publishInjectionResult(Direction direction, String injectionType, RawBytes raw, ModemState before, long startedNanos, int start) { events.publishWithLatency(EventType.HANDLER_RESULT, direction, raw, null, before, state, new CommandResult(state, List.of(), null, "Injection:" + injectionType, false), injectionLatency(startedNanos, start)); }
     private double injectionLatency(long startedNanos, int start) { return events.eventsSince(start).stream().map(ModemEvent::latencyMs).filter(java.util.Objects::nonNull).mapToDouble(Double::doubleValue).max().orElse(Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0); }
     private SessionResponse executeParsedCommands(List<ParsedCommand> commands, RawBytes output, long lastByteNanos, boolean markRx, int start) {
         ModemState before = state; CommandExecutionResult execution = commandExecutor.execute(commands, state);

@@ -188,12 +188,6 @@ final class SessionEventPublisher {
         publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, null);
     }
 
-    void publishAuditWithLatency(
-            EventType type, Direction direction, String injectionType, String result,
-            RawBytes raw, ModemState before, ModemState after, double latencyMs) {
-        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, latencyMs);
-    }
-
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole) {

@@ -74,7 +74,7 @@ class HandlerLatencyTest {
         SessionResponse response = session.injectDte(RawBytes.ascii("latency\u001A"), "raw-dte-to-dce");
 
         assertThat(response.events().stream()
-                .filter(event -> event.eventType() == EventType.INJECTION && event.latencyMs() != null)
+                .filter(event -> event.handler() != null && event.handler().startsWith("Injection:"))
                 .map(ModemEvent::latencyMs)
                 .toList()).containsExactly(77.0);
     }
