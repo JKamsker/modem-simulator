@@ -187,6 +187,7 @@ jobs:
   serial-it-windows:
     name: Serial integration tests (Windows com0com)
     runs-on: windows-2025
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -224,7 +225,11 @@ jobs:
           $env:CNC_INSTALL_START_MENU_SHORTCUTS = "NO"
           $env:CNC_INSTALL_CNCA0_CNCB0_PORTS = "YES"
           $env:CNC_INSTALL_COMX_COMX_PORTS = "NO"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -PassThru
+          if (-not $process.WaitForExit(120000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "com0com installer timed out after 120s; hosted Windows likely blocked on driver installation."
+          }
           Write-Host "com0com installer exit code: $($process.ExitCode)"
           if ($process.ExitCode -ne 0) {
             throw "com0com installer failed with exit code $($process.ExitCode)."
