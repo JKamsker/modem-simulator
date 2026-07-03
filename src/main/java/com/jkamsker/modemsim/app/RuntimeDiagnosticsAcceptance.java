@@ -1,5 +1,7 @@
 package com.jkamsker.modemsim.app;
 
+import com.jkamsker.modemsim.monitor.AuditLogException;
+import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEvent;
@@ -35,6 +37,19 @@ public final class RuntimeDiagnosticsAcceptance {
         } catch (IOException e) {
             throw new IllegalStateException("runtime diagnostics acceptance failed", e);
         }
+    }
+
+    public void auditHardStop() {
+        OverflowEndpoint overflow = new OverflowEndpoint();
+        overflow.enqueue(RawBytes.ascii("AT\r"), 0);
+        expectAuditFailure(() -> new ModemRuntime(binding -> overflow)
+                .run(config(List.of()), List.of(), 1, new FailOnEventSink(EventType.RX_OVERFLOW), session -> { }));
+        TxOverflowEndpoint txOverflow = new TxOverflowEndpoint();
+        txOverflow.enqueue(RawBytes.ascii("AT\r"), 0);
+        expectAuditFailure(() -> new ModemRuntime(binding -> txOverflow)
+                .run(config(List.of()), List.of(), 1, new FailOnEventSink(EventType.TX_OVERFLOW), session -> { }));
+        expectAuditFailure(() -> new ModemRuntime(binding -> new LostEndpoint())
+                .run(config(List.of()), List.of(), -1, new FailOnEventSink(EventType.PORT_LOST), session -> { }));
     }
 
     private void mainOpenFailureIsAudited() throws IOException {
@@ -148,6 +163,30 @@ public final class RuntimeDiagnosticsAcceptance {
     private void require(boolean condition) {
         if (!condition) {
             throw new IllegalStateException("acceptance check failed");
+        }
+    }
+
+    private void expectAuditFailure(ThrowingAction action) {
+        try {
+            action.run();
+            require(false);
+        } catch (AuditLogException expected) {
+            require(true);
+        } catch (Exception e) {
+            throw new IllegalStateException("expected audit failure", e);
+        }
+    }
+
+    private interface ThrowingAction {
+        void run() throws Exception;
+    }
+
+    private record FailOnEventSink(EventType type) implements EventSink {
+        @Override
+        public void publish(ModemEvent event) {
+            if (event.eventType() == type) {
+                throw new AuditLogException("cannot write " + type, null);
+            }
         }
     }
 

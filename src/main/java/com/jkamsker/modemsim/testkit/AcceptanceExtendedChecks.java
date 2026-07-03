@@ -2,7 +2,11 @@ package com.jkamsker.modemsim.testkit;
 
 import com.jkamsker.modemsim.app.RuntimeDiagnosticsAcceptance;
 import com.jkamsker.modemsim.gui.GuiAcceptanceHarness;
+import com.jkamsker.modemsim.macros.MacroEngine;
+import com.jkamsker.modemsim.macros.MacroLoader;
+import com.jkamsker.modemsim.monitor.AuditLogException;
 import com.jkamsker.modemsim.monitor.DropAwareEventSink;
+import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.ModemEvent;
 import com.jkamsker.modemsim.parser.RawBytes;
@@ -10,6 +14,8 @@ import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileRegister;
 import com.jkamsker.modemsim.profiles.ProfileRegisterCatalog;
+import com.jkamsker.modemsim.replay.ReplayPlayback;
+import com.jkamsker.modemsim.replay.ReplayStep;
 import com.jkamsker.modemsim.replay.ReplayStepLoader;
 import com.jkamsker.modemsim.replay.ReplayValidator;
 import com.jkamsker.modemsim.session.HeadlessSession;
@@ -22,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,6 +59,8 @@ final class AcceptanceExtendedChecks {
                 event.eventType() == EventType.DROPPED_EVENTS && event.droppedEventCount() > 0));
         require(sink.events().stream().anyMatch(event ->
                 event.eventType() != EventType.DROPPED_EVENTS && event.droppedEventCount() > 0));
+        auditHardStopsMutations();
+        new RuntimeDiagnosticsAcceptance().auditHardStop();
     }
 
     void diagnostics() {
@@ -126,9 +135,83 @@ final class AcceptanceExtendedChecks {
         return new HeadlessSession("extended", BuiltinProfiles.acceptanceSierra(), 12345);
     }
 
+    private void auditHardStopsMutations() {
+        FailingSink injectionSink = new FailingSink(Set.of(EventType.INJECTION));
+        HeadlessSession injection = new HeadlessSession("audit-injection", BuiltinProfiles.acceptanceSierra(), 12345, injectionSink);
+        expectAuditFailure(() -> injection.injectDte(RawBytes.ascii("AT\r"), "raw-dte-to-dce"));
+        require(injectionSink.events().stream().noneMatch(event -> event.eventType() == EventType.RX_BYTES));
+        expectAuditFailure(() -> injection.injectDce(RawBytes.ascii("+CREG: 4\r\n"), "raw-dce-to-dte"));
+        require(injectionSink.events().stream().noneMatch(event -> event.eventType() == EventType.TX_BYTES));
+
+        FailingSink stateSink = new FailingSink(Set.of(EventType.STATE_CHANGE));
+        HeadlessSession state = new HeadlessSession("audit-state", BuiltinProfiles.acceptanceSierra(), 12345, stateSink);
+        expectAuditFailure(() -> state.applyState(
+                state.snapshot().withNetwork(state.snapshot().network().withRegistration(4)), "state-change"));
+        require(state.snapshot().network().stat() == 1);
+
+        FailingSink macroSink = new FailingSink(Set.of(EventType.INJECTION));
+        HeadlessSession macro = new HeadlessSession("audit-macro", BuiltinProfiles.acceptanceSierra(), 12345, macroSink);
+        expectAuditFailure(() -> macro.replaceMacroEngine(replacementMacro(), "reload"));
+        require(!macro.receive(RawBytes.ascii("AT\r")).outputAscii().contains("+REPLACED"));
+
+        FailingSink replaySink = new FailingSink(Set.of(EventType.REPLAY_MARKER));
+        HeadlessSession replay = new HeadlessSession("audit-replay", BuiltinProfiles.acceptanceSierra(), 12345, replaySink);
+        expectAuditFailure(() -> new ReplayPlayback().playToSession(replay,
+                List.of(new ReplayStep(RawBytes.empty(), RawBytes.ascii("X"), false, List.of())), false));
+        require(replaySink.events().stream().noneMatch(event -> event.eventType() == EventType.TX_BYTES));
+    }
+
+    private MacroEngine replacementMacro() {
+        try {
+            Path path = Files.createTempFile("modemsim-audit-macro", ".xml");
+            Files.writeString(path, """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <macros version="1.0">
+                      <macro id="replace-at" phase="replace">
+                        <match command="AT"/>
+                        <then><emit line="+REPLACED"/></then>
+                      </macro>
+                    </macros>
+                    """);
+            return new MacroEngine(new MacroLoader().load(path));
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("macro fixture failed", e);
+        }
+    }
+
+    private void expectAuditFailure(Runnable action) {
+        try {
+            action.run();
+            require(false);
+        } catch (AuditLogException expected) {
+            require(true);
+        }
+    }
+
     private void require(boolean condition) {
         if (!condition) {
             throw new IllegalStateException("acceptance check failed");
+        }
+    }
+
+    private static final class FailingSink implements EventSink {
+        private final Set<EventType> failTypes;
+        private final java.util.List<ModemEvent> events = new java.util.ArrayList<>();
+
+        FailingSink(Set<EventType> failTypes) {
+            this.failTypes = Set.copyOf(failTypes);
+        }
+
+        @Override
+        public void publish(ModemEvent event) {
+            if (failTypes.contains(event.eventType())) {
+                throw new AuditLogException("cannot write " + event.eventType(), null);
+            }
+            events.add(event);
+        }
+
+        java.util.List<ModemEvent> events() {
+            return java.util.List.copyOf(events);
         }
     }
 
