@@ -87,7 +87,7 @@ public final class CellularHandler implements CommandHandler {
     private CommandResult cpin(ModemState state, ParsedCommand command) {
         return switch (command.kind()) {
             case EXTENDED_READ -> cpinRead(state);
-            case EXTENDED_SET -> cpinSet(state, unquote(command.arguments()));
+            case EXTENDED_SET -> cpinSet(state, command.arguments());
             default -> CommandResult.error(state, "CellularHandler");
         };
     }
@@ -105,15 +105,39 @@ public final class CellularHandler implements CommandHandler {
         };
     }
 
-    private CommandResult cpinSet(ModemState state, String pin) {
-        if (state.sim().state() != SimState.SIM_PIN_REQUIRED) {
-            return CommandResult.ok(state, "CellularHandler");
+    private CommandResult cpinSet(ModemState state, String arguments) {
+        String[] values = arguments.split(",", -1);
+        for (int i = 0; i < values.length; i++) {
+            values[i] = unquote(values[i]);
         }
-        String expectedPin = expectedPin(state.sim());
-        if (pin.equals(expectedPin)) {
+        if (state.sim().state() == SimState.SIM_PIN_REQUIRED) {
+            return pinUnlock(state, values[0]);
+        }
+        if (state.sim().state() == SimState.SIM_PUK_REQUIRED) {
+            return pukUnlock(state, values);
+        }
+        return CommandResult.ok(state, "CellularHandler");
+    }
+
+    private CommandResult pinUnlock(ModemState state, String pin) {
+        if (pin.equals(expectedPin(state.sim()))) {
             return CommandResult.ok(state.withSim(state.sim().withState(SimState.READY)), "CellularHandler");
         }
-        SimRuntime sim = state.sim().withPinRetries(Math.max(0, state.sim().pinRetries() - 1));
+        int retries = Math.max(0, state.sim().pinRetries() - 1);
+        SimState nextState = retries == 0 ? SimState.SIM_PUK_REQUIRED : SimState.SIM_PIN_REQUIRED;
+        SimRuntime sim = state.sim().withPinRetries(retries).withState(nextState);
+        return CmeError.INCORRECT_PASSWORD.result(state.withSim(sim), "CellularHandler");
+    }
+
+    private CommandResult pukUnlock(ModemState state, String[] values) {
+        if (values.length < 2) {
+            return CmeError.INCORRECT_PASSWORD.result(state, "CellularHandler");
+        }
+        if (values[0].equals(expectedPuk(state.sim()))) {
+            SimRuntime sim = state.sim().withState(SimState.READY).withPin(values[1]).withPinRetries(3);
+            return CommandResult.ok(state.withSim(sim), "CellularHandler");
+        }
+        SimRuntime sim = state.sim().withPukRetries(Math.max(0, state.sim().pukRetries() - 1));
         return CmeError.INCORRECT_PASSWORD.result(state.withSim(sim), "CellularHandler");
     }
 
@@ -122,6 +146,13 @@ public final class CellularHandler implements CommandHandler {
             return sim.testPin();
         }
         return "TEST_SIM_PIN".equals(sim.pinRef()) ? "1234" : "";
+    }
+
+    private String expectedPuk(SimRuntime sim) {
+        if (sim.testPuk() != null && !sim.testPuk().isBlank()) {
+            return sim.testPuk();
+        }
+        return "TEST_SIM_PUK".equals(sim.pukRef()) ? "87654321" : "";
     }
 
     private CommandResult cops(ModemState state, ParsedCommand command) {

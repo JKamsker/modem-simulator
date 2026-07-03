@@ -50,6 +50,9 @@ public final class EventStateRedactor {
         if (state.sim() != null && state.sim().testPin() != null) {
             classes.add("pin");
         }
+        if (state.sim() != null && state.sim().testPuk() != null) {
+            classes.add("puk");
+        }
         if (state.sim() != null && state.sim().imsi() != null) {
             classes.add("imsi");
         }
@@ -68,7 +71,8 @@ public final class EventStateRedactor {
     }
 
     private boolean containsSimSecrets(SimRuntime sim) {
-        return sim != null && (sim.testPin() != null || sim.imsi() != null || sim.iccid() != null);
+        return sim != null && (sim.testPin() != null || sim.testPuk() != null
+                || sim.imsi() != null || sim.iccid() != null);
     }
 
     private boolean containsSmsSecrets(SmsRuntime sms) {
@@ -95,6 +99,8 @@ public final class EventStateRedactor {
                 sim.pinQueryEnabled(),
                 sim.pinRef(),
                 sim.testPin() == null ? null : REDACTED,
+                sim.pukRef(),
+                sim.testPuk() == null ? null : REDACTED,
                 sim.pinRetries(),
                 sim.pukRetries(),
                 sim.imsi() == null ? null : REDACTED,

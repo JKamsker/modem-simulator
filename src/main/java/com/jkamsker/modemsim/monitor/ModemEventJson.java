@@ -142,6 +142,8 @@ public final class ModemEventJson {
         put(json, "pinQueryEnabled", state.sim().pinQueryEnabled());
         put(json, "pinRef", state.sim().pinRef());
         put(json, "testPin", state.sim().testPin());
+        put(json, "pukRef", state.sim().pukRef());
+        put(json, "testPuk", state.sim().testPuk());
         put(json, "pinRetries", state.sim().pinRetries());
         put(json, "pukRetries", state.sim().pukRetries());
         put(json, "imsi", state.sim().imsi());

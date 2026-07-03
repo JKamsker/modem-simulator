@@ -51,6 +51,15 @@ public final class ProfileSemanticValidator {
         if (!blank(sim.pinRef()) && !blank(sim.testPin())) {
             report.error(profile.id() + ": pin and pinRef cannot both be configured for runtime profiles");
         }
+        if (!blank(sim.testPuk()) && !testProfile(profile)) {
+            report.error(profile.id() + ": inline test puk is only allowed for test fixture profiles");
+        }
+        if (!blank(sim.pukRef()) && !blank(sim.testPuk())) {
+            report.error(profile.id() + ": puk and pukRef cannot both be configured for runtime profiles");
+        }
+        if (sim.state() == SimState.SIM_PUK_REQUIRED && blank(sim.pukRef()) && blank(sim.testPuk())) {
+            report.error(profile.id() + ": SIM_PUK_REQUIRED requires pukRef or test puk");
+        }
         if (network != null && sim.state() != SimState.READY && (network.stat() == 1 || network.stat() == 5)) {
             report.error(profile.id() + ": locked or failed SIM cannot be actively registered");
         }

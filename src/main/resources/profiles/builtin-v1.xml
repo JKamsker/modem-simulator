@@ -45,7 +45,7 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
     <initial-state>
-      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pinRetries="3"
+      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pukRef="TEST_SIM_PUK" pinRetries="3"
            pukRetries="10" imsi="262010123456789" iccid="8949020000000000000"/>
       <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
         <operator selectionMode="automatic" format="long" longName="Telekom.de"
@@ -87,7 +87,7 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250" unknownAtCommand="ERROR"/>
     <initial-state>
-      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pinRetries="3"
+      <sim state="READY" pinQueryEnabled="true" pinRef="TEST_SIM_PIN" pukRef="TEST_SIM_PUK" pinRetries="3"
            pukRetries="10" imsi="262010123456789" iccid="8949020000000000000"/>
       <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
         <operator selectionMode="automatic" format="long" longName="Telekom.de"

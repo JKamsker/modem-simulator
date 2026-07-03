@@ -62,6 +62,7 @@ final class ProfileXmlStateParser {
         return new SimRuntime(
                 SimState.valueOf(Dom.attr(sim, "state", pinQueryEnabled ? "SIM_PIN_REQUIRED" : "READY")),
                 pinQueryEnabled, Dom.attr(sim, "pinRef", null), Dom.attr(sim, "pin", null),
+                Dom.attr(sim, "pukRef", null), Dom.attr(sim, "puk", null),
                 Dom.intAttr(sim, "pinRetries", 3), Dom.intAttr(sim, "pukRetries", 10),
                 Dom.attr(sim, "imsi", null), Dom.attr(sim, "iccid", null));
     }

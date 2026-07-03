@@ -100,6 +100,28 @@ class CommandBranchCoverageTest {
     }
 
     @Test
+    void cpinPinExhaustionRequiresPukAndPukCanSetReplacementPin() {
+        var base = BuiltinProfiles.acceptanceSierra().initialState();
+        var locked = base.withSim(base.sim().withState(SimState.SIM_PIN_REQUIRED).withPinRetries(1));
+        HeadlessSession session = new HeadlessSession(
+                "puk", BuiltinProfiles.acceptanceSierra().withInitialState(locked), 12345);
+        session.receive(RawBytes.ascii("AT+CMEE=1\r"));
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii())
+                .contains("+CME ERROR: 16");
+        assertThat(session.snapshot().sim().state()).isEqualTo(SimState.SIM_PUK_REQUIRED);
+        assertThat(session.snapshot().sim().pinRetries()).isZero();
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii()).contains("SIM PUK");
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"00000000\",\"4321\"\r")).outputAscii())
+                .contains("+CME ERROR: 16");
+        assertThat(session.snapshot().sim().pukRetries()).isEqualTo(9);
+        assertThat(session.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"4321\"\r")).outputAscii())
+                .isEqualTo("\r\nOK\r\n");
+        assertThat(session.snapshot().sim().state()).isEqualTo(SimState.READY);
+        assertThat(session.snapshot().sim().testPin()).isEqualTo("4321");
+    }
+
+    @Test
     void smsBranchesCoverReadTestInvalidAndStorageConfiguration() {
         HeadlessSession session = session();
 
