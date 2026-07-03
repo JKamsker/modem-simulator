@@ -26,6 +26,23 @@ class AtCommandParserTest {
                 .containsExactly("+CMEE", "+X", "+CSQ");
         assertThat(commands.get(1).arguments()).isEqualTo("\"a;b\"");
         assertThat(commands.get(2).kind()).isEqualTo(CommandKind.EXTENDED_EXEC);
+        assertThat(commands).extracting(ParsedCommand::rawText).containsExactly("AT+CMEE=2", "+X=\"a;b\"", "+CSQ");
+        assertThat(commands.get(1).rawStartOffset()).isEqualTo(10);
+        assertThat(commands.get(1).rawEndOffset()).isEqualTo(18);
+        assertThat(commands.get(1).quoted()).isTrue();
+        assertThat(commands.get(2).quoted()).isFalse();
+    }
+
+    @Test
+    void preservesEntryContextForPduModeCommands() {
+        var commands = parser.parse(RawBytes.ascii("AT+CMGS=4\r"), EntryMode.SMS_PDU_ENTRY);
+
+        assertThat(commands).singleElement().satisfies(command -> {
+            assertThat(command.pduContext()).isTrue();
+            assertThat(command.entryMode()).isEqualTo(EntryMode.SMS_PDU_ENTRY);
+            assertThat(command.rawStartOffset()).isEqualTo(2);
+            assertThat(command.rawEndOffset()).isEqualTo(9);
+        });
     }
 
     @Test

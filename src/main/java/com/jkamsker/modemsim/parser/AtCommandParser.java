@@ -54,7 +54,8 @@ public final class AtCommandParser {
             return List.of(special(source, line, "+++", CommandKind.SPECIAL_ESCAPE, mode));
         }
         if (!line.regionMatches(true, 0, "AT", 0, 2)) {
-            return List.of(command(RawBytes.ascii(line), line, "PARSE_ERROR", CommandKind.BASIC, "", 0, mode));
+            return List.of(command(RawBytes.ascii(line), line, "PARSE_ERROR", CommandKind.BASIC, "", 0, mode,
+                    0, line.length(), false));
         }
         return parseBody(source, line, line.substring(2), mode);
     }
@@ -78,7 +79,8 @@ public final class AtCommandParser {
             }
             Slice slice = nextSlice(body, position);
             RawBytes commandSource = RawBytes.ascii((index == 0 ? "AT" : "") + slice.text());
-            commands.add(toCommand(commandSource, rawLine, slice.text(), index++, mode));
+            commands.add(toCommand(commandSource, commandSource.ascii(), slice.text(), index++, mode,
+                    2 + position, 2 + slice.end(), slice.quoted()));
             position = slice.next();
         }
         return commands;
@@ -94,32 +96,34 @@ public final class AtCommandParser {
             if (end < body.length() && Character.isDigit(body.charAt(end))) {
                 end++;
             }
-            return new Slice(body.substring(start, end), end);
+            return new Slice(body.substring(start, end), end, end, false);
         }
         if (first == 'S' || first == 's') {
             return sRegisterSlice(body, start);
         }
         if (first == 'D' || first == 'd') {
-            return new Slice(body.substring(start), body.length());
+            return new Slice(body.substring(start), body.length(), body.length(), false);
         }
         int end = start + 1;
         if (end < body.length() && Character.isDigit(body.charAt(end))) {
             end++;
         }
-        return new Slice(body.substring(start, end), end);
+        return new Slice(body.substring(start, end), end, end, false);
     }
 
     private Slice extendedSlice(String body, int start) {
         boolean quoted = false;
+        boolean sawQuote = false;
         for (int i = start; i < body.length(); i++) {
             char ch = body.charAt(i);
             if (ch == '"') {
+                sawQuote = true;
                 quoted = !quoted;
             } else if (ch == ';' && !quoted) {
-                return new Slice(body.substring(start, i), i + 1);
+                return new Slice(body.substring(start, i), i, i + 1, sawQuote);
             }
         }
-        return new Slice(body.substring(start), body.length());
+        return new Slice(body.substring(start), body.length(), body.length(), sawQuote);
     }
 
     private Slice sRegisterSlice(String body, int start) {
@@ -135,22 +139,24 @@ public final class AtCommandParser {
                 end++;
             }
         }
-        return new Slice(body.substring(start, end), end);
+        return new Slice(body.substring(start, end), end, end, false);
     }
 
     private ParsedCommand toCommand(
-            RawBytes source, String rawLine, String slice, int index, EntryMode mode) {
+            RawBytes source, String rawLine, String slice, int index, EntryMode mode,
+            int rawStart, int rawEnd, boolean quoted) {
         if (slice.regionMatches(true, 0, "S", 0, 1)) {
-            return sRegisterCommand(source, rawLine, slice, index, mode);
+            return sRegisterCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
         }
         if (isExtendedPrefix(slice.charAt(0))) {
-            return extendedCommand(source, rawLine, slice, index, mode);
+            return extendedCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
         }
-        return basicCommand(source, rawLine, slice, index, mode);
+        return basicCommand(source, rawLine, slice, index, mode, rawStart, rawEnd, quoted);
     }
 
     private ParsedCommand extendedCommand(
-            RawBytes source, String rawLine, String slice, int index, EntryMode mode) {
+            RawBytes source, String rawLine, String slice, int index, EntryMode mode,
+            int rawStart, int rawEnd, boolean quoted) {
         int separator = firstSeparator(slice);
         String name = (separator < 0 ? slice : slice.substring(0, separator)).toUpperCase(Locale.ROOT);
         String args = separator < 0 ? "" : slice.substring(separator + 1);
@@ -159,11 +165,12 @@ public final class AtCommandParser {
             case '=' -> args.equals("?") ? CommandKind.EXTENDED_TEST : CommandKind.EXTENDED_SET;
             default -> CommandKind.EXTENDED_EXEC;
         };
-        return command(source, rawLine, name, kind, args, index, mode);
+        return command(source, rawLine, name, kind, args, index, mode, rawStart, rawEnd, quoted);
     }
 
     private ParsedCommand sRegisterCommand(
-            RawBytes source, String rawLine, String slice, int index, EntryMode mode) {
+            RawBytes source, String rawLine, String slice, int index, EntryMode mode,
+            int rawStart, int rawEnd, boolean quoted) {
         String upper = slice.toUpperCase(Locale.ROOT);
         int question = upper.indexOf('?');
         int equals = upper.indexOf('=');
@@ -171,11 +178,12 @@ public final class AtCommandParser {
         String name = upper.substring(0, end);
         String args = equals >= 0 ? upper.substring(equals + 1) : "";
         CommandKind kind = equals >= 0 ? CommandKind.S_REGISTER_WRITE : CommandKind.S_REGISTER_READ;
-        return command(source, rawLine, name, kind, args, index, mode);
+        return command(source, rawLine, name, kind, args, index, mode, rawStart, rawEnd, quoted);
     }
 
     private ParsedCommand basicCommand(
-            RawBytes source, String rawLine, String slice, int index, EntryMode mode) {
+            RawBytes source, String rawLine, String slice, int index, EntryMode mode,
+            int rawStart, int rawEnd, boolean quoted) {
         String upper = slice.toUpperCase(Locale.ROOT);
         String name = switch (upper.charAt(0)) {
             case 'E' -> "ATE";
@@ -190,12 +198,19 @@ public final class AtCommandParser {
                     : "AT" + upper.charAt(0);
         };
         String args = upper.startsWith("&") ? upper.substring(2) : upper.substring(1);
-        return command(source, rawLine, name, CommandKind.BASIC, args, index, mode);
+        return command(source, rawLine, name, CommandKind.BASIC, args, index, mode, rawStart, rawEnd, quoted);
     }
 
     private ParsedCommand command(
             RawBytes source, String raw, String name, CommandKind kind, String args, int index, EntryMode mode) {
-        return new ParsedCommand(source, raw, name, kind, args, List.of(name, args), index, mode);
+        return command(source, raw, name, kind, args, index, mode, 0, source.length(), raw.indexOf('"') >= 0);
+    }
+
+    private ParsedCommand command(
+            RawBytes source, String raw, String name, CommandKind kind, String args, int index, EntryMode mode,
+            int rawStart, int rawEnd, boolean quoted) {
+        return new ParsedCommand(source, raw, name, kind, args, List.of(name, args), index, mode,
+                rawStart, rawEnd, quoted, mode == EntryMode.SMS_PDU_ENTRY);
     }
 
     private int firstSeparator(String slice) {
@@ -231,6 +246,6 @@ public final class AtCommandParser {
         return builder.toString();
     }
 
-    private record Slice(String text, int next) {
+    private record Slice(String text, int end, int next, boolean quoted) {
     }
 }

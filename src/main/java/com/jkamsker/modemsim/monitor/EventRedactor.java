@@ -45,6 +45,13 @@ public final class EventRedactor {
         return command.arguments();
     }
 
+    public String redactCommandRawText(ParsedCommand command) {
+        if (isSensitiveCpinSet(command) || !identifierClasses(command.rawText(), command).isEmpty()) {
+            return REDACTED;
+        }
+        return command.rawText();
+    }
+
     private RedactedPayload original(RawBytes raw) {
         return new RedactedPayload(raw.toHex(), escape(raw.ascii()), RedactionInfo.none());
     }

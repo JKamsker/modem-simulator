@@ -10,6 +10,7 @@ import com.jkamsker.modemsim.state.ModemLifecycle;
 import com.jkamsker.modemsim.state.ModemLines;
 import com.jkamsker.modemsim.transport.HeadlessEndpoint;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
+import com.jkamsker.modemsim.transport.SerialOverflowException;
 import com.jkamsker.modemsim.transport.SerialRead;
 
 import java.io.IOException;
@@ -58,6 +59,9 @@ final class RuntimeIo {
             SerialRead read;
             try {
                 read = read(sidecar.endpoint());
+            } catch (SerialOverflowException e) {
+                session.diagnostic(EventType.RX_OVERFLOW, "optional-rx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
+                continue;
             } catch (IOException e) {
                 session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
@@ -98,7 +102,12 @@ final class RuntimeIo {
 
     void writeDce(SerialEndpoint endpoint, HeadlessSession session, List<RuntimeSidecar> sidecars, RawBytes bytes)
             throws IOException {
-        write(endpoint, bytes);
+        try {
+            write(endpoint, bytes);
+        } catch (SerialOverflowException e) {
+            session.diagnostic(EventType.TX_OVERFLOW, e.getMessage());
+            return;
+        }
         endpoint.writeLines(session.snapshot().lines());
         mirror(session, sidecars, Direction.DCE_TO_DTE, bytes);
     }
@@ -120,6 +129,9 @@ final class RuntimeIo {
         for (RuntimeSidecar sidecar : sidecars) {
             try {
                 sidecar.mirror(direction, bytes);
+            } catch (SerialOverflowException e) {
+                session.diagnostic(EventType.TX_OVERFLOW, "optional-tx-overflow:" + sidecar.binding().id() + ":" + e.getMessage());
+                sidecar.retire();
             } catch (IOException e) {
                 session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();

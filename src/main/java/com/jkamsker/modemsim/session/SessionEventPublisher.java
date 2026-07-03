@@ -212,6 +212,12 @@ final class SessionEventPublisher {
         data.put("name", command.normalizedName());
         data.put("kind", command.kind().name());
         data.put("arguments", redactor.redactCommandArguments(command));
+        data.put("rawText", redactor.redactCommandRawText(command));
+        data.put("rawStartOffset", command.rawStartOffset());
+        data.put("rawEndOffset", command.rawEndOffset());
+        data.put("quoted", command.quoted());
+        data.put("pduContext", command.pduContext());
+        data.put("entryMode", command.entryMode().name());
         return data;
     }
 

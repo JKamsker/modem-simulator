@@ -43,6 +43,32 @@ class SmsSessionTest {
     }
 
     @Test
+    void textModeCmgsEscAbortsWithoutStoringMessage() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        SessionResponse aborted = session.receive(RawBytes.ascii("draft\u001B"));
+
+        assertThat(aborted.events()).extracting(event -> event.eventType().name()).contains("HANDLER_RESULT");
+        assertThat(session.drainScheduled().outputAscii()).contains("OK");
+        assertThat(session.snapshot().sms().messages()).isEmpty();
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void pduModeCmgsEscAbortsWithoutStoringMessage() {
+        HeadlessSession session = unlimitedSmsSession();
+        session.receive(RawBytes.ascii("AT+CMGF=0\r"));
+
+        session.receive(RawBytes.ascii("AT+CMGS=4\r"));
+        session.receive(RawBytes.ascii("0011\u001B"));
+
+        assertThat(session.drainScheduled().outputAscii()).contains("OK");
+        assertThat(session.snapshot().sms().messages()).isEmpty();
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
     void sixthSmsInsideSlidingWindowUsesConfiguredCmsError() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
         for (int i = 0; i < 5; i++) {

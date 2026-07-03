@@ -13,6 +13,7 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     private final String portName;
     private SerialPort port;
     private final AtomicBoolean disconnected = new AtomicBoolean();
+    private final AtomicBoolean rxOverflow = new AtomicBoolean();
 
     public JSerialCommEndpoint(String portName) {
         this.portName = portName;
@@ -38,6 +39,9 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     public SerialRead read() throws IOException {
         if (disconnected.get() || port == null || !port.isOpen()) {
             throw new IOException("Serial port lost: " + portName);
+        }
+        if (rxOverflow.getAndSet(false)) {
+            throw new SerialOverflowException("RX overflow on " + portName);
         }
         byte[] buffer = new byte[1];
         long first = System.nanoTime();
@@ -101,6 +105,8 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
             public void serialEvent(SerialPortEvent event) {
                 if (event.getEventType() == SerialPort.LISTENING_EVENT_PORT_DISCONNECTED) {
                     disconnected.set(true);
+                } else {
+                    rxOverflow.set(true);
                 }
             }
         };

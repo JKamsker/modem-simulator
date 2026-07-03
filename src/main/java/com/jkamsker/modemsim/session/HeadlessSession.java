@@ -72,6 +72,7 @@ public final class HeadlessSession implements SessionActor {
         long byteSpanNanos = Math.max(0, lastByteMonotonicNanos - firstByteMonotonicNanos);
         long firstByteNanos = Math.max(clock.nowNanos(), firstByteMonotonicNanos);
         long lastByteNanos = firstByteNanos + byteSpanNanos;
+        clock.advanceTo(firstByteNanos);
         if (pendingSms != null) {
             return receiveSmsEntry(bytes);
         }
@@ -89,6 +90,7 @@ public final class HeadlessSession implements SessionActor {
             return response(RawBytes.empty(), start);
         }
         if (state.call().mode() == CallMode.ONLINE_DATA) {
+            clock.advanceTo(lastByteNanos);
             inputState.clearPendingEscape();
             ModemState commandState = state.withCall(state.call().withMode(CallMode.ONLINE_COMMAND));
             RawBytes ok = commandState.settings().quiet() ? RawBytes.empty()

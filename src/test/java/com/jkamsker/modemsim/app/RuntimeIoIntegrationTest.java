@@ -11,6 +11,7 @@ import com.jkamsker.modemsim.transport.HeadlessEndpoint;
 import com.jkamsker.modemsim.transport.Parity;
 import com.jkamsker.modemsim.transport.SerialConfig;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
+import com.jkamsker.modemsim.transport.SerialOverflowException;
 import com.jkamsker.modemsim.transport.SerialRead;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -95,6 +96,30 @@ class RuntimeIoIntegrationTest {
 
         assertThat(result.output().ascii()).isEqualTo("+CREG: 4\r\n");
         assertThat(endpoint.written().ascii()).contains("+CREG: 4\r\n");
+    }
+
+    @Test
+    void shortMainWriteIsAuditedAsTxOverflow() throws Exception {
+        OverflowEndpoint endpoint = new OverflowEndpoint(true, false);
+        endpoint.enqueue(RawBytes.ascii("AT\r"), 0);
+
+        RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config(List.of()), List.of(), 1);
+
+        assertThat(result.output().ascii()).isEqualTo("\r\nOK\r\n");
+        assertThat(Files.readString(result.eventLogPath()))
+                .contains("\"eventType\":\"TX_OVERFLOW\"")
+                .doesNotContain("\"eventType\":\"PORT_LOST\"");
+    }
+
+    @Test
+    void rxOverflowIsAuditedAndNextReadStillRuns() throws Exception {
+        OverflowEndpoint endpoint = new OverflowEndpoint(false, true);
+        endpoint.enqueue(RawBytes.ascii("AT\r"), 1);
+
+        RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config(List.of()), List.of(), 1);
+
+        assertThat(result.output().ascii()).isEqualTo("\r\nOK\r\n");
+        assertThat(Files.readString(result.eventLogPath())).contains("\"eventType\":\"RX_OVERFLOW\"");
     }
 
     private RuntimeConfig config(List<PortBinding> sidecars) {
@@ -190,6 +215,54 @@ class RuntimeIoIntegrationTest {
         public void writeLines(ModemLines lines) {
             lastLines = lines;
             observedDrop = observedDrop || !lines.dtr();
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
+    private static final class OverflowEndpoint implements SerialEndpoint {
+        private final Queue<SerialRead> reads = new ArrayDeque<>();
+        private final boolean txOverflow;
+        private boolean rxOverflow;
+
+        private OverflowEndpoint(boolean txOverflow, boolean rxOverflow) {
+            this.txOverflow = txOverflow;
+            this.rxOverflow = rxOverflow;
+        }
+
+        void enqueue(RawBytes bytes, long nanos) {
+            reads.add(new SerialRead(bytes, nanos, nanos));
+        }
+
+        @Override
+        public void open(SerialConfig config) {
+        }
+
+        @Override
+        public SerialRead read() throws IOException {
+            if (rxOverflow) {
+                rxOverflow = false;
+                throw new SerialOverflowException("forced rx overflow");
+            }
+            return reads.poll();
+        }
+
+        @Override
+        public void write(byte[] buffer, int offset, int length) throws IOException {
+            if (txOverflow && length > 0) {
+                throw new SerialOverflowException("forced tx overflow");
+            }
+        }
+
+        @Override
+        public ModemLines readLines() {
+            return ModemLines.ready();
+        }
+
+        @Override
+        public void writeLines(ModemLines lines) {
         }
 
         @Override

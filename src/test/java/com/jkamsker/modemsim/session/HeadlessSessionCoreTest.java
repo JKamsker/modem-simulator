@@ -231,6 +231,21 @@ class HeadlessSessionCoreTest {
     }
 
     @Test
+    void escapeSequencePostGuardStartsAtThirdByte() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        session.receive(RawBytes.ascii("ATD123\r"));
+        session.drainScheduled();
+        long first = 10_000_000_000L;
+        long last = first + 20_000_000L;
+        session.advanceTo(first - 100_000_000L);
+
+        session.receiveTimed(RawBytes.ascii("+++"), first, last);
+
+        assertThat(session.advanceTo(first + 50_000_000L).outputHex()).isEmpty();
+        assertThat(session.advanceTo(last + 50_000_000L).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
     void repeatCommandPublishesSpecialRepeatBeforeReplayingLastCommand() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
         session.receive(RawBytes.ascii("AT\r"));

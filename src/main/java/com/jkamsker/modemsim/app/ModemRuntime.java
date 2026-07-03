@@ -11,6 +11,7 @@ import com.jkamsker.modemsim.session.SessionResponse;
 import com.jkamsker.modemsim.transport.HeadlessEndpoint;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
 import com.jkamsker.modemsim.transport.SerialException;
+import com.jkamsker.modemsim.transport.SerialOverflowException;
 import com.jkamsker.modemsim.transport.SerialRead;
 
 import java.io.IOException;
@@ -104,6 +105,9 @@ final class ModemRuntime {
             SerialRead read;
             try {
                 read = io.read(endpoint);
+            } catch (SerialOverflowException e) {
+                session.diagnostic(EventType.RX_OVERFLOW, "rx-overflow:" + binding.id() + ":" + e.getMessage());
+                continue;
             } catch (IOException e) {
                 return handlePortLoss(session, endpoint, binding, output, reads, e);
             }
