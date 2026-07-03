@@ -2,6 +2,8 @@ package com.jkamsker.modemsim.session;
 
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.state.NetworkRuntime;
+import com.jkamsker.modemsim.state.SmsRateLimit;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -69,9 +71,96 @@ class SmsSessionTest {
         assertThat(session.snapshot().sms().messages()).isEmpty();
     }
 
-    private void submitAndDrain(HeadlessSession session, String body) {
+    @Test
+    void textModeCmgsRequiresQuotedPhoneDestination() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        assertThat(session.receive(RawBytes.ascii("AT+CMGS=not-a-phone\r")).outputAscii())
+                .isEqualTo("\r\nERROR\r\n");
+        assertThat(session.snapshot().call().mode().name()).isEqualTo("COMMAND");
+    }
+
+    @Test
+    void pduModeValidatesDeclaredLengthAndStoresOpaquePdu() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        session.receive(RawBytes.ascii("AT+CMGF=0\r"));
+        assertThat(session.receive(RawBytes.ascii("AT+CMGS=4\r")).outputHex()).isEqualTo("0D0A3E20");
+        session.receive(RawBytes.ascii("001\u001A"));
+        assertThat(session.drainScheduled().outputAscii()).contains("+CMS ERROR: 304");
+        assertThat(session.snapshot().sms().messages()).isEmpty();
+
+        session.receive(RawBytes.ascii("AT+CMGS=4\r"));
+        session.receive(RawBytes.ascii("0011\u001A"));
+        session.drainScheduled();
+        assertThat(session.snapshot().sms().messages().values())
+                .extracting(message -> message.pdu())
+                .containsOnly("0011");
+    }
+
+    @Test
+    void selectedSmsStorageControlsListReadDeleteAndCapacity() {
+        HeadlessSession session = unlimitedSmsSession();
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"SM\"\r")).outputAscii()).contains("OK");
+        submitAndDrain(session, "stored in sm");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii()).contains("\"SM\",1,20");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).contains("stored in sm");
+
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS=\"ME\"\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("AT+CPMS?\r")).outputAscii()).contains("\"ME\",0,50");
+        assertThat(session.receive(RawBytes.ascii("AT+CMGL=\"ALL\"\r")).outputAscii()).doesNotContain("stored in sm");
+        assertThat(session.snapshot().sms().messages()).hasSize(1);
+    }
+
+    @Test
+    void selectedStorageCapacityRejectsOverflowWithoutSavingMessage() {
+        HeadlessSession session = unlimitedSmsSession();
+        session.receive(RawBytes.ascii("AT+CPMS=\"SM\"\r"));
+        for (int i = 0; i < 20; i++) {
+            submitAndDrain(session, "sm " + i);
+        }
+
         session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        session.receive(RawBytes.ascii("overflow\u001A"));
+
+        assertThat(session.drainScheduled().outputAscii()).contains("+CMS ERROR: 322");
+        assertThat(session.snapshot().sms().messages()).hasSize(20);
+    }
+
+    @Test
+    void recipientScopedRateLimitDoesNotBlockDifferentRecipient() {
+        HeadlessSession session = smsSession(new SmsRateLimit(1, 60, "recipient", 500));
+
+        submitAndDrain(session, "first", "+491700000001");
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491700000001\"\r"));
+        session.receive(RawBytes.ascii("blocked\u001A"));
+        assertThat(session.drainScheduled().outputAscii()).contains("+CMS ERROR: 500");
+
+        submitAndDrain(session, "second recipient", "+491700000002");
+        assertThat(session.snapshot().sms().messages()).hasSize(2);
+    }
+
+    private void submitAndDrain(HeadlessSession session, String body) {
+        submitAndDrain(session, body, "+491701234567");
+    }
+
+    private void submitAndDrain(HeadlessSession session, String body, String recipient) {
+        session.receive(RawBytes.ascii("AT+CMGS=\"" + recipient + "\"\r"));
         session.receive(RawBytes.ascii(body + "\u001A"));
         session.drainScheduled();
+    }
+
+    private HeadlessSession unlimitedSmsSession() {
+        return smsSession(SmsRateLimit.none());
+    }
+
+    private HeadlessSession smsSession(SmsRateLimit rateLimit) {
+        var base = BuiltinProfiles.acceptanceSierra();
+        NetworkRuntime network = base.initialState().network();
+        NetworkRuntime updated = new NetworkRuntime(
+                network.cregN(), network.stat(), network.lac(), network.ci(), network.act(),
+                network.rejectCauseType(), network.rejectCause(), network.operator(), rateLimit, network.delays());
+        return new HeadlessSession("sms", base.withInitialState(base.initialState().withNetwork(updated)), 12345);
     }
 }

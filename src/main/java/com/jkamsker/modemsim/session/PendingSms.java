@@ -8,7 +8,7 @@ public record PendingSms(String destination, Integer pduLength, boolean pduMode)
         if (textMode) {
             return new PendingSms(unquote(args), null, false);
         }
-        return new PendingSms(null, Integer.parseInt(args), true);
+        return new PendingSms(null, Integer.parseInt(args.trim()), true);
     }
 
     private static String unquote(String value) {

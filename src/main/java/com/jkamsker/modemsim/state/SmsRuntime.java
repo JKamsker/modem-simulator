@@ -43,7 +43,7 @@ public record SmsRuntime(
     public SmsRuntime storeOutbound(String recipient, String text, String pdu) {
         int index = messages.keySet().stream().mapToInt(Integer::intValue).max().orElse(0) + 1;
         Map<Integer, SmsMessage> next = new LinkedHashMap<>(messages);
-        next.put(index, new SmsMessage(index, "STO SENT", null, recipient, OffsetDateTime.now(), text, pdu));
+        next.put(index, new SmsMessage(index, storage, "STO SENT", null, recipient, OffsetDateTime.now(), text, pdu));
         return new SmsRuntime(textMode, smsc, cnmi, storage, nextMessageReference + 1, next);
     }
 
@@ -51,5 +51,35 @@ public record SmsRuntime(
         Map<Integer, SmsMessage> next = new LinkedHashMap<>(messages);
         next.remove(index);
         return new SmsRuntime(textMode, smsc, cnmi, storage, nextMessageReference, next);
+    }
+
+    public Map<Integer, SmsMessage> messagesInSelectedStorage() {
+        return messagesIn(storage);
+    }
+
+    public Map<Integer, SmsMessage> messagesIn(SmsStorage selected) {
+        Map<Integer, SmsMessage> filtered = new LinkedHashMap<>();
+        messages.forEach((index, message) -> {
+            if (message.storage() == selected) {
+                filtered.put(index, message);
+            }
+        });
+        return filtered;
+    }
+
+    public int used(SmsStorage selected) {
+        return messagesIn(selected).size();
+    }
+
+    public int capacity(SmsStorage selected) {
+        return switch (selected) {
+            case ME -> 50;
+            case SM -> 20;
+            case MT -> 70;
+        };
+    }
+
+    public boolean selectedStorageFull() {
+        return used(storage) >= capacity(storage);
     }
 }

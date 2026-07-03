@@ -44,6 +44,9 @@ public final class SmsHandler implements CommandHandler {
 
     private CommandResult cmgs(ModemState state, ParsedCommand command) {
         if (command.kind().name().endsWith("SET")) {
+            if (!validCmgsArguments(state, command.arguments())) {
+                return CommandResult.error(state, "SmsHandler");
+            }
             CallMode mode = state.sms().textMode() ? CallMode.SMS_TEXT_ENTRY : CallMode.SMS_PDU_ENTRY;
             ModemState entry = state.withCall(state.call().withMode(mode));
             return new CommandResult(
@@ -57,7 +60,7 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cmgr(ModemState state, ParsedCommand command) {
-        SmsMessage message = state.sms().messages().get(parseInt(command.arguments(), -1));
+        SmsMessage message = state.sms().messagesInSelectedStorage().get(parseInt(command.arguments(), -1));
         if (message == null) {
             return CmsError.INVALID_INDEX.result(state, "SmsHandler");
         }
@@ -66,7 +69,11 @@ public final class SmsHandler implements CommandHandler {
 
     private CommandResult cmgl(ModemState state, ParsedCommand command) {
         List<ResponseFrame> frames = new ArrayList<>();
-        for (SmsMessage message : state.sms().messages().values()) {
+        String stat = unquote(command.arguments());
+        if (!stat.isBlank() && !stat.equalsIgnoreCase("ALL")) {
+            return CommandResult.error(state, "SmsHandler");
+        }
+        for (SmsMessage message : state.sms().messagesInSelectedStorage().values()) {
             frames.addAll(messageFrames("+CMGL: " + message.index(), message));
         }
         return new CommandResult(state, frames, ResultCode.OK, "SmsHandler", false);
@@ -74,7 +81,7 @@ public final class SmsHandler implements CommandHandler {
 
     private CommandResult cmgd(ModemState state, ParsedCommand command) {
         int index = parseInt(command.arguments(), -1);
-        if (!state.sms().messages().containsKey(index)) {
+        if (!state.sms().messagesInSelectedStorage().containsKey(index)) {
             return CmsError.INVALID_INDEX.result(state, "SmsHandler");
         }
         return CommandResult.ok(state.withSms(state.sms().delete(index)), "SmsHandler");
@@ -93,9 +100,11 @@ public final class SmsHandler implements CommandHandler {
 
     private CommandResult cpms(ModemState state, ParsedCommand command) {
         if (command.kind().name().endsWith("READ")) {
-            int used = state.sms().messages().size();
             String store = state.sms().storage().name();
-            return line(state, "+CPMS: \"" + store + "\"," + used + ",50,\"" + store + "\"," + used + ",50");
+            int used = state.sms().used(state.sms().storage());
+            int capacity = state.sms().capacity(state.sms().storage());
+            return line(state, "+CPMS: \"" + store + "\"," + used + "," + capacity
+                    + ",\"" + store + "\"," + used + "," + capacity);
         }
         if (command.kind().name().endsWith("SET")) {
             String value = unquote(command.arguments().split(",")[0]);
@@ -116,6 +125,14 @@ public final class SmsHandler implements CommandHandler {
             return CommandResult.ok(state.withSms(state.sms().withSmsc(unquote(command.arguments()))), "SmsHandler");
         }
         return CommandResult.error(state, "SmsHandler");
+    }
+
+    private boolean validCmgsArguments(ModemState state, String arguments) {
+        if (state.sms().textMode()) {
+            String destination = unquote(arguments);
+            return arguments.trim().startsWith("\"") && destination.matches("\\+?[0-9]{3,20}");
+        }
+        return parseInt(arguments, -1) >= 0;
     }
 
     private List<ResponseFrame> messageFrames(String prefix, SmsMessage message) {

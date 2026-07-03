@@ -131,6 +131,7 @@ public final class ModemEventJson {
         for (SmsMessage message : messages.values()) {
             Map<String, Object> entry = new LinkedHashMap<>();
             put(entry, "index", message.index());
+            put(entry, "storage", message.storage().name());
             put(entry, "status", message.status());
             put(entry, "sender", message.sender());
             put(entry, "recipient", message.recipient());

@@ -107,6 +107,7 @@ public final class EventStateRedactor {
             SmsMessage message = entry.getValue();
             messages.put(entry.getKey(), new SmsMessage(
                     message.index(),
+                    message.storage(),
                     message.status(),
                     message.sender() == null ? null : REDACTED,
                     message.recipient() == null ? null : REDACTED,
