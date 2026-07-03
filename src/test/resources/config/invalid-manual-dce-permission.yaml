@@ -1,0 +1,30 @@
+sessionSeed: 12345
+clockMode: virtual
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: NONE
+  flowControl: NONE
+ports:
+  - id: modem
+    type: headless
+    role: modem-simulation
+    enabled: true
+    profile: sierra-hl6-hl8-v20
+  - id: manual
+    type: headless
+    role: manual-dce-injection
+    enabled: true
+redaction:
+  enabled: true
+  maskPin: true
+  maskPuk: true
+  maskImsi: true
+  maskIccid: true
+  maskImei: true
+  maskMsisdn: true
+  maskSmsBody: true
+gui:
+  readOnly: false
+  allowUnsafeDceTransmit: false

@@ -1,5 +1,8 @@
 package com.jkamsker.modemsim.app;
 
+import com.jkamsker.modemsim.monitor.Direction;
+import com.jkamsker.modemsim.monitor.EventType;
+import com.jkamsker.modemsim.monitor.JsonlEventSink;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.session.HeadlessSession;
@@ -29,14 +32,17 @@ final class ModemRuntime {
     RuntimeResult run(RuntimeConfig config, List<RawBytes> headlessInputs, int maxReads) {
         PortBinding modemPort = config.modemPort();
         Profile profile = profileResolver.resolve(modemPort.profile());
-        HeadlessSession session = new HeadlessSession("main", profile, config.sessionSeed());
         SerialEndpoint modemEndpoint = endpointFactory.create(modemPort);
-        List<SerialEndpoint> sidecars = new ArrayList<>();
-        try (modemEndpoint) {
+        List<RuntimeSidecar> sidecars = new ArrayList<>();
+        try (JsonlEventSink eventSink = new JsonlEventSink(config.eventLogPath()); modemEndpoint) {
+            HeadlessSession session = new HeadlessSession("main", profile, config.sessionSeed(), eventSink);
             modemEndpoint.open(config.serialLine());
-            openSidecars(config, sidecars);
+            openSidecars(config, session, sidecars);
             enqueueHeadlessInputs(modemEndpoint, headlessInputs);
-            return processReads(session, modemEndpoint, maxReadsFor(modemEndpoint, headlessInputs, maxReads));
+            RuntimeResult result = processReads(
+                    session, modemEndpoint, sidecars, maxReadsFor(modemEndpoint, headlessInputs, maxReads));
+            session.diagnostic(EventType.SESSION_STOP, "normal-stop");
+            return new RuntimeResult(result.sessionId(), result.readsProcessed(), result.output(), config.eventLogPath());
         } catch (IOException e) {
             throw new IllegalStateException("Runtime failed: " + e.getMessage(), e);
         } finally {
@@ -44,11 +50,16 @@ final class ModemRuntime {
         }
     }
 
-    private RuntimeResult processReads(HeadlessSession session, SerialEndpoint endpoint, int maxReads)
+    private RuntimeResult processReads(
+            HeadlessSession session, SerialEndpoint endpoint, List<RuntimeSidecar> sidecars, int maxReads)
             throws IOException {
         RawBytes output = RawBytes.empty();
         int reads = 0;
-        while (!Thread.currentThread().isInterrupted() && (maxReads < 0 || reads < maxReads)) {
+        while (!Thread.currentThread().isInterrupted()) {
+            output = output.append(processSidecars(session, endpoint, sidecars));
+            if (maxReads >= 0 && reads >= maxReads) {
+                break;
+            }
             SerialRead read = read(endpoint);
             if (read == null) {
                 break;
@@ -56,12 +67,34 @@ final class ModemRuntime {
             if (read.bytes().isEmpty()) {
                 continue;
             }
+            mirror(sidecars, Direction.DTE_TO_DCE, read.bytes());
             SessionResponse response = session.receive(read.bytes());
             write(endpoint, response.output());
+            mirror(sidecars, Direction.DCE_TO_DTE, response.output());
             output = output.append(response.output());
             reads++;
         }
         return new RuntimeResult("main", reads, output);
+    }
+
+    private RawBytes processSidecars(
+            HeadlessSession session, SerialEndpoint modemEndpoint, List<RuntimeSidecar> sidecars) throws IOException {
+        RawBytes output = RawBytes.empty();
+        for (RuntimeSidecar sidecar : sidecars) {
+            SerialRead read = read(sidecar.endpoint());
+            if (read == null || read.bytes().isEmpty()) {
+                continue;
+            }
+            if (sidecar.isSniffer()) {
+                session.diagnostic(EventType.AUDIT_FAILURE, "sniffer-input-ignored:" + sidecar.binding().id());
+            } else if (sidecar.isManualDceInjection()) {
+                SessionResponse response = session.injectDce(read.bytes(), "raw-dce-to-dte");
+                write(modemEndpoint, response.output());
+                mirror(sidecars, Direction.DCE_TO_DTE, response.output());
+                output = output.append(response.output());
+            }
+        }
+        return output;
     }
 
     private SerialRead read(SerialEndpoint endpoint) throws IOException {
@@ -100,14 +133,23 @@ final class ModemRuntime {
         return inputs.size();
     }
 
-    private void openSidecars(RuntimeConfig config, List<SerialEndpoint> sidecars) throws SerialException {
+    private void openSidecars(RuntimeConfig config, HeadlessSession session, List<RuntimeSidecar> sidecars)
+            throws SerialException {
         for (PortBinding binding : config.enabledSidecars()) {
+            if (binding.role() == PortRole.MANUAL_DCE_INJECTION && !config.allowUnsafeDceTransmit()) {
+                session.diagnostic(EventType.AUDIT_FAILURE, "manual-dce-disabled:" + binding.id());
+                if (config.strictOptionalPorts()) {
+                    throw new SerialException("manual-dce-injection requires allowUnsafeDceTransmit");
+                }
+                continue;
+            }
             SerialEndpoint endpoint = endpointFactory.create(binding);
             try {
                 endpoint.open(config.serialLine());
-                sidecars.add(endpoint);
+                sidecars.add(new RuntimeSidecar(binding, endpoint));
             } catch (SerialException e) {
                 endpoint.close();
+                session.diagnostic(EventType.PORT_LOST, "optional-port-open-failed:" + binding.id() + ":" + e.getMessage());
                 if (config.strictOptionalPorts()) {
                     throw e;
                 }
@@ -115,8 +157,14 @@ final class ModemRuntime {
         }
     }
 
-    private void closeSidecars(List<SerialEndpoint> sidecars) {
-        for (SerialEndpoint sidecar : sidecars) {
+    private void mirror(List<RuntimeSidecar> sidecars, Direction direction, RawBytes bytes) throws IOException {
+        for (RuntimeSidecar sidecar : sidecars) {
+            sidecar.mirror(direction, bytes);
+        }
+    }
+
+    private void closeSidecars(List<RuntimeSidecar> sidecars) {
+        for (RuntimeSidecar sidecar : sidecars) {
             sidecar.close();
         }
     }

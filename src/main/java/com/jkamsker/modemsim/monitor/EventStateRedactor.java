@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.monitor;
 
 import com.jkamsker.modemsim.state.ModemState;
+import com.jkamsker.modemsim.state.CallRuntime;
 import com.jkamsker.modemsim.state.SimRuntime;
 import com.jkamsker.modemsim.state.SmsMessage;
 import com.jkamsker.modemsim.state.SmsRuntime;
@@ -15,7 +16,8 @@ public final class EventStateRedactor {
     private static final String REDACTED = "<redacted>";
 
     public boolean containsSensitiveData(ModemState state) {
-        return state != null && (containsSimSecrets(state.sim()) || containsSmsBody(state.sms()));
+        return state != null
+                && (containsSimSecrets(state.sim()) || containsSmsSecrets(state.sms()) || containsCallNumber(state.call()));
     }
 
     public List<String> classes(ModemState first, ModemState second) {
@@ -34,7 +36,7 @@ public final class EventStateRedactor {
                 state.network(),
                 state.signal(),
                 state.sms() == null ? null : redactedSms(state.sms()),
-                state.call(),
+                state.call() == null ? null : redactedCall(state.call()),
                 state.modem(),
                 state.lines(),
                 state.settings(),
@@ -57,15 +59,34 @@ public final class EventStateRedactor {
         if (state.sms() != null && containsSmsBody(state.sms())) {
             classes.add("sms-body");
         }
+        if (state.sms() != null && containsSmsMsisdn(state.sms())) {
+            classes.add("msisdn");
+        }
+        if (state.call() != null && state.call().dialedNumber() != null) {
+            classes.add("msisdn");
+        }
     }
 
     private boolean containsSimSecrets(SimRuntime sim) {
         return sim != null && (sim.testPin() != null || sim.imsi() != null || sim.iccid() != null);
     }
 
+    private boolean containsSmsSecrets(SmsRuntime sms) {
+        return sms != null && (sms.smsc() != null || containsSmsMsisdn(sms) || containsSmsBody(sms));
+    }
+
     private boolean containsSmsBody(SmsRuntime sms) {
         return sms != null && sms.messages().values().stream()
                 .anyMatch(message -> message.text() != null || message.pdu() != null);
+    }
+
+    private boolean containsSmsMsisdn(SmsRuntime sms) {
+        return sms.messages().values().stream()
+                .anyMatch(message -> message.sender() != null || message.recipient() != null);
+    }
+
+    private boolean containsCallNumber(CallRuntime call) {
+        return call != null && call.dialedNumber() != null;
     }
 
     private SimRuntime redactedSim(SimRuntime sim) {
@@ -87,12 +108,25 @@ public final class EventStateRedactor {
             messages.put(entry.getKey(), new SmsMessage(
                     message.index(),
                     message.status(),
-                    message.sender(),
-                    message.recipient(),
+                    message.sender() == null ? null : REDACTED,
+                    message.recipient() == null ? null : REDACTED,
                     message.timestamp(),
                     message.text() == null ? null : REDACTED,
                     message.pdu() == null ? null : REDACTED));
         }
-        return new SmsRuntime(sms.textMode(), sms.smsc(), sms.cnmi(), sms.storage(), sms.nextMessageReference(), messages);
+        return new SmsRuntime(
+                sms.textMode(),
+                sms.smsc() == null ? null : REDACTED,
+                sms.cnmi(),
+                sms.storage(),
+                sms.nextMessageReference(),
+                messages);
+    }
+
+    private CallRuntime redactedCall(CallRuntime call) {
+        return new CallRuntime(
+                call.mode(),
+                call.carrier(),
+                call.dialedNumber() == null ? null : REDACTED);
     }
 }

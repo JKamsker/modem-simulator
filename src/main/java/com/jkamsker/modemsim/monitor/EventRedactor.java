@@ -6,9 +6,12 @@ import com.jkamsker.modemsim.parser.RawBytes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public final class EventRedactor {
     private static final String REDACTED = "<redacted>";
+    private static final Pattern MSISDN = Pattern.compile("\\+\\d{6,15}");
+    private static final Pattern LONG_IDENTIFIER = Pattern.compile("(?<!\\d)\\d{14,22}(?!\\d)");
 
     public RedactedPayload redactRaw(
             EventType type,
@@ -25,11 +28,18 @@ public final class EventRedactor {
         if (isSensitiveCpinSet(command) || rawLooksLikeCpinSet(raw)) {
             return fullyRedacted("rawHex", "textEscaped", cpinClasses(command));
         }
+        List<String> identifierClasses = identifierClasses(raw.ascii());
+        if (!identifierClasses.isEmpty()) {
+            return fullyRedacted("rawHex", "textEscaped", identifierClasses);
+        }
         return original(raw);
     }
 
     public String redactCommandArguments(ParsedCommand command) {
-        return isSensitiveCpinSet(command) ? REDACTED : command.arguments();
+        if (isSensitiveCpinSet(command) || !identifierClasses(command.arguments()).isEmpty()) {
+            return REDACTED;
+        }
+        return command.arguments();
     }
 
     private RedactedPayload original(RawBytes raw) {
@@ -65,6 +75,22 @@ public final class EventRedactor {
 
     private boolean rawLooksLikeCpinSet(RawBytes raw) {
         return raw.ascii().toUpperCase().contains("+CPIN=");
+    }
+
+    private List<String> identifierClasses(String text) {
+        List<String> classes = new ArrayList<>();
+        if (text == null) {
+            return classes;
+        }
+        if (MSISDN.matcher(text).find()) {
+            classes.add("msisdn");
+        }
+        if (LONG_IDENTIFIER.matcher(text).find()) {
+            classes.add("imei");
+            classes.add("imsi");
+            classes.add("iccid");
+        }
+        return classes;
     }
 
     private String escape(String text) {

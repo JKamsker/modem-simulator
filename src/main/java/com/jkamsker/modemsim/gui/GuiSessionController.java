@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.gui;
 
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.ModemEventJson;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.session.SessionResponse;
@@ -52,7 +53,7 @@ final class GuiSessionController {
     }
 
     String jsonl(List<ModemEvent> events) {
-        return events.stream().map(this::json).reduce((a, b) -> a + "\n" + b).orElse("");
+        return ModemEventJson.toJsonLines(events);
     }
 
     String transcript(List<ModemEvent> events) {
@@ -63,28 +64,6 @@ final class GuiSessionController {
                 .orElse("");
     }
 
-    private String json(ModemEvent event) {
-        return "{\"timestamp\":\"" + event.timestamp()
-                + "\",\"monotonicNanos\":" + event.monotonicNanos()
-                + ",\"sequence\":" + event.sequence()
-                + ",\"sessionId\":\"" + escape(event.sessionId())
-                + "\",\"eventType\":\"" + event.eventType()
-                + "\",\"direction\":\"" + event.direction()
-                + "\",\"rawHex\":\"" + escape(event.rawHex())
-                + "\",\"redaction\":{\"applied\":" + event.redaction().applied()
-                + ",\"policy\":\"" + event.redaction().policy()
-                + "\",\"fields\":" + quoted(event.redaction().fields())
-                + ",\"classes\":" + quoted(event.redaction().classes()) + "}}";
-    }
-
-    private String quoted(List<String> values) {
-        return values.stream()
-                .map(value -> "\"" + escape(value) + "\"")
-                .reduce((a, b) -> a + "," + b)
-                .map(value -> "[" + value + "]")
-                .orElse("[]");
-    }
-
     private String ensureTerminator(String value) {
         String unescaped = unescape(value);
         return unescaped.endsWith("\r") ? unescaped : unescaped + "\r";
@@ -92,10 +71,6 @@ final class GuiSessionController {
 
     private String unescape(String value) {
         return value.replace("\\r", "\r").replace("\\n", "\n").replace("\\u001A", "\u001A");
-    }
-
-    private String escape(String value) {
-        return String.valueOf(value).replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     record GuiStatePatch(

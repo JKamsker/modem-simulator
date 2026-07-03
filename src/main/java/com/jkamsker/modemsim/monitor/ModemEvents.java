@@ -25,6 +25,20 @@ public final class ModemEvents {
             RawBytes raw,
             ModemState before,
             ModemState after) {
+        return audit(sequence, sessionId, profile, type, direction, injectionType, null, raw, before, after);
+    }
+
+    public static ModemEvent audit(
+            long sequence,
+            String sessionId,
+            String profile,
+            EventType type,
+            Direction direction,
+            String injectionType,
+            String result,
+            RawBytes raw,
+            ModemState before,
+            ModemState after) {
         EventRedactor rawRedactor = new EventRedactor();
         RedactedPayload payload = rawRedactor.redactRaw(type, direction, raw, null, false);
         EventStateRedactor stateRedactor = new EventStateRedactor();
@@ -56,7 +70,7 @@ public final class ModemEvents {
                 injectionType,
                 0,
                 null,
-                null,
+                result,
                 null,
                 stateBeforeRedacted ? stateRedactor.redactSensitiveData(before) : before,
                 stateAfterRedacted ? stateRedactor.redactSensitiveData(after) : after,

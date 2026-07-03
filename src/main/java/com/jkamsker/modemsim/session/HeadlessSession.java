@@ -61,7 +61,7 @@ public final class HeadlessSession implements SessionActor {
         this.scheduler = new DeterministicScheduler(sessionSeed);
         this.state = profile.initialState();
         this.events = new SessionEventPublisher(sessionId, profile.id(), sessionSeed, state, clock, eventSink);
-        publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
+        events.publish(EventType.SESSION_START, Direction.INTERNAL, RawBytes.empty(), null, null, state, null);
     }
 
     @Override
@@ -71,7 +71,7 @@ public final class HeadlessSession implements SessionActor {
         }
         int start = eventCount();
         RawBytes output = RawBytes.empty();
-        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
         if (state.call().mode() == CallMode.ONLINE_DATA
                 && !SessionBytes.isEscapeSequence(bytes, state.settings().s3())) {
             return response(RawBytes.empty(), start);
@@ -97,7 +97,7 @@ public final class HeadlessSession implements SessionActor {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
                 pendingSmsBytes = RawBytes.empty();
             }
-            publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), command, before, state, result);
+            events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), command, before, state, result);
             finalResult = result;
             if (result.stopLine()) {
                 break;
@@ -107,14 +107,14 @@ public final class HeadlessSession implements SessionActor {
             output = output.append(new ResponseFormatter(state).line(finalResult.finalResult().text(state.settings().verbose())));
         }
         if (!output.isEmpty()) {
-            publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
+            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
         return response(output, start);
     }
 
     private SessionResponse receiveSmsEntry(RawBytes bytes) {
         int start = eventCount();
-        publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null, true);
+        events.publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null, true);
         pendingSmsBytes = pendingSmsBytes.append(bytes);
         byte[] raw = pendingSmsBytes.toByteArray();
         SmsSubmitResult result;
@@ -144,10 +144,10 @@ public final class HeadlessSession implements SessionActor {
         RawBytes output = macroDelayMs == null
                 ? scheduleOrReturn("sms-submit", result.response())
                 : scheduleOrReturn(macroOperation, result.response(), macroDelayMs);
-        publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
+        events.publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), null, before, state,
                 new CommandResult(state, List.of(), null, "SmsSubmitProcessor", false), true);
         if (!output.isEmpty()) {
-            publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
+            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
         return response(output, start);
     }
@@ -162,7 +162,7 @@ public final class HeadlessSession implements SessionActor {
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state);
         }
         if (!output.isEmpty()) {
-            publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
+            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
         return response(output, start);
     }
@@ -175,7 +175,7 @@ public final class HeadlessSession implements SessionActor {
             events.publishScheduler(EventType.SCHEDULER_EMIT, emission, state);
         }
         if (!output.isEmpty()) {
-            publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
+            events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, output, null, null, state, null);
         }
         return response(output, start);
     }
@@ -201,16 +201,26 @@ public final class HeadlessSession implements SessionActor {
     public SessionResponse applyFault(String type) {
         return applyState(
                 faultService.apply(state, new com.jkamsker.modemsim.macros.FaultAction(type, null, null, null, null, null)),
-                "fault-" + type, EventType.FAULT_TRIGGERED);
+                null, type, EventType.FAULT_TRIGGERED);
     }
 
     private SessionResponse applyState(ModemState next, String injectionType, EventType eventType) {
-        int start = eventCount();
-        ModemState before = state;
-        state = next;
+        return applyState(next, injectionType, null, eventType);
+    }
+
+    public void diagnostic(EventType eventType, String result) {
         events.publishEvent(ModemEvents.audit(
                 events.nextSequence(), sessionId, profile.id(), eventType, Direction.INTERNAL,
-                injectionType, RawBytes.empty(), before, state));
+                null, result, RawBytes.empty(), state, state));
+    }
+
+    private SessionResponse applyState(ModemState next, String injectionType, String result, EventType eventType) {
+        int start = eventCount();
+        ModemState before = state;
+        events.publishEvent(ModemEvents.audit(
+                events.nextSequence(), sessionId, profile.id(), eventType, Direction.INTERNAL,
+                injectionType, result, RawBytes.empty(), before, next));
+        state = next;
         return response(RawBytes.empty(), start);
     }
 
@@ -270,28 +280,6 @@ public final class HeadlessSession implements SessionActor {
     }
 
     private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
-    private void publish(
-            EventType type,
-            Direction direction,
-            RawBytes raw,
-            ParsedCommand command,
-            ModemState before,
-            ModemState after,
-            CommandResult result) {
-        events.publish(type, direction, raw, command, before, after, result);
-    }
-
-    private void publish(
-            EventType type,
-            Direction direction,
-            RawBytes raw,
-            ParsedCommand command,
-            ModemState before,
-            ModemState after,
-            CommandResult result,
-            boolean smsBodyEntry) {
-        events.publish(type, direction, raw, command, before, after, result, smsBodyEntry);
-    }
 
     private int eventCount() { return events.eventCount(); }
 }

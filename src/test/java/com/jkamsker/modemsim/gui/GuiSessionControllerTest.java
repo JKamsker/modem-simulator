@@ -56,7 +56,8 @@ class GuiSessionControllerTest {
         assertThat(stateChange.events().getFirst().stateAfter().network().stat()).isEqualTo(4);
         assertThat(fault.events()).extracting(event -> event.eventType())
                 .containsExactly(EventType.FAULT_TRIGGERED);
-        assertThat(fault.events().getFirst().injectionType()).isEqualTo("fault-network-restore");
+        assertThat(fault.events().getFirst().result()).isEqualTo("network-restore");
+        assertThat(fault.events().getFirst().injectionType()).isNull();
         assertThat(controller.snapshot().network().stat()).isEqualTo(1);
     }
 

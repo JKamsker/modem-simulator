@@ -21,10 +21,13 @@ final class RuntimeConfigLoader {
     RuntimeConfig load(Path path) {
         new ConfigValidator().validate(path).throwIfInvalid();
         JsonNode root = read(path);
+        long sessionSeed = root.path("sessionSeed").asLong();
         return new RuntimeConfig(
-                root.path("sessionSeed").asLong(),
+                sessionSeed,
                 clockMode(root.path("clockMode").asText("monotonic")),
                 root.path("strictOptionalPorts").asBoolean(false),
+                root.path("gui").path("allowUnsafeDceTransmit").asBoolean(false),
+                null,
                 serialLine(root.path("serialLine")),
                 ports(root.path("ports")));
     }

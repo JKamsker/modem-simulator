@@ -16,13 +16,15 @@ public final class ConfigValidator {
             return report;
         }
         JsonNode root = schemaValidator.readYaml(configPath);
-        validatePorts(root.path("ports"), report);
+        validatePorts(root, report);
         return report;
     }
 
-    private void validatePorts(JsonNode ports, ValidationReport report) {
+    private void validatePorts(JsonNode root, ValidationReport report) {
+        JsonNode ports = root.path("ports");
         int modemPorts = 0;
         Set<String> optionalRoles = new HashSet<>();
+        boolean allowUnsafeDce = root.path("gui").path("allowUnsafeDceTransmit").asBoolean(false);
         for (JsonNode port : ports) {
             String role = port.path("role").asText();
             if (role.equals("modem-simulation")) {
@@ -32,6 +34,9 @@ public final class ConfigValidator {
                 }
             } else if (!optionalRoles.add(role)) {
                 report.error("optional port role appears more than once: " + role);
+            }
+            if (role.equals("manual-dce-injection") && port.path("enabled").asBoolean(false) && !allowUnsafeDce) {
+                report.error("manual-dce-injection requires gui.allowUnsafeDceTransmit=true");
             }
             rejectPortSerialOverride(port, report);
         }

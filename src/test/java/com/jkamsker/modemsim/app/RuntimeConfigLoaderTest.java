@@ -19,6 +19,8 @@ class RuntimeConfigLoaderTest {
         assertThat(config.serialLine().baudRate()).isEqualTo(115200);
         assertThat(config.serialLine().parity()).isEqualTo(Parity.NONE);
         assertThat(config.serialLine().flowControl()).isEqualTo(FlowControl.NONE);
+        assertThat(config.allowUnsafeDceTransmit()).isFalse();
+        assertThat(config.eventLogPath()).hasFileName("main-12345.jsonl");
         assertThat(config.modemPort().profile()).isEqualTo("sierra-hl6-hl8-v20");
         assertThat(config.enabledSidecars()).isEmpty();
     }

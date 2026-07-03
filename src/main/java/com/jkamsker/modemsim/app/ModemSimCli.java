@@ -82,7 +82,8 @@ public final class ModemSimCli {
             RuntimeResult result = new ModemRuntime().run(config, runInputs(args), intOption(args, "--max-reads", -1));
             out.println("RUN " + result.sessionId()
                     + " reads=" + result.readsProcessed()
-                    + " outputHex=" + result.output().toHex());
+                    + " outputHex=" + result.output().toHex()
+                    + " log=" + result.eventLogPath());
             return 0;
         }
 

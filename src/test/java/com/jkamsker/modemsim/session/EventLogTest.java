@@ -70,6 +70,24 @@ class EventLogTest {
                 .containsOnly("top secret body");
     }
 
+    @Test
+    void identifiersAreRedactedFromRawEventsAndStateSnapshots() {
+        HeadlessSession session = new HeadlessSession("ids", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse imei = session.receive(RawBytes.ascii("AT+CGSN\r"));
+        SessionResponse smsc = session.receive(RawBytes.ascii("AT+CSCA?\r"));
+        SessionResponse dial = session.receive(RawBytes.ascii("ATD+491701234567\r"));
+
+        assertNoEventLeak(imei.events(), "359762080000001", RawBytes.ascii("359762080000001").toHex());
+        assertNoEventLeak(smsc.events(), "+491710760000", RawBytes.ascii("+491710760000").toHex());
+        assertNoEventLeak(dial.events(), "+491701234567", RawBytes.ascii("+491701234567").toHex());
+        assertThat(event(imei.events(), EventType.TX_BYTES).redaction().classes())
+                .contains("imei", "imsi", "iccid");
+        assertThat(event(smsc.events(), EventType.TX_BYTES).redaction().classes()).contains("msisdn");
+        assertThat(event(dial.events(), EventType.HANDLER_RESULT).stateAfter().call().dialedNumber())
+                .isEqualTo("<redacted>");
+    }
+
     private Profile lockedProfile() {
         Profile base = BuiltinProfiles.acceptanceSierra();
         SimRuntime sim = base.initialState().sim();

@@ -14,6 +14,10 @@ class ConfigCoverageScenarioValidationTest {
         assertThat(validator.validate(Path.of("src/test/resources/config/valid.yaml")).valid()).isTrue();
         assertThat(validator.validate(Path.of("src/test/resources/config/invalid-port-override.yaml")).valid())
                 .isFalse();
+        ValidationReport manualDce = validator.validate(
+                Path.of("src/test/resources/config/invalid-manual-dce-permission.yaml"));
+        assertThat(manualDce.valid()).isFalse();
+        assertThat(manualDce.errors()).anyMatch(error -> error.contains("allowUnsafeDceTransmit"));
     }
 
     @Test
