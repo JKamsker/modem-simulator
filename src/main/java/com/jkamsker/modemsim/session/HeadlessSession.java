@@ -41,6 +41,7 @@ public final class HeadlessSession implements SessionActor {
 
     private ModemState state;
     private RawBytes lastCommandLine = RawBytes.empty();
+    private RawBytes pendingSmsBytes = RawBytes.empty();
     private PendingSms pendingSms;
 
     public HeadlessSession(String sessionId, Profile profile, long sessionSeed) {
@@ -70,11 +71,15 @@ public final class HeadlessSession implements SessionActor {
         int start = eventCount();
         RawBytes output = RawBytes.empty();
         publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
+        if (state.call().mode() == CallMode.ONLINE_DATA && !isEscapeSequence(bytes)) {
+            return response(RawBytes.empty(), start);
+        }
         if (state.settings().echo()) {
             output = output.append(bytes);
         }
         RawBytes effective = bytes.ascii().equals("A/") ? lastCommandLine : bytes;
-        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5()).parse(effective, entryMode());
+        List<ParsedCommand> commands = new AtCommandParser(state.settings().s5(), state.settings().s3())
+                .parse(effective, entryMode());
         if (!bytes.ascii().equals("A/")) {
             lastCommandLine = bytes;
         }
@@ -88,6 +93,7 @@ public final class HeadlessSession implements SessionActor {
             output = output.append(renderFrames(result.frames()));
             if (command.normalizedName().equals("+CMGS") && result.finalResult() == null) {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
+                pendingSmsBytes = RawBytes.empty();
             }
             publish(EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(), command, before, state, result);
             finalResult = result;
@@ -107,25 +113,29 @@ public final class HeadlessSession implements SessionActor {
     private SessionResponse receiveSmsEntry(RawBytes bytes) {
         int start = eventCount();
         publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null, true);
-        byte[] raw = bytes.toByteArray();
+        pendingSmsBytes = pendingSmsBytes.append(bytes);
+        byte[] raw = pendingSmsBytes.toByteArray();
         SmsSubmitResult result;
         Integer macroDelayMs = null;
         String macroOperation = null;
         String body = entryPayload(raw);
-        MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
         if (contains(raw, 27)) {
             result = smsSubmitProcessor.abort(state);
-        } else if (decision.matched()) {
-            ModemState macroState = applyFaults(state.withCall(CallRuntime.command()), decision);
-            RawBytes macroOutput = renderFrames(decision.frames());
-            macroDelayMs = decision.delayMs();
-            macroOperation = "macro-" + decision.macroId();
-            result = new SmsSubmitResult(macroState, macroOutput, "MACRO");
         } else if (contains(raw, 26)) {
-            result = smsSubmitProcessor.submit(pendingSms, body, clock.nowNanos(), state);
+            MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
+            if (decision.matched()) {
+                ModemState macroState = applyFaults(state.withCall(CallRuntime.command()), decision);
+                RawBytes macroOutput = renderFrames(decision.frames());
+                macroDelayMs = decision.delayMs();
+                macroOperation = "macro-" + decision.macroId();
+                result = new SmsSubmitResult(macroState, macroOutput, "MACRO");
+            } else {
+                result = smsSubmitProcessor.submit(pendingSms, body, clock.nowNanos(), state);
+            }
         } else {
             return response(RawBytes.empty(), start);
         }
+        pendingSmsBytes = RawBytes.empty();
         ModemState before = state;
         state = result.state();
         pendingSms = null;
@@ -226,6 +236,17 @@ public final class HeadlessSession implements SessionActor {
             case SMS_PDU_ENTRY -> EntryMode.SMS_PDU_ENTRY;
             default -> EntryMode.COMMAND;
         };
+    }
+
+    private boolean isEscapeSequence(RawBytes bytes) {
+        String text = bytes.ascii();
+        int end = text.length();
+        while (end > 0 && (text.charAt(end - 1) == state.settings().s3()
+                || text.charAt(end - 1) == '\r'
+                || text.charAt(end - 1) == '\n')) {
+            end--;
+        }
+        return text.substring(0, end).equals("+++");
     }
 
     private SessionResponse response(RawBytes output, int start) {

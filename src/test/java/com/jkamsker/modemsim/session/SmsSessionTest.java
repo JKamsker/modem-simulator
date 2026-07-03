@@ -23,6 +23,23 @@ class SmsSessionTest {
     }
 
     @Test
+    void textModeCmgsAccumulatesBodyAcrossChunksUntilCtrlZ() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
+        SessionResponse partial = session.receive(RawBytes.ascii("hello "));
+        SessionResponse complete = session.receive(RawBytes.ascii("world\u001A"));
+
+        assertThat(partial.outputHex()).isEmpty();
+        assertThat(partial.events()).extracting(event -> event.eventType().name()).containsExactly("RX_BYTES");
+        assertThat(complete.events()).extracting(event -> event.eventType().name()).contains("SCHEDULER_ENQUEUE");
+        session.drainScheduled();
+        assertThat(session.snapshot().sms().messages().values())
+                .extracting(message -> message.text())
+                .containsOnly("hello world");
+    }
+
+    @Test
     void sixthSmsInsideSlidingWindowUsesConfiguredCmsError() {
         HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
         for (int i = 0; i < 5; i++) {

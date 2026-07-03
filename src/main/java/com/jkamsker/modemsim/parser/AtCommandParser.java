@@ -6,9 +6,15 @@ import java.util.Locale;
 
 public final class AtCommandParser {
     private final int backspace;
+    private final int terminator;
 
     public AtCommandParser(int backspace) {
+        this(backspace, '\r');
+    }
+
+    public AtCommandParser(int backspace, int terminator) {
         this.backspace = backspace;
+        this.terminator = terminator;
     }
 
     public List<ParsedCommand> parse(RawBytes source, EntryMode mode) {
@@ -176,10 +182,14 @@ public final class AtCommandParser {
 
     private String stripTerminators(String text) {
         int end = text.length();
-        while (end > 0 && (text.charAt(end - 1) == '\r' || text.charAt(end - 1) == '\n')) {
+        while (end > 0 && isTerminator(text.charAt(end - 1))) {
             end--;
         }
         return text.substring(0, end);
+    }
+
+    private boolean isTerminator(char value) {
+        return value == terminator || value == '\r' || value == '\n';
     }
 
     private String applyBackspace(byte[] bytes) {

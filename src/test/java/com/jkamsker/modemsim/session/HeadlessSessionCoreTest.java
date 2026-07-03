@@ -67,4 +67,26 @@ class HeadlessSessionCoreTest {
         assertThat(session.receive(RawBytes.ascii("ATH\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().lines().dcd()).isFalse();
     }
+
+    @Test
+    void onlineDataModeTreatsNonEscapeBytesAsTransparentData() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        session.receive(RawBytes.ascii("ATD123\r"));
+        SessionResponse response = session.receive(RawBytes.ascii("AT\r"));
+
+        assertThat(response.outputHex()).isEmpty();
+        assertThat(response.events()).extracting(event -> event.eventType().name())
+                .containsExactly("RX_BYTES");
+        assertThat(session.snapshot().call().mode()).isEqualTo(CallMode.ONLINE_DATA);
+    }
+
+    @Test
+    void parserUsesActiveS3CommandTerminatorFromSessionState() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        session.receive(RawBytes.ascii("ATS3=59\r"));
+
+        assertThat(session.receive(RawBytes.ascii("AT;")).outputAscii()).isEqualTo(";\nOK;\n");
+    }
 }

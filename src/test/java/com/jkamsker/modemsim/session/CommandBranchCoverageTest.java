@@ -21,11 +21,11 @@ class CommandBranchCoverageTest {
         assertThat(session.receive(RawBytes.ascii("ATZ\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT&F\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("AT&W\r")).outputAscii()).contains("OK");
+        assertThat(session.receive(RawBytes.ascii("A/")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("NO CARRIER");
         assertThat(session.receive(RawBytes.ascii("ATD555\r")).outputAscii()).contains("CONNECT");
         assertThat(session.receive(RawBytes.ascii("+++\r")).outputAscii()).contains("OK");
         assertThat(session.receive(RawBytes.ascii("ATO\r")).outputAscii()).contains("CONNECT");
-        assertThat(session.receive(RawBytes.ascii("A/")).outputAscii()).contains("CONNECT");
     }
 
     @Test

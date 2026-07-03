@@ -43,4 +43,11 @@ class AtCommandParserTest {
 
         assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("ATI");
     }
+
+    @Test
+    void honorsConfiguredCommandTerminator() {
+        var commands = new AtCommandParser(8, ';').parse(RawBytes.ascii("AT;"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT");
+    }
 }
