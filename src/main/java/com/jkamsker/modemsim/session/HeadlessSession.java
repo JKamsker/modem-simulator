@@ -166,20 +166,20 @@ public final class HeadlessSession implements SessionActor {
     public synchronized ModemState snapshot() { return state; }
     public synchronized List<ModemEvent> events() { return events.eventsSince(0); }
     public synchronized SessionResponse injectDce(RawBytes bytes, String injectionType) {
-        int start = eventCount();
-        events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, state, state);
+        int start = eventCount(); long startedNanos = clock.nowNanos();
+        events.publishAuditMeasured(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, state, state, startedNanos);
         events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
         return response(bytes, start);
     }
     public synchronized SessionResponse injectDte(RawBytes bytes, String injectionType) {
-        int start = eventCount();
-        events.publishAudit(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, null, bytes, state, state);
+        int start = eventCount(); long startedNanos = clock.nowNanos();
+        events.publishAuditMeasured(EventType.INJECTION, Direction.DTE_TO_DCE, injectionType, null, bytes, state, state, startedNanos);
         SessionResponse processed = receive(bytes);
         return response(processed.output(), start);
     }
     public synchronized SessionResponse injectParsedCommand(RawBytes bytes, String injectionType) {
-        int start = eventCount();
-        events.publishAudit(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state);
+        int start = eventCount(); long startedNanos = clock.nowNanos();
+        events.publishAuditMeasured(EventType.INJECTION, Direction.INTERNAL, injectionType, null, bytes, state, state, startedNanos);
         List<ParsedCommand> commands;
         try {
             commands = parseCommands(bytes);
@@ -221,8 +221,8 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse diagnostic(EventType eventType, String result) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state); return response(RawBytes.empty(), start); }
     public synchronized SessionResponse diagnostic(EventType eventType, String result, String port, String portRole) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state, port, portRole); return response(RawBytes.empty(), start); }
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
-        int start = eventCount();
-        events.publishAudit(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state);
+        int start = eventCount(); long startedNanos = clock.nowNanos();
+        events.publishAuditMeasured(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state, startedNanos);
         pendingMacroTransitions.removeCancelled(scheduler.cancelMacroReloadable(state));
         events.replaceMacroHash(next.hash());
         macroEngine = next; commandRouter = commandRouter(next); commandExecutor = commandExecutor(commandRouter);

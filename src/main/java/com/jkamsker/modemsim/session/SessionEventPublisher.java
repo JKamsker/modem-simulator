@@ -143,7 +143,7 @@ final class SessionEventPublisher {
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), ParsedCommandEventData.from(command, redactor), profileId,
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                macroId(result), result == null ? null : latencyMs, null, 0,
+                SessionEventData.macroId(result), result == null ? null : latencyMs, null, 0,
                 replayDivergent(type),
                 result == null ? null : result.handler(),
                 result == null || result.finalResult() == null ? null : result.finalResult().name(),
@@ -171,7 +171,7 @@ final class SessionEventPublisher {
         data.put("operation", emission.operation());
         data.put("sampledDelayMs", emission.sampledDelayMs());
         data.put("cancelled", cancelled);
-        String macroId = macroId(emission.operation());
+        String macroId = SessionEventData.macroId(emission.operation());
         boolean stateRedacted = stateRedactor.containsSensitiveData(state);
         delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type,
@@ -185,12 +185,26 @@ final class SessionEventPublisher {
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after) {
-        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole);
+        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, null);
+    }
+
+    void publishAuditMeasured(
+            EventType type, Direction direction, String injectionType, String result,
+            RawBytes raw, ModemState before, ModemState after, long startedNanos) {
+        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole,
+                Math.max(0, clock.nowNanos() - startedNanos) / 1_000_000.0);
     }
 
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole) {
+        publishAudit(type, direction, injectionType, result, raw, before, after, eventPort, eventPortRole, null);
+    }
+
+    private void publishAudit(
+            EventType type, Direction direction, String injectionType, String result,
+            RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole,
+            Double latencyMs) {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, false);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
@@ -200,7 +214,7 @@ final class SessionEventPublisher {
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), null, profileId,
                 eventPort, eventPortRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
-                null, null, injectionType, 0, replayDivergent(type), null, result, null,
+                null, latencyMs, injectionType, 0, replayDivergent(type), null, result, null,
                 stateBeforeRedacted ? stateRedactor.redactSensitiveData(before) : before,
                 stateAfterRedacted ? stateRedactor.redactSensitiveData(after) : after,
                 redaction));
@@ -213,7 +227,7 @@ final class SessionEventPublisher {
         data.put("frameCount", decision.frames().size());
         data.put("faultCount", decision.faults().size());
         data.put("statePatchCount", decision.statePatches().size());
-        data.put("events", decision.events().stream().map(this::eventData).toList());
+        data.put("events", decision.events().stream().map(SessionEventData::macroEvent).toList());
         Map<String, Object> parsed = new LinkedHashMap<>();
         parsed.put("macroDecision", data);
         boolean stateRedacted = stateRedactor.containsSensitiveData(state);
@@ -230,7 +244,7 @@ final class SessionEventPublisher {
     void publishMacroEvents(List<MacroEventAction> actions, String macroId, ModemState state) {
         for (MacroEventAction action : actions) {
             Map<String, Object> parsed = new LinkedHashMap<>();
-            parsed.put("macroEvent", eventData(action));
+            parsed.put("macroEvent", SessionEventData.macroEvent(action));
             boolean stateRedacted = stateRedactor.containsSensitiveData(state);
             ModemState visibleState = stateRedacted ? stateRedactor.redactSensitiveData(state) : state;
             delivery.publish(new ModemEvent(
@@ -266,29 +280,6 @@ final class SessionEventPublisher {
         }
         List<ModemEvent> events = memorySink.events();
         return new ArrayList<>(events.subList(Math.min(start, events.size()), events.size()));
-    }
-
-    private Map<String, Object> eventData(MacroEventAction event) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("type", event.type());
-        data.put("message", event.message());
-        return data;
-    }
-
-    private String macroId(CommandResult result) {
-        if (result == null || result.handler() == null) {
-            return null;
-        }
-        for (String part : result.handler().split("\\+")) {
-            if (part.startsWith("Macro:")) {
-                return part.substring("Macro:".length());
-            }
-        }
-        return null;
-    }
-
-    private String macroId(String operation) {
-        return operation != null && operation.startsWith("macro-") ? operation.substring("macro-".length()) : null;
     }
 
     private OffsetDateTime timestamp() {

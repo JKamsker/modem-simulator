@@ -65,6 +65,15 @@ class HandlerLatencyTest {
         assertThat(event(response.events(), EventType.HANDLER_RESULT).latencyMs()).isEqualTo(33.0);
     }
 
+    @Test
+    void injectionLatencyIsMeasured() {
+        HeadlessSession session = new HeadlessSession("injection-latency", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.injectDce(RawBytes.ascii("+CREG: 4\r\n"), "raw-dce-to-dte");
+
+        assertThat(event(response.events(), EventType.INJECTION).latencyMs()).isNotNull();
+    }
+
     private Profile profileWithDelay(String operation, int delayMs) {
         Profile base = BuiltinProfiles.acceptanceSierra();
         NetworkRuntime network = base.initialState().network();

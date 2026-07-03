@@ -4,14 +4,37 @@ import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.app.RuntimeTimer;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.session.HeadlessSession;
-import javafx.collections.FXCollections;
-import javafx.collections.transformation.FilteredList;
+import javafx.application.Platform;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.Button;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TabPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class GuiAcceptanceHarness {
+    private static final AtomicBoolean STARTED = new AtomicBoolean();
+
+    public static void main(String[] args) {
+        if (args.length == 1 && args[0].equals("live-log-filter-export")) {
+            try {
+                new GuiAcceptanceHarness().liveLogFilterExportInProcess();
+            } finally {
+                Platform.exit();
+            }
+            return;
+        }
+        throw new IllegalArgumentException("Unknown GUI acceptance probe");
+    }
+
     public void liveLog() {
         GuiSessionController controller = controller(false);
         var response = controller.rawDteToDce("AT\\r");
@@ -24,18 +47,56 @@ public final class GuiAcceptanceHarness {
     }
 
     public void liveLogFilterExport() {
-        GuiSessionController controller = controller(false);
-        var events = FXCollections.observableArrayList(controller.rawDteToDce("AT\\r").events());
-        FilteredList<com.jkamsker.modemsim.monitor.ModemEvent> filtered =
-                new FilteredList<>(events, event -> true);
-        int total = filtered.size();
-        filtered.setPredicate(event -> GuiLogPane.matches(event, "TX_BYTES"));
-        require(total > filtered.size() && filtered.size() == 1);
-        String export = controller.jsonl(List.copyOf(filtered));
-        require(export.contains("\"eventType\":\"TX_BYTES\""));
-        require(!export.contains("\"eventType\":\"RX_BYTES\""));
-        filtered.setPredicate(event -> GuiLogPane.matches(event, "HayesHandler"));
-        require(filtered.size() == 1 && "HayesHandler".equals(filtered.getFirst().handler()));
+        if (displayMissing() && !Boolean.getBoolean("modemsim.gui.acceptance.child")) {
+            runUnderXvfb();
+            return;
+        }
+        liveLogFilterExportInProcess();
+    }
+
+    private void liveLogFilterExportInProcess() {
+        try {
+            startToolkit();
+            Parent root = fx(() -> new SimulatorView().root());
+            fx(() -> {
+                ((Button) find(root, "inject.sendDte")).fire();
+                TableView<?> table = (TableView<?>) find(root, "log.table");
+                int total = table.getItems().size();
+                ((TextField) find(root, "log.filter")).setText("TX_BYTES");
+                require(total > table.getItems().size() && table.getItems().size() == 1,
+                        "filtered rows=" + table.getItems().size() + " total=" + total);
+                ((Button) find(root, "log.export")).fire();
+                String export = ((TextArea) find(root, "export.preview")).getText();
+                require(export.contains("\"eventType\":\"TX_BYTES\""), "filtered export missing TX_BYTES: " + export);
+                require(!export.contains("\"eventType\":\"RX_BYTES\""), "filtered export leaked RX_BYTES: " + export);
+                return null;
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException("GUI live-log filter acceptance check failed: " + e.getMessage(), e);
+        }
+    }
+
+    private void runUnderXvfb() {
+        try {
+            String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+            Process process = new ProcessBuilder("xvfb-run", "-a", java,
+                    "-Dmodemsim.gui.acceptance.child=true", "-cp", System.getProperty("java.class.path"),
+                    GuiAcceptanceHarness.class.getName(), "live-log-filter-export")
+                    .redirectErrorStream(true)
+                    .start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            require(process.waitFor() == 0, "xvfb JavaFX probe failed: " + output);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Cannot start xvfb JavaFX probe", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while running xvfb JavaFX probe", e);
+        }
+    }
+
+    private boolean displayMissing() {
+        String display = System.getenv("DISPLAY");
+        return display == null || display.isBlank();
     }
 
     public void injection() {
@@ -100,6 +161,37 @@ public final class GuiAcceptanceHarness {
                 .anyMatch(control -> control.id().equals(id) && !control.enabled());
     }
 
+    private static void startToolkit() throws Exception {
+        if (STARTED.compareAndSet(false, true)) {
+            FutureTask<Void> task = new FutureTask<>(() -> null);
+            Platform.startup(task);
+            task.get();
+        }
+    }
+
+    private static <T> T fx(java.util.concurrent.Callable<T> action) throws Exception {
+        FutureTask<T> task = new FutureTask<>(action);
+        Platform.runLater(task);
+        return task.get();
+    }
+
+    private static Node find(Node node, String id) {
+        if (id.equals(node.getId())) { return node; }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                Node found = find(child, id);
+                if (found != null) { return found; }
+            }
+        }
+        if (node instanceof TabPane tabPane) {
+            for (var tab : tabPane.getTabs()) {
+                Node found = find(tab.getContent(), id);
+                if (found != null) { return found; }
+            }
+        }
+        return null;
+    }
+
     private void requireThrows(Runnable action) {
         try {
             action.run();
@@ -110,8 +202,12 @@ public final class GuiAcceptanceHarness {
     }
 
     private void require(boolean condition) {
+        require(condition, "GUI acceptance check failed");
+    }
+
+    private void require(boolean condition, String message) {
         if (!condition) {
-            throw new IllegalStateException("GUI acceptance check failed");
+            throw new IllegalStateException(message);
         }
     }
 }
