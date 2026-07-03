@@ -1,9 +1,7 @@
 package com.jkamsker.modemsim.app;
 
 import com.jkamsker.modemsim.parser.RawBytes;
-import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
-import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.session.SessionResponse;
 import com.jkamsker.modemsim.transport.HeadlessEndpoint;
@@ -13,13 +11,12 @@ import com.jkamsker.modemsim.transport.SerialException;
 import com.jkamsker.modemsim.transport.SerialRead;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 final class ModemRuntime {
     private final EndpointFactory endpointFactory;
+    private final ProfileResolver profileResolver = new ProfileResolver();
 
     ModemRuntime() {
         this(ModemRuntime::defaultEndpoint);
@@ -31,7 +28,7 @@ final class ModemRuntime {
 
     RuntimeResult run(RuntimeConfig config, List<RawBytes> headlessInputs, int maxReads) {
         PortBinding modemPort = config.modemPort();
-        Profile profile = resolveProfile(modemPort.profile());
+        Profile profile = profileResolver.resolve(modemPort.profile());
         HeadlessSession session = new HeadlessSession("main", profile, config.sessionSeed());
         SerialEndpoint modemEndpoint = endpointFactory.create(modemPort);
         List<SerialEndpoint> sidecars = new ArrayList<>();
@@ -122,20 +119,6 @@ final class ModemRuntime {
         for (SerialEndpoint sidecar : sidecars) {
             sidecar.close();
         }
-    }
-
-    private Profile resolveProfile(String profile) {
-        if (profile == null || profile.equals(BuiltinProfiles.acceptanceSierra().id())) {
-            return BuiltinProfiles.acceptanceSierra();
-        }
-        if (profile.equals(BuiltinProfiles.westermoTd22().id())) {
-            return BuiltinProfiles.westermoTd22();
-        }
-        Path path = Path.of(profile);
-        if (Files.exists(path)) {
-            return new ProfileXmlLoader().load(path);
-        }
-        throw new IllegalArgumentException("Unknown profile: " + profile);
     }
 
     private static SerialEndpoint defaultEndpoint(PortBinding binding) {

@@ -3,6 +3,10 @@ package com.jkamsker.modemsim.app;
 import com.jkamsker.modemsim.macros.MacroLoader;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
+import com.jkamsker.modemsim.replay.ReplayReport;
+import com.jkamsker.modemsim.replay.ReplayStepLoader;
+import com.jkamsker.modemsim.replay.ReplayValidator;
+import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.transport.PortDiscovery;
 import com.jkamsker.modemsim.testkit.AcceptanceResult;
 import com.jkamsker.modemsim.testkit.AcceptanceSuite;
@@ -63,6 +67,7 @@ public final class ModemSimCli {
                 case "validate-config" -> report(new ConfigValidator().validate(pathArg(args, 1)));
                 case "coverage" -> coverage(args);
                 case "test" -> test(args);
+                case "replay" -> replay(args);
                 case "list-ports" -> listPorts();
                 default -> {
                     usage();
@@ -79,6 +84,26 @@ public final class ModemSimCli {
                     + " reads=" + result.readsProcessed()
                     + " outputHex=" + result.output().toHex());
             return 0;
+        }
+
+        private int replay(String[] args) {
+            Path logPath = pathArg(args, 1);
+            String mode = option(args, "--mode", "validate-recompute");
+            if (!mode.equals("validate-recompute")) {
+                err.println("Unsupported replay mode for CLI: " + mode);
+                return 2;
+            }
+            String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
+            long seed = longOption(args, "--seed", 12345L);
+            var steps = new ReplayStepLoader().load(logPath);
+            HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed);
+            ReplayReport report = new ReplayValidator().validateRecompute(session, steps);
+            if (report.valid()) {
+                out.println("REPLAY OK steps=" + steps.size());
+                return 0;
+            }
+            report.divergences().forEach(divergence -> err.println("DIVERGENCE: " + divergence));
+            return 1;
         }
 
         private int coverage(String[] args) {
@@ -137,6 +162,11 @@ public final class ModemSimCli {
             return value == null ? fallback : Integer.parseInt(value);
         }
 
+        private long longOption(String[] args, String name, long fallback) {
+            String value = option(args, name, null);
+            return value == null ? fallback : Long.parseLong(value);
+        }
+
         private List<RawBytes> runInputs(String[] args) {
             List<RawBytes> inputs = new ArrayList<>();
             for (int i = 0; i < args.length - 1; i++) {
@@ -175,6 +205,7 @@ public final class ModemSimCli {
                       modemsim validate-config <config.yaml>
                       modemsim coverage verify --profiles v1-targets
                       modemsim test --suite acceptance --case A01
+                      modemsim replay logs/session.jsonl --mode validate-recompute --profile sierra-hl6-hl8-v20
                       modemsim list-ports
                     """);
         }
