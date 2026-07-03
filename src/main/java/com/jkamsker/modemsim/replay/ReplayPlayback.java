@@ -3,10 +3,13 @@ package com.jkamsker.modemsim.replay;
 import com.jkamsker.modemsim.monitor.Direction;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
+import com.jkamsker.modemsim.session.HeadlessSession;
+import com.jkamsker.modemsim.session.SessionResponse;
 import com.jkamsker.modemsim.transport.SerialConfig;
 import com.jkamsker.modemsim.transport.SerialEndpoint;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -25,6 +28,30 @@ public final class ReplayPlayback {
         return steps.stream()
                 .map(ReplayStep::expectedOutput)
                 .reduce(RawBytes.empty(), RawBytes::append);
+    }
+
+    public SessionResponse playToSession(
+            HeadlessSession session, List<ReplayStep> steps, boolean recordedTiming) {
+        RawBytes output = RawBytes.empty();
+        var events = new ArrayList<com.jkamsker.modemsim.monitor.ModemEvent>();
+        for (ReplayStep step : steps) {
+            List<ReplayEventExpectation> tx = txEvents(step);
+            if (tx.isEmpty()) {
+                SessionResponse response = session.injectDce(step.expectedOutput(), "replay");
+                output = output.append(response.output());
+                events.addAll(response.events());
+                continue;
+            }
+            for (ReplayEventExpectation event : tx) {
+                if (recordedTiming && event.monotonicNanos() != null) {
+                    events.addAll(session.advanceTo(event.monotonicNanos()).events());
+                }
+                SessionResponse response = session.injectDce(RawBytes.hex(event.rawHex()), "replay");
+                output = output.append(response.output());
+                events.addAll(response.events());
+            }
+        }
+        return new SessionResponse(output, events);
     }
 
     public RawBytes play(

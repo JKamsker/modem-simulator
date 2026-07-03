@@ -78,9 +78,17 @@ public final class ReplayStepLoader {
         if (active) {
             steps.add(new ReplayStep(pendingInput, pendingOutput, drainScheduled, pendingEvents));
         } else if (!preambleEvents.isEmpty()) {
-            steps.add(new ReplayStep(RawBytes.empty(), RawBytes.empty(), false, preambleEvents));
+            steps.add(new ReplayStep(RawBytes.empty(), outputFrom(preambleEvents), false, preambleEvents));
         }
         return steps;
+    }
+
+    private RawBytes outputFrom(List<ReplayEventExpectation> events) {
+        return events.stream()
+                .filter(event -> event.eventType() == com.jkamsker.modemsim.monitor.EventType.TX_BYTES
+                        && event.direction() == com.jkamsker.modemsim.monitor.Direction.DCE_TO_DTE)
+                .map(event -> rawHex(event.rawHex()))
+                .reduce(RawBytes.empty(), RawBytes::append);
     }
 
     private List<ReplayStep> loadYamlLines(List<String> lines) {

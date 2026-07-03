@@ -180,6 +180,19 @@ class GuiSessionControllerTest {
     }
 
     @Test
+    void replayPlayToDteUsesCapturedTxEventTiming(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        Path log = txOnlyReplayLog(tempDir.resolve("tx-only.jsonl"));
+
+        ReplaySummary summary = controller(true).replay(log, "play-to-dte", true, true, true);
+
+        assertThat(summary.response().outputAscii()).isEqualTo("AB");
+        assertThat(summary.response().events().stream()
+                .filter(event -> event.eventType() == EventType.TX_BYTES)
+                .map(event -> event.monotonicNanos()).toList())
+                .containsExactly(10L, 20L);
+    }
+
+    @Test
     void macroReloadReportsHashAndValidationErrors() throws Exception {
         GuiSessionController controller = controller();
 
@@ -241,6 +254,14 @@ class GuiSessionControllerTest {
                 "gui-replay", BuiltinProfiles.acceptanceSierra(), 12345, new InMemoryEventSink(),
                 MacroEngine.empty(), "virtual", "gui-headless", "modem-simulation");
         Files.writeString(log, ModemEventJson.toJsonLines(capture.receive(com.jkamsker.modemsim.parser.RawBytes.ascii("AT\r")).events()));
+        return log;
+    }
+
+    private Path txOnlyReplayLog(Path log) throws Exception {
+        Files.writeString(log, """
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":10,"sequence":1,"sessionId":"main","eventType":"TX_BYTES","direction":"DCE_TO_DTE","rawHex":"41","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                {"timestamp":"2026-01-01T00:00:00Z","monotonicNanos":20,"sequence":2,"sessionId":"main","eventType":"TX_BYTES","direction":"DCE_TO_DTE","rawHex":"42","profileHash":"sha256:1111111111111111111111111111111111111111111111111111111111111111","configHash":"sha256:2222222222222222222222222222222222222222222222222222222222222222","macroHash":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","initialStateHash":"sha256:3333333333333333333333333333333333333333333333333333333333333333","sessionSeed":12345,"clockMode":"virtual","redaction":{"applied":false,"policy":"default-v1","fields":[],"classes":[]}}
+                """);
         return log;
     }
 

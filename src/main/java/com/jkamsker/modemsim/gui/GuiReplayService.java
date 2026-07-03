@@ -63,10 +63,9 @@ final class GuiReplayService {
         if (!report.valid()) {
             return summary(report, "DIVERGENCE: " + String.join("; ", report.divergences()), emptyResponse());
         }
-        RawBytes bytes = playback.combinedOutput(steps);
-        SessionResponse response = session.injectDce(bytes, "replay");
+        SessionResponse response = playback.playToSession(session, steps, virtualClock);
         String hashStatus = hashReport.valid() ? "hashes valid" : "hash divergence confirmed";
-        return new ReplaySummary(hashStatus, "PLAY_TO_DTE bytes=" + bytes.toHex(), response);
+        return new ReplaySummary(hashStatus, "PLAY_TO_DTE bytes=" + response.outputHex(), response);
     }
 
     private ReplayReport validationReport(

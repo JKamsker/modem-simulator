@@ -132,6 +132,7 @@ final class SimulatorView {
         TextField lac = ui.field("state.lac", "00C3");
         TextField ci = ui.field("state.ci", "00001234");
         TextField act = ui.field("state.act", "7");
+        TextField rejectCauseType = ui.field("state.rejectCauseType", "");
         TextField rejectCause = ui.field("state.rejectCause", "");
         TextField signal = ui.field("state.signal", "18,0");
         ComboBox<String> smsStorage = ui.combo("state.smsStorage", "ME", "SM", "MT");
@@ -147,17 +148,19 @@ final class SimulatorView {
         ui.add(grid, 5, "LAC", lac);
         ui.add(grid, 6, "CI", ci);
         ui.add(grid, 7, "AcT", act);
-        ui.add(grid, 8, "Reject cause", rejectCause);
-        ui.add(grid, 9, "Signal", signal);
-        ui.add(grid, 10, "SMS store", smsStorage);
-        ui.add(grid, 11, "Call mode", callMode);
-        ui.add(grid, 12, "Lifecycle", lifecycle);
-        ui.add(grid, 13, "Freeze", freeze);
-        ui.add(grid, 14, "Lines", lines);
+        ui.add(grid, 8, "Reject type", rejectCauseType);
+        ui.add(grid, 9, "Reject cause", rejectCause);
+        ui.add(grid, 10, "Signal", signal);
+        ui.add(grid, 11, "SMS store", smsStorage);
+        ui.add(grid, 12, "Call mode", callMode);
+        ui.add(grid, 13, "Lifecycle", lifecycle);
+        ui.add(grid, 14, "Freeze", freeze);
+        ui.add(grid, 15, "Lines", lines);
         Button apply = ui.button("state.apply", "Apply");
         apply.setOnAction(event -> handle(controller.applyState(GuiStatePatchFactory.fromValues(
                 simState.getValue(), pinRetries.getText(), pukRetries.getText(), networkStat.getText(),
-                cregN.getText(), lac.getText(), ci.getText(), act.getText(), signal.getText(), "", rejectCause.getText(),
+                cregN.getText(), lac.getText(), ci.getText(), act.getText(),
+                signal.getText(), rejectCauseType.getText(), rejectCause.getText(),
                 smsStorage.getValue(), callMode.getText(), lifecycle.getText(), freeze.getText(), lines.getText()))));
         return new VBox(8, grid, apply);
     }
@@ -222,31 +225,33 @@ final class SimulatorView {
         CheckBox divergenceConfirm = ui.register(new CheckBox("Confirm divergence"), "replay.divergenceConfirm");
         virtualClock.setSelected(true);
         Button validate = ui.button("replay.validate", "Validate");
+        Button runSelected = ui.button("replay.runSelected", "Run");
         Button drive = ui.button("replay.driveFromCapturedInput", "Drive Input");
         Button play = ui.button("replay.playToDte", "Play to DTE");
         validate.setOnAction(event -> {
             ReplaySummary result = controller.replay(Path.of(logFile.getText()), "validate-recompute", virtualClock.isSelected());
-            hashStatus.setText(result.hashStatus());
-            divergences.setText(result.message());
-            handle(result.response());
+            showReplay(result, hashStatus, divergences);
+        });
+        runSelected.setOnAction(event -> {
+            ReplaySummary result = controller.replay(
+                    Path.of(logFile.getText()), mode.getValue(), virtualClock.isSelected(),
+                    confirm.isSelected(), divergenceConfirm.isSelected());
+            showReplay(result, hashStatus, divergences);
         });
         drive.setOnAction(event -> {
             ReplaySummary result = controller.replay(Path.of(logFile.getText()), "drive-from-captured-input", virtualClock.isSelected());
-            hashStatus.setText(result.hashStatus());
-            divergences.setText(result.message());
-            handle(result.response());
+            showReplay(result, hashStatus, divergences);
         });
         play.setOnAction(event -> {
             ReplaySummary result = controller.replay(
                     Path.of(logFile.getText()), "play-to-dte", virtualClock.isSelected(),
                     confirm.isSelected(), divergenceConfirm.isSelected());
-            divergences.setText(result.message());
-            handle(result.response());
+            showReplay(result, hashStatus, divergences);
         });
         return new VBox(8,
                 mode, logFile,
                 hashStatus, virtualClock, confirm, divergenceConfirm, divergences,
-                new HBox(8, validate, drive, play));
+                new HBox(8, validate, runSelected, drive, play));
     }
 
     private Node exportPane() {
@@ -265,6 +270,8 @@ final class SimulatorView {
     private void handle(SessionResponse response) {
         display.handle(response);
     }
+
+    private void showReplay(ReplaySummary result, Label hashStatus, Label divergences) { hashStatus.setText(result.hashStatus()); divergences.setText(result.message()); handle(result.response()); }
 
     private void refreshState() {
         display.refreshState();
