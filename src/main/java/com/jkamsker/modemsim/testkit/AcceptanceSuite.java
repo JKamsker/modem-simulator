@@ -21,6 +21,8 @@ import com.jkamsker.modemsim.validation.ConfigValidator;
 import com.jkamsker.modemsim.validation.CoverageValidator;
 import com.jkamsker.modemsim.validation.ScenarioValidator;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -52,7 +54,7 @@ public final class AcceptanceSuite {
                 case "A12" -> smsMacro();
                 case "A13" -> require(new GuiControlCatalog().controls().stream().anyMatch(c -> c.id().equals("log.table")));
                 case "A14" -> guiReadOnly();
-                case "A15" -> require(true);
+                case "A15" -> noControlApi();
                 case "A16" -> require(new CoverageValidator()
                         .verifyV1Targets(Path.of("src/main/resources/coverage/v1-targets")).valid());
                 case "A17" -> require(!new ProfileXmlLoader()
@@ -145,6 +147,63 @@ public final class AcceptanceSuite {
     private void guiReadOnly() {
         var controls = new ReadOnlyPolicy().apply(new GuiControlCatalog().controls(), true);
         require(controls.stream().filter(c -> c.id().startsWith("inject.")).noneMatch(com.jkamsker.modemsim.gui.GuiControl::enabled));
+    }
+
+    private void noControlApi() {
+        var hits = forbiddenControlApiReferences();
+        require(hits.isEmpty());
+        String httpToken = "http";
+        String wsToken = "web" + "socket";
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            String name = thread.getName().toLowerCase();
+            require(!name.contains(httpToken) && !name.contains(wsToken));
+        }
+    }
+
+    private List<String> forbiddenControlApiReferences() {
+        List<String> needles = List.of(
+                "Http" + "Server",
+                "Server" + "Socket",
+                "Web" + "Socket",
+                "com.sun.net." + "httpserver",
+                "springframework" + ".web",
+                "jetty-" + "server",
+                "under" + "tow",
+                "netty" + "-all",
+                "spring-boot-starter-" + "web");
+        var hits = new java.util.ArrayList<String>();
+        scanForNeedles(Path.of("src/main/java"), needles, hits);
+        scanForNeedles(Path.of("pom.xml"), needles, hits);
+        return hits;
+    }
+
+    private void scanForNeedles(Path root, List<String> needles, List<String> hits) {
+        try {
+            if (Files.isRegularFile(root)) {
+                scanFile(root, needles, hits);
+                return;
+            }
+            try (var files = Files.walk(root)) {
+                files.filter(Files::isRegularFile)
+                        .filter(path -> path.getFileName().toString().endsWith(".java"))
+                        .forEach(path -> scanFile(path, needles, hits));
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot scan for control APIs", e);
+        }
+    }
+
+    private void scanFile(Path path, List<String> needles, List<String> hits) {
+        try {
+            String content = Files.readString(path);
+            for (String needle : needles) {
+                if (content.contains(needle)) {
+                    hits.add(path + ":" + needle);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot scan " + path, e);
+        }
     }
 
     private void replay() {

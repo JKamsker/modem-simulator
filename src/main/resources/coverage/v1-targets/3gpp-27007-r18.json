@@ -1,9 +1,9 @@
 {
   "profile": "3gpp-27007-r18",
   "source": "references/snapshots/3gpp-27007.md",
-  "commands_total": 11,
+  "commands_total": 13,
   "implemented_full": 9,
-  "implemented_stub": 2,
+  "implemented_stub": 4,
   "unsupported_declared": 0,
   "not_applicable": 0,
   "unknown": 0,
@@ -18,6 +18,8 @@
     {"command": "+CGMI", "status": "implemented_full", "handler": "CellularHandler"},
     {"command": "+CGMM", "status": "implemented_full", "handler": "CellularHandler"},
     {"command": "+CGMR", "status": "implemented_full", "handler": "CellularHandler"},
-    {"command": "+CGSN", "status": "implemented_full", "handler": "CellularHandler"}
+    {"command": "+CGSN", "status": "implemented_full", "handler": "CellularHandler"},
+    {"command": "+CCLK", "status": "implemented_stub", "handler": "unsupported_declared"},
+    {"command": "+CFUN", "status": "implemented_stub", "handler": "unsupported_declared"}
   ]
 }

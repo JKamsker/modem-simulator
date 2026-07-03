@@ -27,6 +27,7 @@ public final class XmlSecurity {
             if (Files.size(xmlPath) > MAX_BYTES) {
                 throw new ValidationException("XML file exceeds maximum size: " + xmlPath);
             }
+            rejectExternalSchemaReferenceText(xmlPath);
             DocumentBuilderFactory factory = hardenedDocumentBuilderFactory();
             var builder = factory.newDocumentBuilder();
             builder.setErrorHandler(new SilentErrorHandler());
@@ -78,6 +79,8 @@ public final class XmlSecurity {
         if (depth > MAX_DEPTH) {
             throw new ValidationException("XML tree exceeds maximum depth");
         }
+        rejectXInclude(node);
+        rejectExternalSchemaReference(node);
         String text = node.getNodeValue();
         if (text != null && text.length() > MAX_TEXT_LENGTH) {
             throw new ValidationException("XML text exceeds maximum length");
@@ -85,6 +88,39 @@ public final class XmlSecurity {
         for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
             checkDepth(child, depth + 1);
         }
+    }
+
+    private static void rejectXInclude(Node node) {
+        String name = node.getNodeName();
+        if ("http://www.w3.org/2001/XInclude".equals(node.getNamespaceURI())
+                || "xi:include".equals(name) || name.endsWith(":include")) {
+            throw new ValidationException("XML XInclude is not allowed");
+        }
+    }
+
+    private static void rejectExternalSchemaReference(Node node) {
+        if (!node.hasAttributes()) {
+            return;
+        }
+        for (int i = 0; i < node.getAttributes().getLength(); i++) {
+            Node attribute = node.getAttributes().item(i);
+            if (attribute.getNodeName().endsWith("schemaLocation") && hasUriScheme(attribute.getNodeValue())) {
+                throw new ValidationException("XML external schema references are not allowed");
+            }
+        }
+    }
+
+    private static void rejectExternalSchemaReferenceText(Path xmlPath) throws IOException {
+        String content = Files.readString(xmlPath);
+        String schemaLocation = "schema" + "Location";
+        if (content.matches("(?is).*" + schemaLocation
+                + "\\s*=\\s*['\"][^'\"]*[a-z][a-z0-9+.-]*://.*")) {
+            throw new ValidationException("XML external schema references are not allowed");
+        }
+    }
+
+    private static boolean hasUriScheme(String value) {
+        return value.matches("(?i).*[a-z][a-z0-9+.-]*://.*");
     }
 
     private static final class SilentErrorHandler implements ErrorHandler {

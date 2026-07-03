@@ -12,7 +12,11 @@ public record MatchSpec(
         Pattern rawRegex,
         String type,
         String destinationEquals,
-        String bodyContains
+        String destinationContains,
+        Pattern destinationRegex,
+        String bodyEquals,
+        String bodyContains,
+        Pattern bodyRegex
 ) {
     public boolean matchesCommand(ParsedCommand parsed) {
         String raw = parsed.rawText();
@@ -29,9 +33,8 @@ public record MatchSpec(
         if (!"sms-submit".equals(type)) {
             return false;
         }
-        boolean destinationOk = destinationEquals == null || destinationEquals.equals(destination);
-        boolean bodyOk = bodyContains == null || body.contains(bodyContains);
-        return destinationOk && bodyOk;
+        return stringMatches(destination, destinationEquals, destinationContains, destinationRegex)
+                && stringMatches(body, bodyEquals, bodyContains, bodyRegex);
     }
 
     private Pattern glob(String value) {
@@ -48,5 +51,15 @@ public record MatchSpec(
 
     public String normalizedMode() {
         return mode == null ? null : mode.toLowerCase(Locale.ROOT);
+    }
+
+    private boolean stringMatches(String value, String equals, String contains, Pattern regex) {
+        if (equals != null && !equals.equals(value)) {
+            return false;
+        }
+        if (contains != null && !value.contains(contains)) {
+            return false;
+        }
+        return regex == null || regex.matcher(value).find();
     }
 }

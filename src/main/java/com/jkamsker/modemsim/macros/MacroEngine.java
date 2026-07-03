@@ -23,8 +23,13 @@ public final class MacroEngine {
     }
 
     public MacroDecision evaluateCommand(ParsedCommand command, ModemState state, Profile profile) {
+        return evaluateCommand(command, state, profile, MacroPhase.REPLACE);
+    }
+
+    public MacroDecision evaluateCommand(
+            ParsedCommand command, ModemState state, Profile profile, MacroPhase phase) {
         for (MacroRule rule : macroSet.rules()) {
-            if (rule.enabled() && rule.phase() == MacroPhase.REPLACE && rule.match().matchesCommand(command)) {
+            if (rule.enabled() && rule.phase() == phase && rule.match().matchesCommand(command)) {
                 return decision(rule);
             }
         }

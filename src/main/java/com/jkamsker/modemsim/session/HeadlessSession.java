@@ -30,8 +30,8 @@ import java.util.List;
 
 public final class HeadlessSession implements SessionActor {
     private final Profile profile;
-    private final DefaultCommandRouter router = new DefaultCommandRouter();
     private final MacroEngine macroEngine;
+    private final MacroCommandRouter commandRouter;
     private final FaultService faultService = new FaultService();
     private final VirtualClock clock = new VirtualClock();
     private final DeterministicScheduler scheduler;
@@ -66,6 +66,8 @@ public final class HeadlessSession implements SessionActor {
             MacroEngine macroEngine, String clockMode) {
         this.profile = profile;
         this.macroEngine = macroEngine;
+        this.commandRouter = new MacroCommandRouter(
+                profile, new DefaultCommandRouter(), macroEngine, this::renderFrames, this::scheduleMacro);
         this.scheduler = new DeterministicScheduler(sessionSeed);
         this.state = profile.initialState();
         this.events = new SessionEventPublisher(sessionId, profile.id(), sessionSeed, state, clock, eventSink, clockMode);
@@ -101,8 +103,7 @@ public final class HeadlessSession implements SessionActor {
         for (ParsedCommand command : commands) {
             events.publishParsed(command, state);
             ModemState before = state;
-            MacroDecision decision = macroEngine.evaluateCommand(command, state, profile);
-            CommandResult result = decision.matched() ? executeMacro(decision) : router.route(profile, state, command);
+            CommandResult result = commandRouter.route(command, state);
             state = result.state();
             if (!state.settings().quiet()) {
                 output = output.append(renderFrames(result.frames()));
@@ -141,7 +142,7 @@ public final class HeadlessSession implements SessionActor {
         } else if (SessionBytes.contains(raw, 26)) {
             MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
             if (decision.matched()) {
-                ModemState macroState = applyFaults(state.withCall(CallRuntime.command()), decision);
+                ModemState macroState = commandRouter.applyFaults(state.withCall(CallRuntime.command()), decision);
                 RawBytes macroOutput = renderFrames(decision.frames());
                 macroDelayMs = decision.delayMs();
                 macroOperation = "macro-" + decision.macroId();
@@ -234,8 +235,12 @@ public final class HeadlessSession implements SessionActor {
     }
 
     private RawBytes renderFrames(List<ResponseFrame> frames) {
+        return renderFrames(frames, state);
+    }
+
+    private RawBytes renderFrames(List<ResponseFrame> frames, ModemState renderState) {
         RawBytes output = RawBytes.empty();
-        ResponseFormatter formatter = new ResponseFormatter(state);
+        ResponseFormatter formatter = new ResponseFormatter(renderState);
         for (ResponseFrame frame : frames) {
             output = output.append(frame.bytes(formatter));
         }
@@ -253,29 +258,22 @@ public final class HeadlessSession implements SessionActor {
     }
 
     private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay) {
+        return scheduleOrReturn(operation, payload, delay, state);
+    }
+
+    private RawBytes scheduleMacro(String operation, RawBytes payload, int delayMs, ModemState source) {
+        NetworkDelay delay = delayMs <= 0 ? null : new NetworkDelay(operation, delayMs, delayMs);
+        return scheduleOrReturn(operation, payload, delay, source);
+    }
+
+    private RawBytes scheduleOrReturn(String operation, RawBytes payload, NetworkDelay delay, ModemState source) {
         if (delay == null || delay.maxMs() == 0) {
             return payload;
         }
         ScheduledEmission emission = scheduler.enqueue(
-                clock.nowNanos(), events.nextSequence(), SourcePriority.RX, payload, state.version(), operation, delay);
-        events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, state);
+                clock.nowNanos(), events.nextSequence(), SourcePriority.RX, payload, source.version(), operation, delay);
+        events.publishScheduler(EventType.SCHEDULER_ENQUEUE, emission, source);
         return RawBytes.empty();
-    }
-
-    private CommandResult executeMacro(MacroDecision decision) {
-        ModemState next = applyFaults(state, decision);
-        RawBytes output = renderFrames(decision.frames());
-        RawBytes effective = scheduleOrReturn("macro-" + decision.macroId(), output, decision.delayMs());
-        return new CommandResult(next, List.of(new com.jkamsker.modemsim.commands.RawFrame(effective)),
-                null, "Macro:" + decision.macroId(), true);
-    }
-
-    private ModemState applyFaults(ModemState source, MacroDecision decision) {
-        ModemState next = source;
-        for (var fault : decision.faults()) {
-            next = faultService.apply(next, fault);
-        }
-        return next;
     }
 
     private EntryMode entryMode() {
