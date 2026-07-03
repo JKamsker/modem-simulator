@@ -165,7 +165,12 @@ class ModemRuntimeTest {
             files.filter(path -> path.getFileName().toString().endsWith(".json"))
                     .map(path -> path.getFileName().toString().replace(".json", ""))
                     .map(resolver::resolve)
-                    .forEach(profile -> assertThat(profile.parents()).doesNotContain(profile.id()));
+                    .forEach(profile -> {
+                        assertThat(profile.parents()).doesNotContain(profile.id());
+                        assertThat(profile.modelFamily()).isNotBlank();
+                        assertThat(profile.manualVersion()).isNotBlank();
+                        assertThat(profile.manualDate()).isNotBlank();
+                    });
         }
     }
 

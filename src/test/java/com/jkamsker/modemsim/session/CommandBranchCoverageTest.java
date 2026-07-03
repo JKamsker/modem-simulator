@@ -127,10 +127,12 @@ class CommandBranchCoverageTest {
     @Test
     void normative3gppProfilesExposeOnlyTheirCommandFamily() {
         HeadlessSession at27007 = new HeadlessSession("27007", BuiltinProfiles.byId("3gpp-27007-r18"), 12345);
+        assertThat(at27007.receive(RawBytes.ascii("AT\r")).outputAscii()).contains("OK");
         assertThat(at27007.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("+CREG");
         assertThat(at27007.receive(RawBytes.ascii("AT+CMGF?\r")).outputAscii()).contains("ERROR");
 
         HeadlessSession at27005 = new HeadlessSession("27005", BuiltinProfiles.byId("3gpp-27005-r16"), 12345);
+        assertThat(at27005.receive(RawBytes.ascii("AT\r")).outputAscii()).contains("OK");
         assertThat(at27005.receive(RawBytes.ascii("AT+CMGF?\r")).outputAscii()).contains("+CMGF");
         assertThat(at27005.receive(RawBytes.ascii("AT+CREG?\r")).outputAscii()).contains("ERROR");
     }

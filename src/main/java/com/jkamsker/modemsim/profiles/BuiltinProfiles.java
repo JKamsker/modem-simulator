@@ -2,7 +2,9 @@ package com.jkamsker.modemsim.profiles;
 
 import com.jkamsker.modemsim.state.ModemState;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class BuiltinProfiles {
     private BuiltinProfiles() {
@@ -137,8 +139,23 @@ public final class BuiltinProfiles {
     private static Profile profile(
             String id, List<String> parents, String vendor, String status, String profileKind,
             Dialect dialect, Identity identity, ModemState state) {
-        return new Profile(id, parents, vendor, status, profileKind, dialect, identity, state,
-                BuiltinProfileMetadata.commands(id), BuiltinProfileMetadata.registers(),
-                BuiltinProfileMetadata.coverage(id), List.of());
+        ProfileCoverage coverage = BuiltinProfileMetadata.coverage(id);
+        return new Profile(id, parents, vendor, status, profileKind,
+                identity.model(), id, manualDate(id), dialect, identity, state,
+                commands(id, parents), BuiltinProfileMetadata.registers(), coverage, List.of());
+    }
+
+    private static List<ProfileCommand> commands(String id, List<String> parents) {
+        Map<String, ProfileCommand> merged = new LinkedHashMap<>();
+        for (String parent : parents) {
+            byId(parent).commands().forEach(command -> merged.put(command.name(), command));
+        }
+        BuiltinProfileMetadata.commands(id).forEach(command -> merged.put(command.name(), command));
+        return List.copyOf(merged.values());
+    }
+
+    private static String manualDate(String id) {
+        return id.startsWith("3gpp") ? "2024-01-01"
+                : id.startsWith("westermo") ? "2023-01-01" : "2024-02-01";
     }
 }

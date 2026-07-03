@@ -12,7 +12,7 @@ import java.util.Set;
 public final class CoverageValidator {
     private static final Set<String> HAYES = Set.of(
             "AT", "A/", "+++", "ATE", "ATQ", "ATV", "ATZ", "AT&F", "AT&W", "AT&V",
-            "AT&D", "AT&C", "ATD", "ATH", "ATO", "ATS");
+            "AT&D", "AT&C", "ATD", "ATH", "ATO", "ATS", "ATI");
     private static final Set<String> CELLULAR = Set.of(
             "+CGMI", "+CGMM", "+CGMR", "+CGSN", "+CPIN", "+CMEE", "+CREG", "+CGREG",
             "+CEREG", "+CSQ", "+COPS", "+CCLK", "+CFUN");
@@ -20,9 +20,9 @@ public final class CoverageValidator {
             "+CMGF", "+CMGS", "+CMGR", "+CMGL", "+CMGD", "+CNMI", "+CPMS", "+CSCA", "+CSCS");
     private static final Set<String> SIERRA_VENDOR = Set.of("+KCNXCFG", "+KCNXTIMER", "+WDSI", "+WDSR", "+KSIMSLOT");
     private static final Set<String> WESTERMO_VENDOR = Set.of("+WIND", "+WIOR", "+WIOW", "+STSF", "+CCED");
-    private static final Set<String> SIERRA = union(HAYES, CELLULAR, SMS, Set.of("ATI"), SIERRA_VENDOR);
-    private static final Set<String> WESTERMO_ANALOG = union(HAYES, Set.of("ATI"));
-    private static final Set<String> WESTERMO_CELLULAR = union(HAYES, CELLULAR, SMS, Set.of("ATI"), WESTERMO_VENDOR);
+    private static final Set<String> SIERRA = union(HAYES, CELLULAR, SMS, SIERRA_VENDOR);
+    private static final Set<String> WESTERMO_ANALOG = HAYES;
+    private static final Set<String> WESTERMO_CELLULAR = union(HAYES, CELLULAR, SMS, WESTERMO_VENDOR);
     private static final Set<String> V1_TARGETS = Set.of(
             "generic-hayes-v250",
             "3gpp-27007-r18",

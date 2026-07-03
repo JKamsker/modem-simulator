@@ -59,6 +59,7 @@ final class ProfileXmlInheritanceResolver {
     private Profile mergeParent(Profile left, Profile right) {
         return left == null ? right : new Profile(
                 right.id(), right.parents(), right.vendor(), right.status(), right.profileKind(),
+                right.modelFamily(), right.manualVersion(), right.manualDate(),
                 right.dialect(), right.identity(), right.initialState(),
                 mergeBy(left.commands(), right.commands(), ProfileCommand::name),
                 mergeBy(left.registers(), right.registers(), ProfileRegister::name),
@@ -72,6 +73,9 @@ final class ProfileXmlInheritanceResolver {
         ModemState state = mergeState(parent.initialState(), child.initialState(), dialect, childElement);
         return new Profile(
                 child.id(), child.parents(), child.vendor(), child.status(), child.profileKind(),
+                value(child.modelFamily(), parent.modelFamily()),
+                value(child.manualVersion(), parent.manualVersion()),
+                value(child.manualDate(), parent.manualDate()),
                 dialect, identity, state,
                 metadata(parent.commands(), child.commands(), childElement, "commands", ProfileCommand::name),
                 metadata(parent.registers(), child.registers(), childElement, "registers", ProfileRegister::name),
@@ -83,6 +87,10 @@ final class ProfileXmlInheritanceResolver {
     private <T> List<T> metadata(
             List<T> parent, List<T> child, Element childElement, String elementName, Function<T, String> key) {
         return Dom.child(childElement, elementName) == null ? parent : mergeBy(parent, child, key);
+    }
+
+    private String value(String child, String parent) {
+        return child == null || child.isBlank() ? parent : child;
     }
 
     private <T> List<T> mergeBy(List<T> parent, List<T> child, Function<T, String> key) {

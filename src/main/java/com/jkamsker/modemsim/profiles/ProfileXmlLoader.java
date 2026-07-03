@@ -25,7 +25,6 @@ import org.w3c.dom.Element;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,10 +69,13 @@ public final class ProfileXmlLoader {
         ProfileXmlMetadata metadata = new ProfileXmlMetadataParser().parse(profile);
         return new Profile(
                 profile.getAttribute("id"),
-                parents(profile.getAttribute("extends")),
+                ProfileXmlSupport.parents(profile.getAttribute("extends")),
                 profile.getAttribute("vendor"),
                 profile.getAttribute("status"),
                 Dom.attr(profile, "profileKind", "cellular"),
+                Dom.attr(profile, "modelFamily", null),
+                Dom.attr(profile, "manualVersion", null),
+                Dom.attr(profile, "manualDate", null),
                 dialect,
                 parseIdentity(Dom.child(profile, "identity")),
                 state, metadata.commands(), metadata.registers(), metadata.coverage(), metadata.deviations());
@@ -248,10 +250,6 @@ public final class ProfileXmlLoader {
                 Dom.boolAttr(lines, "ri", false),
                 Dom.boolAttr(lines, "rts", true),
                 Dom.boolAttr(lines, "cts", true));
-    }
-
-    private List<String> parents(String value) {
-        return ProfileXmlSupport.parents(value);
     }
 
     private Integer intObject(Element element, String name) {

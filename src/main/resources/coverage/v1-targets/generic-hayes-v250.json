@@ -1,8 +1,8 @@
 {
   "profile": "generic-hayes-v250",
   "source": "references/snapshots/itu-v250.md",
-  "commands_total": 16,
-  "implemented_full": 15,
+  "commands_total": 17,
+  "implemented_full": 16,
   "implemented_stub": 1,
   "unsupported_declared": 0,
   "not_applicable": 0,
@@ -23,6 +23,7 @@
     {"command": "ATD", "status": "implemented_stub", "handler": "HayesHandler"},
     {"command": "ATH", "status": "implemented_full", "handler": "HayesHandler"},
     {"command": "ATO", "status": "implemented_full", "handler": "HayesHandler"},
-    {"command": "ATS", "status": "implemented_full", "handler": "HayesHandler"}
+    {"command": "ATS", "status": "implemented_full", "handler": "HayesHandler"},
+    {"command": "ATI", "status": "implemented_full", "handler": "HayesHandler"}
   ]
 }

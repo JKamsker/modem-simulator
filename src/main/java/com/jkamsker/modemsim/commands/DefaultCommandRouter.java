@@ -22,6 +22,9 @@ public final class DefaultCommandRouter {
         if (command.normalizedName().equals("PARSE_ERROR")) {
             return new CommandResult(state, List.of(), ResultCode.ERROR, "AtCommandParser", true);
         }
+        if (!declared(profile, command)) {
+            return unknown(profile, state);
+        }
         for (CommandHandler handler : handlers) {
             if (!handlerAllowed(profile, handler)) {
                 continue;
@@ -64,6 +67,16 @@ public final class DefaultCommandRouter {
             case "cellular", "hybrid" -> true;
             default -> false;
         };
+    }
+
+    private boolean declared(Profile profile, ParsedCommand command) {
+        if (profile.commands().isEmpty()) {
+            return true;
+        }
+        String name = command.kind() == com.jkamsker.modemsim.parser.CommandKind.S_REGISTER_READ
+                || command.kind() == com.jkamsker.modemsim.parser.CommandKind.S_REGISTER_WRITE
+                ? "ATS" : command.normalizedName();
+        return profile.commands().stream().anyMatch(candidate -> candidate.name().equals(name));
     }
 
     private boolean noResponseFreeze(ModemState state) {

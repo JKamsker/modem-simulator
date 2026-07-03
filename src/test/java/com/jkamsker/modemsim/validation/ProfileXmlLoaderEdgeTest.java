@@ -51,7 +51,8 @@ class ProfileXmlLoaderEdgeTest {
         Files.writeString(path, """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
-                  <profile id="parent" vendor="test" status="candidate" profileKind="base">
+                  <profile id="parent" vendor="test" status="candidate" profileKind="base"
+                           modelFamily="Parent family" manualVersion="parent-manual" manualDate="2024-01-02">
                     <dialect commandTerminator="CR" responseTerminator="CRLF"/>
                     <commands><command name="AT" status="implemented_full" handler="HayesHandler"/></commands>
                     <registers><register name="S3" default="13" min="0" max="127"/></registers>
@@ -60,7 +61,8 @@ class ProfileXmlLoaderEdgeTest {
                     </coverage>
                     <deviations><deviation id="parent-dev" severity="info">Parent note</deviation></deviations>
                   </profile>
-                  <profile id="child" vendor="test" status="candidate" profileKind="base" extends="parent">
+                  <profile id="child" vendor="test" status="candidate" profileKind="base"
+                           extends="parent" manualVersion="child-manual">
                     <dialect commandTerminator="CR" responseTerminator="CRLF"/>
                     <commands><command name="AT+X" status="implemented_stub" reason="fixture"/></commands>
                     <registers><register name="S4" default="10" min="0" max="127"/></registers>
@@ -74,6 +76,9 @@ class ProfileXmlLoaderEdgeTest {
 
         var child = new ProfileXmlLoader().load(path, "child");
 
+        assertThat(child.modelFamily()).isEqualTo("Parent family");
+        assertThat(child.manualVersion()).isEqualTo("child-manual");
+        assertThat(child.manualDate()).isEqualTo("2024-01-02");
         assertThat(child.commands()).extracting(command -> command.name()).containsExactly("AT", "AT+X");
         assertThat(child.registers()).extracting(register -> register.name()).containsExactly("S3", "S4");
         assertThat(child.coverage().source()).isEqualTo("child.md");
