@@ -18,7 +18,7 @@ public final class ModemEventCopies {
     public static ModemEvent droppedEventsSummary(ModemEvent source, long sequence, long droppedEventCount) {
         return new ModemEvent(
                 source.timestamp(), source.monotonicNanos(), sequence, source.sessionId(),
-                EventType.DROPPED_EVENTS, Direction.INTERNAL, "", null, null,
+                EventType.DROPPED_EVENTS, Direction.NONE, "", null, null,
                 source.profile(), source.port(), source.portRole(), source.profileHash(),
                 source.configHash(), source.macroHash(), source.initialStateHash(), source.sessionSeed(),
                 source.clockMode(), null, null, null, droppedEventCount, false, null,

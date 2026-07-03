@@ -30,6 +30,8 @@ final class AcceptanceExtendedChecks {
         requireParseError("AT+CPIN=\"1234\r");
         requireParseError("ATS=\r");
         requireParseError("AT+=1\r");
+        requireParseError("AT+CPIN??\r");
+        requireParseError("AT+CMEE?=2\r");
         require(session().receive(RawBytes.ascii("ATA\r")).outputAscii().contains("NO CARRIER"));
         HeadlessSession ringing = new HeadlessSession("ata", ringingProfile(), 12345);
         require(ringing.receive(RawBytes.ascii("ATA\r")).outputAscii().contains("CONNECT"));

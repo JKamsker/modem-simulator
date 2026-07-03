@@ -48,7 +48,7 @@ public final class CellularHandler implements CommandHandler {
     private CommandResult setRegistrationMode(ModemState state, String name, String arguments) {
         Integer cregN = parseNumber(arguments);
         if (cregN == null || cregN < 0 || cregN > 3) {
-            return CommandResult.error(state, "CellularHandler");
+            return CommandResult.invalidParameter(state, "CellularHandler");
         }
         ModemState next = name.equals("+CREG") ? state.withNetwork(state.network().withCregN(cregN)) : state;
         return CommandResult.ok(next, "CellularHandler");
@@ -74,7 +74,7 @@ public final class CellularHandler implements CommandHandler {
                     ResultCode.OK, "CellularHandler", false);
         }
         if (!command.kind().name().endsWith("EXEC")) {
-            return CommandResult.error(state, "CellularHandler");
+            return CommandResult.invalidParameter(state, "CellularHandler");
         }
         return new CommandResult(
                 state,
@@ -88,7 +88,7 @@ public final class CellularHandler implements CommandHandler {
         return switch (command.kind()) {
             case EXTENDED_READ -> cpinRead(state);
             case EXTENDED_SET -> cpinSet(state, command.arguments());
-            default -> CommandResult.error(state, "CellularHandler");
+            default -> CommandResult.invalidParameter(state, "CellularHandler");
         };
     }
 
@@ -197,7 +197,7 @@ public final class CellularHandler implements CommandHandler {
             case EXTENDED_READ -> line(state, "+CCLK: \"00/01/01,00:00:00+00\"");
             case EXTENDED_TEST -> line(state, "+CCLK: \"yy/MM/dd,hh:mm:ss+zz\"");
             case EXTENDED_SET -> CommandResult.ok(state, "CellularHandler");
-            default -> CommandResult.error(state, "CellularHandler");
+            default -> CommandResult.invalidParameter(state, "CellularHandler");
         };
     }
 
@@ -214,13 +214,13 @@ public final class CellularHandler implements CommandHandler {
         Integer mode = parseNumber(arguments.split(",")[0]);
         return mode != null && (mode == 0 || mode == 1)
                 ? CommandResult.ok(state, "CellularHandler")
-                : CommandResult.error(state, "CellularHandler");
+                : CommandResult.invalidParameter(state, "CellularHandler");
     }
 
     private CommandResult setCmee(ModemState state, String arguments) {
         Integer mode = parseNumber(arguments);
         if (mode == null || mode < 0 || mode > 2) {
-            return CommandResult.error(state, "CellularHandler");
+            return CommandResult.invalidParameter(state, "CellularHandler");
         }
         return CommandResult.ok(state.withSettings(state.settings().withCmee(mode)), "CellularHandler");
     }

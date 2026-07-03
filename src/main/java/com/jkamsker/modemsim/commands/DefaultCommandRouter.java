@@ -33,7 +33,9 @@ public final class DefaultCommandRouter {
             }
             CommandResult result = handler.handle(profile, state, command);
             if (result != null) {
-                return result;
+                return result.invalidParameter()
+                        ? CommandResult.invalidParameter(profile.errorPolicy(), result.state(), result.actualHandler())
+                        : result;
             }
         }
         return unknown(profile, state);

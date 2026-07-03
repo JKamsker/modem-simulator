@@ -180,6 +180,9 @@ public final class AtCommandParser {
             throw new AtParseException("missing extended command name");
         }
         String args = separator < 0 ? "" : slice.substring(separator + 1);
+        if (!(separator >= 0 && slice.charAt(separator) == '=' && args.equals("?"))) {
+            AtExtendedSyntax.rejectExtraFormSeparator(args);
+        }
         CommandKind kind = switch (separator < 0 ? '\0' : slice.charAt(separator)) {
             case '?' -> CommandKind.EXTENDED_READ;
             case '=' -> args.equals("?") ? CommandKind.EXTENDED_TEST : CommandKind.EXTENDED_SET;

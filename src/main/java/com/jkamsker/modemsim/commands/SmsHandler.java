@@ -33,13 +33,13 @@ public final class SmsHandler implements CommandHandler {
             case EXTENDED_SET -> setCmgf(state, command.arguments());
             case EXTENDED_READ -> line(state, "+CMGF: " + (state.sms().textMode() ? 1 : 0));
             case EXTENDED_TEST -> line(state, "+CMGF: (0,1)");
-            default -> CommandResult.error(state, "SmsHandler");
+            default -> CommandResult.invalidParameter(state, "SmsHandler");
         };
     }
 
     private CommandResult setCmgf(ModemState state, String arguments) {
         if (!arguments.equals("0") && !arguments.equals("1")) {
-            return CommandResult.error(state, "SmsHandler");
+            return CommandResult.invalidParameter(state, "SmsHandler");
         }
         return CommandResult.ok(state.withSms(state.sms().withTextMode(arguments.equals("1"))), "SmsHandler");
     }
@@ -47,7 +47,7 @@ public final class SmsHandler implements CommandHandler {
     private CommandResult cmgs(ModemState state, ParsedCommand command) {
         if (command.kind().name().endsWith("SET")) {
             if (!validCmgsArguments(state, command.arguments())) {
-                return CommandResult.error(state, "SmsHandler");
+                return CommandResult.invalidParameter(state, "SmsHandler");
             }
             CallMode mode = state.sms().textMode() ? CallMode.SMS_TEXT_ENTRY : CallMode.SMS_PDU_ENTRY;
             ModemState entry = state.withCall(state.call().withMode(mode));
@@ -58,7 +58,7 @@ public final class SmsHandler implements CommandHandler {
                     "SmsHandler",
                     true);
         }
-        return CommandResult.error(state, "SmsHandler");
+        return CommandResult.invalidParameter(state, "SmsHandler");
     }
 
     private CommandResult cmgr(ModemState state, ParsedCommand command) {
@@ -79,7 +79,7 @@ public final class SmsHandler implements CommandHandler {
             stat = "ALL";
         }
         if (!validCmglStat(stat)) {
-            return CommandResult.error(state, "SmsHandler");
+            return CommandResult.invalidParameter(state, "SmsHandler");
         }
         for (SmsMessage message : state.sms().messagesInSelectedStorage().values()) {
             if (stat.equalsIgnoreCase("ALL") || message.status().equalsIgnoreCase(stat)) {
@@ -101,7 +101,7 @@ public final class SmsHandler implements CommandHandler {
         return switch (command.kind()) {
             case EXTENDED_SET -> validCnmi(command.arguments())
                     ? CommandResult.ok(state.withSms(state.sms().withCnmi(command.arguments())), "SmsHandler")
-                    : CommandResult.error(state, "SmsHandler");
+                    : CommandResult.invalidParameter(state, "SmsHandler");
             case EXTENDED_READ -> line(state, "+CNMI: " + state.sms().cnmi());
             case EXTENDED_TEST -> line(state, "+CNMI: (0-3),(0-3),(0,2),(0,1),(0,1)");
             default -> CommandResult.ok(state, "SmsHandler");
@@ -119,7 +119,7 @@ public final class SmsHandler implements CommandHandler {
             SmsStorage[] selected = new SmsStorage[3];
             for (String store : stores) {
                 if (!validStorage(unquote(store))) {
-                    return CommandResult.error(state, "SmsHandler");
+                    return CommandResult.invalidParameter(state, "SmsHandler");
                 }
             }
             try {
@@ -128,7 +128,7 @@ public final class SmsHandler implements CommandHandler {
                 selected[2] = stores.length > 2 ? SmsStorage.valueOf(unquote(stores[2])) : selected[1];
                 return CommandResult.ok(state.withSms(state.sms().withStorages(selected[0], selected[1], selected[2])), "SmsHandler");
             } catch (IllegalArgumentException e) {
-                return CommandResult.error(state, "SmsHandler");
+                return CommandResult.invalidParameter(state, "SmsHandler");
             }
         }
         return line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
@@ -145,10 +145,10 @@ public final class SmsHandler implements CommandHandler {
         }
         if (command.kind().name().endsWith("SET")) {
             String smsc = validSmsc(command.arguments());
-            return smsc == null ? CommandResult.error(state, "SmsHandler")
+            return smsc == null ? CommandResult.invalidParameter(state, "SmsHandler")
                     : CommandResult.ok(state.withSms(state.sms().withSmsc(smsc)), "SmsHandler");
         }
-        return CommandResult.error(state, "SmsHandler");
+        return CommandResult.invalidParameter(state, "SmsHandler");
     }
 
     private CommandResult cscs(ModemState state, ParsedCommand command) {
@@ -156,7 +156,7 @@ public final class SmsHandler implements CommandHandler {
             case EXTENDED_READ -> line(state, "+CSCS: \"GSM\"");
             case EXTENDED_TEST -> line(state, "+CSCS: (\"GSM\",\"IRA\",\"UCS2\")");
             case EXTENDED_SET -> CommandResult.ok(state, "SmsHandler");
-            default -> CommandResult.error(state, "SmsHandler");
+            default -> CommandResult.invalidParameter(state, "SmsHandler");
         };
     }
 

@@ -36,11 +36,16 @@ final class SessionEventDelivery {
     }
 
     void publish(ModemEvent event) {
-        if (REQUIRED.contains(event.eventType()) || !(sink instanceof DropAwareEventSink dropAware)) {
+        if (event.eventType() == EventType.DROPPED_EVENTS) {
             sink.publish(event);
             return;
         }
         ModemEvent candidate = carryPendingDrops(event);
+        if (REQUIRED.contains(event.eventType()) || !(sink instanceof DropAwareEventSink dropAware)) {
+            sink.publish(candidate);
+            pendingDropped = 0;
+            return;
+        }
         if (dropAware.publishDroppable(candidate)) {
             pendingDropped = 0;
             return;

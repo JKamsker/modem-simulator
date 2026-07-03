@@ -178,6 +178,20 @@ class ProtocolRegressionTest {
     }
 
     @Test
+    void handlerInvalidParametersUseParseErrorEventAndProfilePolicy() {
+        Profile cme = BuiltinProfiles.acceptanceSierra()
+                .withErrorPolicy(new ErrorPolicy("CME", "CME", "CMS", "NO_RESPONSE"));
+        HeadlessSession session = new HeadlessSession("handler-parse-cme", cme, 12345);
+        session.receive(RawBytes.ascii("AT+CMEE=2\r"));
+
+        SessionResponse response = session.receive(RawBytes.ascii("AT+CMGF=9\r"));
+
+        assertThat(response.outputAscii()).contains("+CME ERROR: incorrect parameters");
+        assertThat(response.events()).anySatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.PARSE_ERROR));
+        assertThat(response.events()).noneSatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.HANDLER_RESULT));
+    }
+
+    @Test
     void ataOnlyAnswersRingingCall() {
         HeadlessSession idle = new HeadlessSession("ata-idle", BuiltinProfiles.acceptanceSierra(), 12345);
         assertThat(idle.receive(RawBytes.ascii("ATA\r")).outputAscii()).isEqualTo("\r\nNO CARRIER\r\n");

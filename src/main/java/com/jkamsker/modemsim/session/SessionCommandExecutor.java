@@ -73,8 +73,8 @@ final class SessionCommandExecutor {
             if (command.normalizedName().equals("+CMGS") && result.finalResult() == null) {
                 pendingSms = PendingSms.from(command, state.sms().textMode());
             }
-            events.publishMeasured(
-                    EventType.HANDLER_RESULT, Direction.INTERNAL, RawBytes.empty(),
+            EventType resultEvent = result.invalidParameter() ? EventType.PARSE_ERROR : EventType.HANDLER_RESULT;
+            events.publishMeasured(resultEvent, Direction.INTERNAL, RawBytes.empty(),
                     command, before, state, result, startedNanos);
             if (isUnknownRestart(result)) {
                 events.publishAudit(EventType.FAULT_TRIGGERED, Direction.INTERNAL,
