@@ -60,14 +60,14 @@ final class GuiLogPane {
         return new VBox(8, new HBox(8, filter, exportButton), table, selection);
     }
 
-    private boolean matches(ModemEvent event, String text) {
+    static boolean matches(ModemEvent event, String text) {
         if (text == null || text.isBlank()) {
             return true;
         }
         String needle = text.toLowerCase(java.util.Locale.ROOT);
-        return List.of(event.eventType(), event.direction(), event.port(), event.rawHex(),
-                        event.textEscaped(), event.parsedCommand(), event.handler(), event.result())
-                .stream().map(String::valueOf)
+        return java.util.stream.Stream.of(event.eventType(), event.direction(), event.port(), event.rawHex(),
+                        event.textEscaped(), event.parsedCommand(), event.handler(), event.macroId(), event.result())
+                .map(String::valueOf)
                 .map(value -> value.toLowerCase(java.util.Locale.ROOT))
                 .anyMatch(value -> value.contains(needle));
     }
