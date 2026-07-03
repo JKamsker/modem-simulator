@@ -5,6 +5,7 @@ import com.jkamsker.modemsim.validation.SchemaLocator;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -23,9 +24,10 @@ final class SourceSizeGateAcceptance {
     private void requireProjectPomWiring() throws java.io.IOException {
         String pom = Files.readString(SchemaLocator.projectPath("pom.xml"), StandardCharsets.UTF_8);
         require(pom.contains("<id>check-java-source-size</id>"), "missing source-size execution");
-        require(pom.contains("failonerror=\"true\""), "source-size hook must fail Maven");
-        require(pom.contains("dir=\"${project.basedir}\""), "source-size hook must use basedir");
-        require(pom.contains("<arg value=\"scripts/check-code-size.sh\"/>"), "source-size hook must use relative script");
+        require(pom.contains("<phase>process-classes</phase>"), "source-size hook must run during Maven builds");
+        require(pom.contains("<goal>exec</goal>"), "source-size hook must fail Maven via exec");
+        require(pom.contains("com.jkamsker.modemsim.testkit.SourceSizeGate"), "source-size hook must run Java gate");
+        require(pom.contains("<argument>${project.basedir}/src</argument>"), "source-size hook must scan project src");
     }
 
     private void directScriptRejectsOversizedSource() throws java.io.IOException {
@@ -33,7 +35,7 @@ final class SourceSizeGateAcceptance {
         Files.createDirectories(dir.resolve("scripts"));
         Files.copy(SchemaLocator.projectPath("scripts/check-code-size.sh"), dir.resolve("scripts/check-code-size.sh"));
         Files.writeString(dir.resolve("TooLarge.java"), oversizedJava(), StandardCharsets.UTF_8);
-        ProcessResult result = runProcess(dir, "bash", "scripts/check-code-size.sh", ".");
+        ProcessResult result = runProcess(dir, bashCommand(), "scripts/check-code-size.sh", ".");
         require(result.exitCode() != 0 && result.output().contains("TooLarge.java"),
                 "direct size script did not reject oversized source: " + result.output());
     }
@@ -50,10 +52,6 @@ final class SourceSizeGateAcceptance {
                 "-f", project.resolve("pom.xml").toString(), "verify");
         require(result.exitCode() != 0 && result.output().contains("TooLarge.java"),
                 "maven verify did not reject oversized source: " + result.output());
-    }
-
-    private String wrapperName() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win") ? "mvnw.cmd" : "mvnw";
     }
 
     private ProcessResult runProcess(Path workingDirectory, String... command) throws java.io.IOException {
@@ -95,26 +93,27 @@ final class SourceSizeGateAcceptance {
                   <version>1.0.0-SNAPSHOT</version>
                   <packaging>pom</packaging>
                   <properties>
-                    <maven.compiler.release>24</maven.compiler.release>
                     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
                   </properties>
                   <build>
                     <plugins>
                       <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.1.0</version>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.5.1</version>
                         <executions>
                           <execution>
                             <id>check-java-source-size</id>
                             <phase>verify</phase>
-                            <goals><goal>run</goal></goals>
+                            <goals><goal>exec</goal></goals>
                             <configuration>
-                              <target>
-                                <exec executable="bash" dir="${project.basedir}" failonerror="true">
-                                  <arg value="scripts/check-code-size.sh"/>
-                                </exec>
-                              </target>
+                              <executable>${java.home}/bin/java</executable>
+                              <arguments>
+                                <argument>-cp</argument>
+                                <argument>%s</argument>
+                                <argument>com.jkamsker.modemsim.testkit.SourceSizeGate</argument>
+                                <argument>${project.basedir}/src</argument>
+                              </arguments>
                             </configuration>
                           </execution>
                         </executions>
@@ -122,7 +121,37 @@ final class SourceSizeGateAcceptance {
                     </plugins>
                   </build>
                 </project>
-                """;
+                """.formatted(xml(System.getProperty("java.class.path")));
+    }
+
+    private String wrapperName() {
+        return windows() ? "mvnw.cmd" : "mvnw";
+    }
+
+    private String bashCommand() {
+        if (!windows()) {
+            return "bash";
+        }
+        String env = System.getenv("BASH");
+        if (env != null && Files.isExecutable(Path.of(env))) {
+            return env;
+        }
+        for (String candidate : List.of(
+                "C:\\Program Files\\Git\\bin\\bash.exe",
+                "C:\\Program Files\\Git\\usr\\bin\\bash.exe")) {
+            if (Files.isExecutable(Path.of(candidate))) {
+                return candidate;
+            }
+        }
+        return "bash";
+    }
+
+    private boolean windows() {
+        return System.getProperty("os.name", "").toLowerCase().contains("win");
+    }
+
+    private String xml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private void require(boolean condition) {

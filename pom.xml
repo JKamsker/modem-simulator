@@ -199,6 +199,24 @@
         <configuration>
           <mainClass>com.jkamsker.modemsim.app.ModemSimCli</mainClass>
         </configuration>
+        <executions>
+          <execution>
+            <id>check-java-source-size</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${java.home}/bin/java</executable>
+              <arguments>
+                <argument>-cp</argument>
+                <argument>${project.build.outputDirectory}</argument>
+                <argument>com.jkamsker.modemsim.testkit.SourceSizeGate</argument>
+                <argument>${project.basedir}/src</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -250,27 +268,6 @@
             <goals>
               <goal>single</goal>
             </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-antrun-plugin</artifactId>
-        <version>3.1.0</version>
-        <executions>
-          <execution>
-            <id>check-java-source-size</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <exec executable="bash" dir="${project.basedir}" failonerror="true">
-                  <arg value="scripts/check-code-size.sh"/>
-                </exec>
-              </target>
-            </configuration>
           </execution>
         </executions>
       </plugin>

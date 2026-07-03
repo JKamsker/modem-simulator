@@ -251,7 +251,7 @@ Verbindliche v1-Entscheidungen:
 
 Der Build darf keine dynamischen Dependency-Versionen verwenden. Launcher, Tests und Packaging muessen die fuer native Bibliotheken notwendigen Java-24-Flags setzen, insbesondere `--enable-native-access` fuer Module/Classpath, die `jSerialComm` laden. Bei Classpath-Distributionen ist `--enable-native-access=ALL-UNNAMED` zulaessig und muss in Launcher-Skripten sowie Test-`argLine` stehen; bei modularer Distribution muss die konkrete Modulbezeichnung aus dem Build-Artefakt kommen und in CI geloggt werden.
 
-Der Source-Size-Guard ist Teil von `mvn verify` und muss auf Linux und Windows build-brechend sein. Maven/Ant-Aufrufe muessen `failonerror=true` bzw. eine aequivalente Fehlerweitergabe setzen und Skripte relativ zu `${project.basedir}` mit bash-sicherem Arbeitsverzeichnis aufrufen, damit Pfade mit Windows-Backslashes nicht als Escape-Sequenzen verloren gehen.
+Der Source-Size-Guard ist Teil von `mvn verify` und muss auf Linux und Windows build-brechend sein. Maven muss eine plattformneutrale Fehlerweitergabe verwenden, damit der Guard nicht von WSL, Git-Bash-Aufloesung oder Windows-Backslash-Escaping abhaengt.
 
 ## XML-Profilladen
 
