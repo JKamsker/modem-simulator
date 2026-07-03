@@ -55,4 +55,10 @@ public record Profile(
                 value, identity, initialState,
                 commands, registers, coverage, deviations);
     }
+
+    public Profile withRegisters(List<ProfileRegister> value) {
+        return new Profile(id, parents, vendor, status, profileKind, modelFamily, manualVersion, manualDate,
+                dialect, identity, initialState,
+                commands, value, coverage, deviations);
+    }
 }

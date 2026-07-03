@@ -70,15 +70,20 @@ final class ProfileXmlInheritanceResolver {
     private Profile overlay(Profile parent, Profile child, Element childElement) {
         Dialect dialect = Dom.child(childElement, "dialect") == null ? parent.dialect() : child.dialect();
         Identity identity = Dom.child(childElement, "identity") == null ? parent.identity() : child.identity();
-        ModemState state = mergeState(parent.initialState(), child.initialState(), dialect, childElement);
+        List<ProfileCommand> commands = metadata(parent.commands(), child.commands(), childElement,
+                "commands", ProfileCommand::name);
+        List<ProfileRegister> registers = metadata(parent.registers(), child.registers(), childElement,
+                "registers", ProfileRegister::name);
+        ModemState state = loader.applyRegistersAndDialect(
+                mergeState(parent.initialState(), child.initialState(), dialect, childElement), dialect, registers);
         return new Profile(
                 child.id(), child.parents(), child.vendor(), child.status(), child.profileKind(),
                 value(child.modelFamily(), parent.modelFamily()),
                 value(child.manualVersion(), parent.manualVersion()),
                 value(child.manualDate(), parent.manualDate()),
                 dialect, identity, state,
-                metadata(parent.commands(), child.commands(), childElement, "commands", ProfileCommand::name),
-                metadata(parent.registers(), child.registers(), childElement, "registers", ProfileRegister::name),
+                commands,
+                registers,
                 Dom.child(childElement, "coverage") == null ? parent.coverage()
                         : mergeCoverage(parent.coverage(), child.coverage()),
                 metadata(parent.deviations(), child.deviations(), childElement, "deviations", ProfileDeviation::id));

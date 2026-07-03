@@ -2,8 +2,12 @@ package com.jkamsker.modemsim.session;
 
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.profiles.Profile;
+import com.jkamsker.modemsim.profiles.ProfileRegister;
 import com.jkamsker.modemsim.state.CallMode;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -116,6 +120,22 @@ class ProtocolRegressionTest {
     }
 
     @Test
+    void sRegisterBoundsComeFromActiveProfile() {
+        HeadlessSession strict = new HeadlessSession(
+                "strict-registers", withS7(BuiltinProfiles.acceptanceSierra(), 60, true), 12345);
+        HeadlessSession relaxed = new HeadlessSession(
+                "relaxed-registers", withS7(BuiltinProfiles.acceptanceSierra(), 120, true), 12345);
+        HeadlessSession readOnly = new HeadlessSession(
+                "readonly-registers", withS7(BuiltinProfiles.acceptanceSierra(), 120, false), 12345);
+
+        assertThat(strict.receive(RawBytes.ascii("ATS7=90\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+        assertThat(strict.snapshot().settings().s7()).isEqualTo(60);
+        assertThat(relaxed.receive(RawBytes.ascii("ATS7=90\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+        assertThat(relaxed.snapshot().settings().s7()).isEqualTo(90);
+        assertThat(readOnly.receive(RawBytes.ascii("ATS7=61\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
+    }
+
+    @Test
     void malformedLineReturnsErrorInsteadOfThrowing() {
         HeadlessSession session = new HeadlessSession("parse-error", BuiltinProfiles.acceptanceSierra(), 12345);
 
@@ -159,5 +179,15 @@ class ProtocolRegressionTest {
         session.drainScheduled();
         session.advanceTime(1_000);
         return session;
+    }
+
+    private Profile withS7(Profile profile, int max, boolean writable) {
+        List<ProfileRegister> registers = profile.registers().stream()
+                .map(register -> register.name().equals("S7")
+                        ? new ProfileRegister("S7", register.defaultValue(), register.min(), max,
+                                writable, register.persistent())
+                        : register)
+                .toList();
+        return profile.withRegisters(registers);
     }
 }

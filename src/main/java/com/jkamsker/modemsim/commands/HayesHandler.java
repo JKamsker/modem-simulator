@@ -3,6 +3,8 @@ package com.jkamsker.modemsim.commands;
 import com.jkamsker.modemsim.parser.CommandKind;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.profiles.Profile;
+import com.jkamsker.modemsim.profiles.ProfileRegister;
+import com.jkamsker.modemsim.profiles.ProfileRegisterCatalog;
 import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.CallRuntime;
 import com.jkamsker.modemsim.state.ModemState;
@@ -18,10 +20,10 @@ public final class HayesHandler implements CommandHandler {
             return escapeToOnlineCommandMode(state);
         }
         if (command.kind() == CommandKind.S_REGISTER_READ) {
-            return readRegister(state, command);
+            return readRegister(profile, state, command);
         }
         if (command.kind() == CommandKind.S_REGISTER_WRITE) {
-            return writeRegister(state, command);
+            return writeRegister(profile, state, command);
         }
         return switch (command.normalizedName()) {
             case "AT" -> CommandResult.ok(state, "HayesHandler");
@@ -128,9 +130,9 @@ public final class HayesHandler implements CommandHandler {
         return CommandResult.ok(state.withCall(state.call().withMode(CallMode.ONLINE_COMMAND)), "HayesHandler");
     }
 
-    private CommandResult readRegister(ModemState state, ParsedCommand command) {
+    private CommandResult readRegister(Profile profile, ModemState state, ParsedCommand command) {
         int register = register(command);
-        if (!knownRegister(register)) {
+        if (ProfileRegisterCatalog.find(profile, register) == null) {
             return CommandResult.error(state, "HayesHandler");
         }
         return new CommandResult(
@@ -141,13 +143,14 @@ public final class HayesHandler implements CommandHandler {
                 false);
     }
 
-    private CommandResult writeRegister(ModemState state, ParsedCommand command) {
+    private CommandResult writeRegister(Profile profile, ModemState state, ParsedCommand command) {
         int register = register(command);
+        ProfileRegister spec = ProfileRegisterCatalog.find(profile, register);
         Integer value = parseNumber(command.arguments());
-        if (!knownRegister(register) || value == null) {
+        if (spec == null || value == null || !spec.writable()) {
             return CommandResult.error(state, "HayesHandler");
         }
-        if (value < 0 || (register >= 3 && register <= 5 && value > 127)) {
+        if (!ProfileRegisterCatalog.accepts(spec, value)) {
             return CommandResult.error(state, "HayesHandler");
         }
         return CommandResult.ok(state.withSettings(state.settings().withRegister(register, value)), "HayesHandler");
@@ -208,10 +211,4 @@ public final class HayesHandler implements CommandHandler {
         }
     }
 
-    private boolean knownRegister(int register) {
-        return switch (register) {
-            case 0, 2, 3, 4, 5, 6, 7, 8, 12 -> true;
-            default -> false;
-        };
-    }
 }

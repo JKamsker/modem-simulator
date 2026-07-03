@@ -53,8 +53,8 @@ public final class ProfileXmlLoader {
     }
     Profile parseProfile(Element profile) {
         Dialect dialect = parseDialect(Dom.child(profile, "dialect"));
-        ModemState state = stateParser.parse(profile, dialect);
         ProfileXmlMetadata metadata = new ProfileXmlMetadataParser().parse(profile);
+        ModemState state = applyRegistersAndDialect(stateParser.parse(profile, dialect), dialect, metadata.registers());
         return new Profile(
                 profile.getAttribute("id"),
                 ProfileXmlSupport.parents(profile.getAttribute("extends")),
@@ -99,6 +99,11 @@ public final class ProfileXmlLoader {
 
     ModemState applyDialect(ModemState state, Dialect dialect) {
         return stateParser.applyDialect(state, dialect);
+    }
+
+    ModemState applyRegistersAndDialect(ModemState state, Dialect dialect, java.util.List<ProfileRegister> registers) {
+        return applyDialect(state.withSettings(
+                ProfileRegisterCatalog.applyDefaults(state.settings(), registers)), dialect);
     }
 
     private ResetPolicy resetPolicy(String value) {
