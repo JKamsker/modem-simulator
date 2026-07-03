@@ -218,9 +218,8 @@ public final class HeadlessSession implements SessionActor {
         return response(RawBytes.empty(), start);
     }
     private SessionResponse applyState(ModemState next, String injectionType, EventType eventType) { return applyState(next, injectionType, null, eventType); }
-    public synchronized SessionResponse diagnostic(EventType eventType, String result) {
-        int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state); return response(RawBytes.empty(), start);
-    }
+    public synchronized SessionResponse diagnostic(EventType eventType, String result) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state); return response(RawBytes.empty(), start); }
+    public synchronized SessionResponse diagnostic(EventType eventType, String result, String port, String portRole) { int start = eventCount(); events.publishAudit(eventType, Direction.INTERNAL, null, result, RawBytes.empty(), state, state, port, portRole); return response(RawBytes.empty(), start); }
     public synchronized SessionResponse replaceMacroEngine(MacroEngine next, String result) {
         int start = eventCount();
         events.publishAudit(EventType.INJECTION, Direction.INTERNAL, "macro-control", result, RawBytes.empty(), state, state);

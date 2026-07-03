@@ -23,14 +23,15 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     public void open(SerialConfig config) throws SerialException {
         port = SerialPort.getCommPort(portName);
         if (!port.setComPortParameters(config.baudRate(), config.dataBits(), config.stopBits(), parity(config.parity()))) {
-            throw new SerialException("Unsupported serial parameters for " + portName);
+            throw new SerialException("Unsupported serial parameters for " + portName, "UNSUPPORTED_PARAMETERS");
         }
         if (!port.setFlowControl(flow(config.flowControl()))) {
-            throw new SerialException("Unsupported flow control for " + portName);
+            throw new SerialException("Unsupported flow control for " + portName, "UNSUPPORTED_PARAMETERS");
         }
         port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 100);
         if (!port.openPort()) {
-            throw new SerialException("Cannot open serial port: " + portName);
+            String code = portPresent() ? "PORT_BUSY" : "PORT_NOT_FOUND";
+            throw new SerialException("Cannot open serial port: " + portName, code);
         }
         port.addDataListener(disconnectListener());
     }

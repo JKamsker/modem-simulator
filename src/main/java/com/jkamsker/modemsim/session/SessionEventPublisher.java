@@ -159,6 +159,12 @@ final class SessionEventPublisher {
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after) {
+        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole);
+    }
+
+    void publishAudit(
+            EventType type, Direction direction, String injectionType, String result,
+            RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole) {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, false);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
@@ -167,7 +173,7 @@ final class SessionEventPublisher {
         eventSink.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
                 payload.rawHex(), payload.textEscaped(), null, profileId,
-                port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
+                eventPort, eventPortRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 null, null, injectionType, 0, replayDivergent(type), null, result, null,
                 stateBeforeRedacted ? stateRedactor.redactSensitiveData(before) : before,
                 stateAfterRedacted ? stateRedactor.redactSensitiveData(after) : after,
@@ -220,21 +226,13 @@ final class SessionEventPublisher {
         return type == EventType.RX_OVERFLOW || type == EventType.TX_OVERFLOW;
     }
 
-    long nextSequence() {
-        return sequence + 1;
-    }
+    long nextSequence() { return sequence + 1; }
 
-    String sessionId() {
-        return sessionId;
-    }
+    String sessionId() { return sessionId; }
 
-    void replaceMacroHash(String macroHash) {
-        this.macroHash = macroHash;
-    }
+    void replaceMacroHash(String macroHash) { this.macroHash = macroHash; }
 
-    int eventCount() {
-        return memorySink == null ? 0 : memorySink.events().size();
-    }
+    int eventCount() { return memorySink == null ? 0 : memorySink.events().size(); }
 
     List<ModemEvent> eventsSince(int start) {
         if (memorySink == null) {

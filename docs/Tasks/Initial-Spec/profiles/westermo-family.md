@@ -42,7 +42,7 @@ Die TD-Familie ist primär analog/PSTN/leased-line geprägt. Für v1:
 
 - AT-Basis.
 - Dial/Hangup/Connect/No Carrier.
-- S-Register.
+- S-Register mit profilierter Default-/Min-/Max-/Schreibbarkeits-Tabelle.
 - `AT&W` und `AT&V`.
 - `lineModel=minimal-v250` mit DTR/DCD-Verhalten.
 - Keine Mobilfunkbefehle außer per Makro/Stub.

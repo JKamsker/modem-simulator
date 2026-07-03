@@ -136,13 +136,14 @@ text: "payload"
 pdu: null
 ```
 
-PDU-Submit speichert `pdu` als rohe Hex-/Textsequenz und validiert nur Laenge, Ctrl-Z/ESC und Storage-Kapazitaet. PDU-Encoding/Decoding ist post-v1, solange kein Profil es explizit als `implemented_full` mit Tests markiert.
+PDU-Submit speichert `pdu` als rohe Hex-/Textsequenz und validiert nur SMSC-Laengenprefix, TPDU-Laenge, Ctrl-Z/ESC und Storage-Kapazitaet. Der Parameter `AT+CMGS=<pdu-length>` ist die TPDU-Laenge in Oktetten, ohne SMSC-Information. Ein hexadezimaler PDU-Body muss nach Normalisierung eine gerade Anzahl Hex-Zeichen enthalten; das erste Oktett ist `smscLength`, und die Gesamtlaenge muss `1 + smscLength + pdu-length` Oktette betragen. PDU-Encoding/Decoding ist post-v1, solange kein Profil es explizit als `implemented_full` mit Tests markiert.
 
 ## Datenmodus
 
 Das System muss Datenmodus mindestens schnittstellenwirksam abbilden:
 
 - `ATD<number>` -> `CONNECT` oder Fehler.
+- `ATA` beantwortet einen simulierten eingehenden Ruf und fuehrt bei Erfolg wie `ATD` in den Online-Datenmodus.
 - Nach `CONNECT`: `state.call.mode=online-data`, `state.call.carrier=true`, DCD true.
 - Bytes im Data Mode werden transparent geloggt und nicht als AT interpretiert.
 - Der Parser ueberwacht weiterhin die `+++`-Escape-Sequenz mit Guard-Time.

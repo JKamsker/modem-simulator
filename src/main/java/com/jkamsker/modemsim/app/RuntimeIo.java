@@ -69,7 +69,7 @@ final class RuntimeIo {
                 sidecar.retire();
                 continue;
             } catch (IOException e) {
-                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
+                session.diagnostic(EventType.PORT_LOST, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
                 continue;
             }
@@ -77,7 +77,7 @@ final class RuntimeIo {
                 continue;
             }
             if (sidecar.isSniffer()) {
-                session.diagnostic(EventType.AUDIT_FAILURE, "sniffer-input-ignored:" + sidecar.binding().id());
+                session.diagnostic(EventType.POLICY_DENIED, "sniffer-input-ignored:" + sidecar.binding().id());
             } else if (sidecar.isManualDceInjection()) {
                 SessionResponse response = session.injectDce(read.bytes(), "raw-dce-to-dte");
                 writeResponse(modemEndpoint, session, sidecars, response);
@@ -94,7 +94,7 @@ final class RuntimeIo {
         RawBytes bytes;
         while ((bytes = writes.poll()) != null) {
             if (!unsafeAllowed) {
-                session.diagnostic(EventType.AUDIT_FAILURE, "raw-dce-to-dte-disabled:queued");
+                session.diagnostic(EventType.POLICY_DENIED, "raw-dce-to-dte-disabled:queued");
                 continue;
             }
             SessionResponse response = session.injectDce(bytes, "raw-dce-to-dte");
@@ -146,7 +146,7 @@ final class RuntimeIo {
                 session.diagnostic(EventType.PORT_LOST, "optional-port-lost:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             } catch (IOException e) {
-                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
+                session.diagnostic(EventType.PORT_LOST, "optional-port-io-failed:" + sidecar.binding().id() + ":" + e.getMessage());
                 sidecar.retire();
             }
         }

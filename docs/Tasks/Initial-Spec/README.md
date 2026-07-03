@@ -1,8 +1,8 @@
 # Java COM-Modem-Simulator - Spec-Paket
 
-Stand: 2026-07-02
+Stand: 2026-07-03
 Sprache: Deutsch
-Status: Entwurf v0.3
+Status: Entwurf v0.5
 
 Dieses Paket enthält eine modularisierte Markdown-Spezifikation für ein Java-Programm, das physische und virtuelle serielle COM-Schnittstellen nutzt, um Modems zu emulieren. Der Fokus liegt auf AT/Hayes, 3GPP-Mobilfunkbefehlen, SMS, simulierbaren Fehlerzuständen und herstellerspezifischen Profilen.
 

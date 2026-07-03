@@ -34,6 +34,8 @@ public final class ModemEventJson {
         put(json, "sequence", event.sequence());
         put(json, "sessionId", event.sessionId());
         put(json, "eventType", event.eventType().name());
+        put(json, "source", source(event));
+        put(json, "diagnosticCode", diagnosticCode(event));
         put(json, "direction", event.direction().name());
         put(json, "rawHex", event.rawHex());
         put(json, "textEscaped", event.textEscaped());
@@ -59,6 +61,54 @@ public final class ModemEventJson {
         put(json, "stateAfter", state(event.stateAfter()));
         put(json, "redaction", redaction(event.redaction()));
         return json;
+    }
+
+    private static String source(ModemEvent event) {
+        return switch (event.eventType()) {
+            case RX_BYTES -> "rx";
+            case TX_BYTES -> "tx";
+            case SCHEDULER_ENQUEUE, SCHEDULER_EMIT -> "scheduler";
+            case PORT_OPEN_FAILED, PORT_LOST, RX_OVERFLOW, TX_OVERFLOW -> "transport";
+            case MACRO_DECISION, MACRO_EVENT -> "macro";
+            case REPLAY_MARKER -> "replay";
+            case INJECTION -> "replay".equals(event.injectionType()) ? "replay" : "gui";
+            case POLICY_DENIED, VALIDATION_ERROR -> "internal";
+            default -> "internal";
+        };
+    }
+
+    private static String diagnosticCode(ModemEvent event) {
+        return switch (event.eventType()) {
+            case PORT_OPEN_FAILED -> openFailureDiagnostic(event.result());
+            case PORT_LOST -> "PORT_LOST";
+            case RX_OVERFLOW -> "RX_OVERFLOW";
+            case TX_OVERFLOW -> "TX_OVERFLOW";
+            case AUDIT_FAILURE -> "AUDIT_WRITE_FAILED";
+            default -> null;
+        };
+    }
+
+    private static String openFailureDiagnostic(String result) {
+        if (result == null) {
+            return "PORT_BUSY";
+        }
+        String normalized = result.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.contains("port_not_found")) {
+            return "PORT_NOT_FOUND";
+        }
+        if (normalized.contains("unsupported_parameters")) {
+            return "UNSUPPORTED_PARAMETERS";
+        }
+        if (normalized.contains("port_busy")) {
+            return "PORT_BUSY";
+        }
+        if (normalized.contains("not") && normalized.contains("found")) {
+            return "PORT_NOT_FOUND";
+        }
+        if (normalized.contains("unsupported")) {
+            return "UNSUPPORTED_PARAMETERS";
+        }
+        return "PORT_BUSY";
     }
 
     private static Map<String, Object> state(ModemState state) {

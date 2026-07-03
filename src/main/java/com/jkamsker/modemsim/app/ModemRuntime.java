@@ -245,7 +245,8 @@ final class ModemRuntime {
             throws SerialException {
         for (PortBinding binding : config.enabledSidecars()) {
             if (binding.role() == PortRole.MANUAL_DCE_INJECTION && !config.allowUnsafeDceTransmit()) {
-                session.diagnostic(EventType.AUDIT_FAILURE, "manual-dce-disabled:" + binding.id());
+                session.diagnostic(EventType.POLICY_DENIED, "manual-dce-disabled:" + binding.id(),
+                        diagnosticPort(binding), binding.role().configName());
                 if (config.strictOptionalPorts()) {
                     throw new SerialException("manual-dce-injection requires allowUnsafeDceTransmit");
                 }
@@ -257,7 +258,9 @@ final class ModemRuntime {
                 sidecars.add(new RuntimeSidecar(binding, endpoint));
             } catch (SerialException e) {
                 endpoint.close();
-                session.diagnostic(EventType.AUDIT_FAILURE, "optional-port-open-failed:" + binding.id() + ":" + e.getMessage());
+                session.diagnostic(EventType.PORT_OPEN_FAILED,
+                        e.diagnosticCode() + ":optional-port-open-failed:" + binding.id() + ":" + e.getMessage(),
+                        diagnosticPort(binding), binding.role().configName());
                 if (config.strictOptionalPorts()) {
                     throw e;
                 }
@@ -269,5 +272,9 @@ final class ModemRuntime {
         for (RuntimeSidecar sidecar : sidecars) {
             sidecar.close();
         }
+    }
+
+    private String diagnosticPort(PortBinding binding) {
+        return binding.name() == null || binding.name().isBlank() ? binding.id() : binding.name();
     }
 }

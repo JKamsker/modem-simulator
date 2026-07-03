@@ -13,6 +13,7 @@
     <xs:sequence>
       <xs:element name="identity" type="IdentityType" minOccurs="0"/>
       <xs:element name="dialect" type="DialectType"/>
+      <xs:element name="error-policy" type="ErrorPolicyType" minOccurs="0"/>
       <xs:element name="initial-state" type="InitialStateType" minOccurs="0"/>
       <xs:element name="commands" type="CommandsType" minOccurs="0"/>
       <xs:element name="registers" type="RegistersType" minOccurs="0"/>
@@ -49,6 +50,13 @@
     <xs:attribute name="extendedPrefixes" type="xs:string" use="optional" default="+ % # !"/>
   </xs:complexType>
 
+  <xs:complexType name="ErrorPolicyType">
+    <xs:attribute name="invalidParameter" type="InvalidParameterPolicyType" use="optional" default="CME_OR_ERROR"/>
+    <xs:attribute name="stateFailure" type="StateFailurePolicyType" use="optional" default="CME"/>
+    <xs:attribute name="smsFailure" type="SmsFailurePolicyType" use="optional" default="CMS"/>
+    <xs:attribute name="timeout" type="TimeoutPolicyType" use="optional" default="NO_RESPONSE"/>
+  </xs:complexType>
+
   <xs:complexType name="InitialStateType">
     <xs:sequence>
       <xs:element name="sim" type="SimType" minOccurs="0"/>
@@ -66,6 +74,8 @@
     <xs:attribute name="pinQueryEnabled" type="xs:boolean" use="optional"/>
     <xs:attribute name="pin" type="PinType" use="optional"/>
     <xs:attribute name="pinRef" type="xs:string" use="optional"/>
+    <xs:attribute name="puk" type="PukType" use="optional"/>
+    <xs:attribute name="pukRef" type="xs:string" use="optional"/>
     <xs:attribute name="pinRetries" type="RetryCounterType" use="optional"/>
     <xs:attribute name="pukRetries" type="RetryCounterType" use="optional"/>
     <xs:attribute name="imsi" type="ImsiType" use="optional"/>
@@ -131,6 +141,7 @@
     <xs:attribute name="mode" type="CallModeType" use="optional" default="command"/>
     <xs:attribute name="carrier" type="xs:boolean" use="optional" default="false"/>
     <xs:attribute name="dialedNumber" type="xs:string" use="optional"/>
+    <xs:attribute name="incomingNumber" type="xs:string" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="ModemRuntimeType">
@@ -273,6 +284,37 @@
     </xs:restriction>
   </xs:simpleType>
 
+  <xs:simpleType name="InvalidParameterPolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ERROR"/>
+      <xs:enumeration value="CME"/>
+      <xs:enumeration value="CME_OR_ERROR"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="StateFailurePolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ERROR"/>
+      <xs:enumeration value="CME"/>
+      <xs:enumeration value="NO_RESPONSE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SmsFailurePolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ERROR"/>
+      <xs:enumeration value="CMS"/>
+      <xs:enumeration value="NO_RESPONSE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TimeoutPolicyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="ERROR"/>
+      <xs:enumeration value="NO_RESPONSE"/>
+    </xs:restriction>
+  </xs:simpleType>
+
   <xs:simpleType name="SimStateType">
     <xs:restriction base="xs:string">
       <xs:enumeration value="READY"/>
@@ -288,6 +330,12 @@
   <xs:simpleType name="PinType">
     <xs:restriction base="xs:string">
       <xs:pattern value="[0-9]{4,8}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="PukType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{8}"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -439,6 +487,7 @@
   <xs:simpleType name="CallModeType">
     <xs:restriction base="xs:string">
       <xs:enumeration value="command"/>
+      <xs:enumeration value="ringing"/>
       <xs:enumeration value="dialing"/>
       <xs:enumeration value="online-data"/>
       <xs:enumeration value="online-command"/>

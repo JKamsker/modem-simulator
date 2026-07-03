@@ -23,6 +23,8 @@ Pflichtbereiche der GUI:
 
 Read-only-Modus deaktiviert alle Controls mit Prefix `state.*`, `fault.*`, `inject.*`, `macro.reload`, `macro.enable`, `macro.disable`, `replay.playToDte` und `session.reconnect`, laesst aber Filter, Export und Log-Auswahl aktiv.
 
+`log.filter` ist ein verpflichtender Live-Log-Filter. Er filtert `log.table` mindestens ueber Event-Typ, Richtung, Port, rawHex, redigierten Text, Parser-Ergebnis, Handler, Macro-ID und Result-Code. Export aus dem Live-Log nutzt die aktuell gefilterte Menge, nicht zwangsweise die komplette Eventliste.
+
 GUI-Tests muessen Headless-JavaFX starten koennen und die Test-IDs verwenden. Mindestens ein Test prueft, dass Read-only alle mutierenden Controls deaktiviert.
 
 ## Eventmodell
@@ -37,6 +39,7 @@ Persistente Events validieren gegen `schemas/event-log.schema.json`.
   "sessionId": "main",
   "port": "COM7",
   "eventType": "HANDLER_RESULT",
+  "source": "internal",
   "direction": "DTE_TO_DCE",
   "rawHex": "41542B4353510D",
   "textEscaped": "AT+CSQ\\r",
@@ -62,7 +65,39 @@ Persistente Events validieren gegen `schemas/event-log.schema.json`.
 }
 ```
 
+Event-`source` ist die normalisierte Herkunft des Events:
+
+| `source` | Bedeutung |
+|---|---|
+| `rx` | Bytes vom DTE ueber den Hauptport. |
+| `tx` | Bytes, die an den DTE gesendet wurden. |
+| `gui` | GUI- oder Manual-DCE-Aktion. |
+| `macro` | Macro-Entscheidung oder Macro-Control-Folge. |
+| `replay` | Replay-Steuerung oder Replay-Injection. |
+| `scheduler` | Scheduler-Enqueue/-Emit/-Cancel. |
+| `transport` | Portverlust, Portdiagnose oder RX/TX-Overflow. |
+| `internal` | Parser-, Handler-, Audit- oder Lifecycle-Event ohne externe Quelle. |
+
+Das Scheduler-Feld `sourcePriority` ist ein separater Tie-Breaker fuer faellige Scheduler-Eintraege.
+
+Mindest-Mapping fuer Eventquellen:
+
+| Event-Typ | Erlaubte Source |
+|---|---|
+| `RX_BYTES` | `rx` |
+| `TX_BYTES` | `tx` |
+| `SCHEDULER_ENQUEUE`, `SCHEDULER_EMIT` | `scheduler` |
+| `PORT_OPEN_FAILED`, `PORT_LOST`, `RX_OVERFLOW`, `TX_OVERFLOW` | `transport` |
+| `DROPPED_EVENTS`, `AUDIT_FAILURE`, `PARSED_COMMAND`, `PARSE_ERROR`, `HANDLER_RESULT` | `internal` |
+| `INJECTION` | `gui`, `replay`, `internal` |
+| `MACRO_DECISION`, `MACRO_EVENT` | `macro` |
+| `REPLAY_MARKER` | `replay` |
+
 `rawHex` ist der redigierte persistente Wert. Falls sensible Bytes betroffen sind, steht dort `<redacted>` oder ein bytegenau definierter Maskierungswert; das Redaction-Objekt muss die betroffenen Felder und Klassen nennen.
+
+`latencyMs` ist fuer Handler-, Macro- und Injection-Ergebnisse eine gemessene Latenz, nicht ein konstanter Platzhalter. Sie misst die Zeit vom sequenzierten Eingang des `SessionCommand` bis zum erzeugten Ergebnis-Event; bei virtueller Clock wird die virtuelle Monotonzeit verwendet. Events ohne bearbeitete Operation duerfen `null` setzen.
+
+Wenn Backpressure normale, nicht audit-kritische Events dropt, muss der naechste persistierte Event den kumulierten `droppedEventCount` tragen und ein separates `DROPPED_EVENTS`-Event mit derselben Zahl erzeugen. Audit-kritische Events aus Kapitel 14 duerfen nie in diese Drop-Policy fallen.
 
 ## GUI-Workflows
 
@@ -135,7 +170,7 @@ Die GUI muss die drei Replay-Modi aus Kapitel 02 anbieten:
 - `play-to-dte`,
 - `validate-recompute`.
 
-Vor Start vergleicht die GUI Profil-, Config-, Macro- und Initial-State-Hash. Divergenzen werden angezeigt und muessen fuer Playback explizit bestaetigt werden; `validate-recompute` bricht ohne Bestaetigungsmoeglichkeit fehl.
+Vor Start vergleicht die GUI Profil-, Config-, Macro- und Initial-State-Hash. Divergenzen werden angezeigt und muessen fuer `drive-from-captured-input` und `play-to-dte` explizit bestaetigt werden; `validate-recompute` bricht ohne Bestaetigungsmoeglichkeit fehl. Redigierte Nutzbytes und `replayDivergent=true` bleiben harte Fehler.
 
 ## Sicherheit
 

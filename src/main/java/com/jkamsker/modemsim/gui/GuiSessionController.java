@@ -186,8 +186,8 @@ final class GuiSessionController {
         ValidationReport report = loader.validate(path);
         if (!report.valid()) {
             String errors = String.join("; ", report.errors());
-            SessionResponse response = enqueue("audit-failure",
-                    () -> session.diagnostic(EventType.AUDIT_FAILURE, "macro-reload-failed:" + path + ":" + errors));
+            SessionResponse response = enqueue("validation-error",
+                    () -> session.diagnostic(EventType.VALIDATION_ERROR, "macro-reload-failed:" + path + ":" + errors));
             return new MacroSummary("", errors, "", "", response);
         }
         activeMacroSet = loader.load(path);

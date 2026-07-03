@@ -154,10 +154,15 @@ Profile werden als XML-Datei geladen. Reine Basisprofile duerfen `initial-state`
              resetPolicy="nvram-on-atz"
              lineModel="minimal-v250"
              unknownAtCommand="ERROR"/>
+    <error-policy invalidParameter="CME_OR_ERROR"
+                  stateFailure="CME"
+                  smsFailure="CMS"
+                  timeout="NO_RESPONSE"/>
     <initial-state>
       <sim state="READY"
            pinQueryEnabled="true"
            pinRef="TEST_SIM_PIN"
+           pukRef="TEST_SIM_PUK"
            pinRetries="3"
            pukRetries="10"/>
       <network cregN="2" stat="1" lac="00C3" ci="00001234" act="7">
@@ -188,10 +193,14 @@ Profile werden als XML-Datei geladen. Reine Basisprofile duerfen `initial-state`
 
 - XML wird vor Aktivierung gegen `schemas/modem-profile.schema.xsd` validiert.
 - XML-Parser muessen nach Kapitel 14 gehaertet sein.
+- `error-policy` wird uebernommen und steuert Invalid-Parameter-, State-, SMS- und Timeout-Fehler nach Kapitel 04.
+- Runtime-Zielprofile muessen eine effektive Error-Policy besitzen; sie kann direkt im Profil stehen oder aus Loader-Defaults/Basisprofilen stammen, muss aber im geladenen Modell sichtbar sein.
 - `pinQueryEnabled`, `pinRef`/Test-`pin`, Retry-Zaehler, IMSI und ICCID werden in den Session-State uebernommen.
+- `pukRef`/Test-`puk` und `pukRetries` werden in den Session-State uebernommen, wenn die Profilart SIM-Lock-Workflows modelliert.
 - `network/operator` wird in den Session-State uebernommen und von Operator-Commands wie `AT+COPS?` verwendet.
 - `network/sms-rate-limit` wird in den Session-State uebernommen und begrenzt akzeptierte SMS-Submits pro Zeitfenster.
 - `network/delays` wird in den Session-State uebernommen und durch den Response-Scheduler pro Operation angewendet.
+- `registers/register` wird ueber die Profilvererbung zu einem effektiven Registerkatalog mit Default, Min, Max, Schreibbarkeit und Persistenz linearisiert.
 - PIN/PUK/IMSI/ICCID/IMEI/MSISDN/SMS-Body gelten als sensible Werte und werden in Event-Logs, GUI-Anzeigen und Exporten redigiert.
 
 ## Semantic-Validation
@@ -200,12 +209,16 @@ Nach XSD-Validierung ist ein Semantic-Validation-Pass verpflichtend. Er lehnt mi
 
 - `profileKind=cellular` ohne `sim`, `network` oder `signal`,
 - `profileKind=pstn|isdn` mit verpflichtenden Mobilfunkannahmen in Acceptance/Coverage,
+- Runtime-Zielprofil ohne effektive Error-Policy,
 - `pinQueryEnabled=true` ohne `pinRef` oder explizit als Testfixture erlaubtes `pin`,
 - gleichzeitige Verwendung von `pin` und `pinRef`,
+- gleichzeitige Verwendung von `puk` und `pukRef`,
+- `SIM_PUK_REQUIRED` ohne `pukRef` oder explizit als Testfixture erlaubtes `puk`,
 - `state.sim.state != READY` zusammen mit `network.stat` 1 oder 5,
 - `network/operator/@numeric` ohne gueltige MCC/MNC-Struktur,
 - `delay/@minMs > delay/@maxMs`,
 - doppelte Delay-Operationen,
+- Register mit `min > max`, Default ausserhalb Min/Max oder nicht erklaerten Konflikten nach Vererbung,
 - `sms-rate-limit/@rejectCmsError=310`,
 - `lac`/`ci`/`act` fuer nicht registrierte `+CREG`-Zustaende ohne dokumentierte Deviation,
 - unbekannte Command-/Coverage-Statuswerte,
@@ -213,4 +226,4 @@ Nach XSD-Validierung ist ein Semantic-Validation-Pass verpflichtend. Er lehnt mi
 - Profilvererbungszyklen,
 - Konflikte, die nicht durch Linearisierung oder Deviation erklaert sind.
 
-Fuer jeden Punkt muss es mindestens ein negatives CI-Fixture geben.
+Fuer jeden Punkt muss es mindestens ein negatives CI-Fixture geben. Die Fixture-Sammlung muss explizit diese Grenzfaelle enthalten: `pin` und `pinRef` gleichzeitig, `delay/@minMs > delay/@maxMs`, `operator/@numeric` ungleich `mcc+mnc` und Macro-`delay/@jitterMs` ohne reproduzierbaren Session-Seed.

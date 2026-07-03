@@ -155,7 +155,7 @@ Useful examples:
 ./mvnw -q exec:java -Dexec.args="headless --profile sierra-hl6-hl8-v20 --script src/test/resources/replay/basic-at.jsonl"
 ```
 
-The `test` command accepts both acceptance IDs (`A01` through `A25`) and spec-oriented aliases such as `creg`, `text-cmgs`, `deterministic-delays`, `live-log`, `injection`, `data-mode-lines`, and `unknown-at-command-policy`.
+The `test` command currently accepts implemented acceptance IDs (`A01` through `A25`) and spec-oriented aliases such as `creg`, `text-cmgs`, `deterministic-delays`, `live-log`, `injection`, `data-mode-lines`, and `unknown-at-command-policy`. The v0.5 spec matrix extends the target gate set through `A32`; those newer gates cover parser errors/`ATA`, timer-aware macro reload, audit backpressure, transport diagnostics, source-size gating, golden YAML transcripts, and profiled S-register bounds.
 
 `play-to-dte` validates replay metadata before transmitting: required fingerprints must be present, TX bytes must match the captured event stream, timing metadata is checked, and logs with redacted replay bytes are rejected. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
 

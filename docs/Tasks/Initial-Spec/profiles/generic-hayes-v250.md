@@ -10,6 +10,7 @@ Basisprofil für klassische Modemsteuerung über AT-Befehle. Dieses Profil ist k
 |---|---|---|
 | `AT` | `implemented_full` | Attention, liefert Result Code. |
 | `A/` | `implemented_full` | Letzten Befehl wiederholen, ohne CR. |
+| `ATA` | `implemented_full` | Eingehenden Ruf beantworten; ohne Ruf profilierter Fehler. |
 | `ATE0/1` | `implemented_full` | Echo aus/an. |
 | `ATQ0/1` | `implemented_full` | Result Codes aus/an. |
 | `ATV0/1` | `implemented_full` | Numeric/Verbose Result Codes. |
@@ -28,17 +29,19 @@ Basisprofil für klassische Modemsteuerung über AT-Befehle. Dieses Profil ist k
 
 Diese Tabelle ist Hayes-kompatible Profilbasis. Nicht jeder Eintrag ist normativ aus V.250 ableitbar; Abweichungen muessen im Profil-Coverage dokumentiert werden.
 
-| Register | Default | Bedeutung |
-|---|---:|---|
-| S0 | 0 | Auto-answer rings. |
-| S2 | 43 | Escape character `+` (Hayes-kompatibler Profilwert). |
-| S3 | 13 | Carriage Return. |
-| S4 | 10 | Line Feed. |
-| S5 | 8 | Backspace. |
-| S6 | 2 | Wait before dial. |
-| S7 | 60 | Wait for carrier. |
-| S8 | 2 | Dial pause. |
-| S12 | 50 | Escape guard time, profilabhaengige Einheit; fuer v1 in Millisekunden umzurechnen. |
+| Register | Default | Min | Max | Bedeutung |
+|---|---:|---:|---:|---|
+| S0 | 0 | 0 | 255 | Auto-answer rings. |
+| S2 | 43 | 0 | 127 | Escape character `+` (Hayes-kompatibler Profilwert). |
+| S3 | 13 | 0 | 127 | Carriage Return. |
+| S4 | 10 | 0 | 127 | Line Feed. |
+| S5 | 8 | 0 | 127 | Backspace. |
+| S6 | 2 | 0 | 255 | Wait before dial. |
+| S7 | 60 | 1 | 255 | Wait for carrier. |
+| S8 | 2 | 0 | 255 | Dial pause. |
+| S12 | 50 | 0 | 255 | Escape guard time, profilabhaengige Einheit; fuer v1 in Millisekunden umzurechnen. |
+
+Herstellerprofile duerfen diese Grenzen ueberschreiben, muessen die abweichende Tabelle aber im Profil oder Coverage-Artefakt pflegen. Runtime-Validation und Handler muessen die effektive Profilgrenze verwenden.
 
 ## Result Codes
 

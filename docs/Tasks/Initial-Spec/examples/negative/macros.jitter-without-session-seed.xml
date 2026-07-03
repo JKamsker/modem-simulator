@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<macros version="1.0">
+  <macro id="negative-jitter-without-session-seed" priority="10" phase="after">
+    <match type="command">
+      <line equals="AT"/>
+    </match>
+    <then>
+      <delay ms="100" jitterMs="20"/>
+      <emit line="OK"/>
+    </then>
+  </macro>
+</macros>

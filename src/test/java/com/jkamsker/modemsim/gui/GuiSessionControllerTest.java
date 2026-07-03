@@ -217,7 +217,7 @@ class GuiSessionControllerTest {
 
         assertThat(summary.errors()).isNotBlank();
         assertThat(summary.response().events()).extracting(event -> event.eventType())
-                .contains(EventType.AUDIT_FAILURE);
+                .contains(EventType.VALIDATION_ERROR);
     }
 
     @Test

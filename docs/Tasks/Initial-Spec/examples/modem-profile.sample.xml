@@ -19,11 +19,16 @@
              resetPolicy="nvram-on-atz"
              lineModel="minimal-v250"
              unknownAtCommand="ERROR"/>
+    <error-policy invalidParameter="CME_OR_ERROR"
+                  stateFailure="CME"
+                  smsFailure="CMS"
+                  timeout="NO_RESPONSE"/>
 
     <initial-state>
       <sim state="READY"
            pinQueryEnabled="true"
            pinRef="TEST_SIM_PIN"
+           pukRef="TEST_SIM_PUK"
            pinRetries="3"
            pukRetries="10"
            imsi="262010123456789"

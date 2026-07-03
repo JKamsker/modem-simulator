@@ -111,7 +111,7 @@ class RuntimeIoIntegrationTest {
         assertThat(result.output().isEmpty()).isTrue();
         assertThat(endpoint.written().isEmpty()).isTrue();
         assertThat(sink.events()).anySatisfy(event -> {
-            assertThat(event.eventType()).isEqualTo(EventType.AUDIT_FAILURE);
+            assertThat(event.eventType()).isEqualTo(EventType.POLICY_DENIED);
             assertThat(event.result()).isEqualTo("raw-dce-to-dte-disabled:queued");
         });
     }

@@ -257,8 +257,8 @@
             </goals>
             <configuration>
               <target>
-                <exec executable="bash">
-                  <arg value="${project.basedir}/scripts/check-code-size.sh"/>
+                <exec executable="bash" dir="${project.basedir}" failonerror="true">
+                  <arg value="scripts/check-code-size.sh"/>
                 </exec>
               </target>
             </configuration>

@@ -1,0 +1,22 @@
+name: basic-at-ok
+profile: generic-hayes-v250
+clockMode: virtual
+sessionSeed: 12345
+metadata:
+  purpose: Golden Transcript loader smoke fixture for A31.
+steps:
+  - inputHex: "41540D"
+    outputHex: "0D0A4F4B0D0A"
+expectEvents:
+  - eventType: RX_BYTES
+    source: rx
+    direction: DTE_TO_DCE
+  - eventType: PARSED_COMMAND
+    source: internal
+    command: AT
+  - eventType: HANDLER_RESULT
+    source: internal
+    finalResult: OK
+  - eventType: TX_BYTES
+    source: tx
+    direction: DCE_TO_DTE
