@@ -104,7 +104,12 @@ final class SessionEventPublisher {
             ModemState after,
             CommandResult result,
             double latencyMs) {
-        publish(type, direction, raw, command, before, after, result, false, raw, latencyMs);
+        publishWithLatency(type, direction, raw, command, before, after, result, latencyMs, false);
+    }
+
+    void publishWithLatency(EventType type, Direction direction, RawBytes raw, ParsedCommand command,
+            ModemState before, ModemState after, CommandResult result, double latencyMs, boolean smsBodyEntry) {
+        publish(type, direction, raw, command, before, after, result, smsBodyEntry, raw, latencyMs);
     }
 
     void publishRx(RawBytes raw, RawBytes redactionContext, ModemState state) {
@@ -185,20 +190,25 @@ final class SessionEventPublisher {
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after) {
-        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, null);
+        publishAudit(type, direction, injectionType, result, raw, before, after, false);
+    }
+
+    void publishAudit(EventType type, Direction direction, String injectionType, String result,
+            RawBytes raw, ModemState before, ModemState after, boolean smsBodyEntry) {
+        publishAudit(type, direction, injectionType, result, raw, before, after, port, portRole, null, smsBodyEntry);
     }
 
     void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole) {
-        publishAudit(type, direction, injectionType, result, raw, before, after, eventPort, eventPortRole, null);
+        publishAudit(type, direction, injectionType, result, raw, before, after, eventPort, eventPortRole, null, false);
     }
 
     private void publishAudit(
             EventType type, Direction direction, String injectionType, String result,
             RawBytes raw, ModemState before, ModemState after, String eventPort, String eventPortRole,
-            Double latencyMs) {
-        RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, false);
+            Double latencyMs, boolean smsBodyEntry) {
+        RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, smsBodyEntry);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
         RedactionInfo redaction = SessionEventRedactions.merge(

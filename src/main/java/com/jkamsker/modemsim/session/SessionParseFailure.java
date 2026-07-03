@@ -16,11 +16,17 @@ final class SessionParseFailure {
     static SessionResponse response(
             ErrorPolicy errorPolicy, SessionEventPublisher events, SessionInputState inputState, long lastByteNanos,
             ModemState state, RawBytes input, RawBytes output, int start) {
+        return response(errorPolicy, events, inputState, lastByteNanos, state, input, output, start, false);
+    }
+
+    static SessionResponse response(
+            ErrorPolicy errorPolicy, SessionEventPublisher events, SessionInputState inputState, long lastByteNanos,
+            ModemState state, RawBytes input, RawBytes output, int start, boolean smsBodyEntry) {
         CommandResult commandResult = parseResult(errorPolicy, state);
         RawBytes result = renderResult(commandResult, state);
         RawBytes response = output.append(result);
         events.publish(EventType.PARSE_ERROR, Direction.INTERNAL, input, null, state, state,
-                commandResult);
+                commandResult, smsBodyEntry);
         inputState.clearCommandBuffer();
         if (!response.isEmpty()) {
             events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, response, null, null, state, null);

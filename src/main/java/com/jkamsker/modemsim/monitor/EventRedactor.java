@@ -32,7 +32,7 @@ public final class EventRedactor {
         if (raw.isEmpty()) {
             return original(raw);
         }
-        if (smsBodyEntry && type == EventType.RX_BYTES && direction == Direction.DTE_TO_DCE) {
+        if (smsBodyEntry) {
             return fullyRedacted("rawHex", "textEscaped", "sms-body");
         }
         if (type == EventType.TX_BYTES && direction == Direction.DCE_TO_DTE && containsSmsStorageBody(raw)) {
