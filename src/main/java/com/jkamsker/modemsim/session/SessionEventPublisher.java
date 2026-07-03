@@ -117,6 +117,11 @@ final class SessionEventPublisher {
                 mergeRedaction(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
     }
 
+    void publishEvent(ModemEvent event) {
+        eventSink.publish(event);
+        sequence = Math.max(sequence, event.sequence());
+    }
+
     long nextSequence() {
         return sequence + 1;
     }

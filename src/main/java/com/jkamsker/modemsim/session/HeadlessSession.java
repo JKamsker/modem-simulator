@@ -12,6 +12,7 @@ import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.ModemEvents;
 import com.jkamsker.modemsim.parser.AtCommandParser;
 import com.jkamsker.modemsim.parser.EntryMode;
 import com.jkamsker.modemsim.parser.ParsedCommand;
@@ -71,7 +72,8 @@ public final class HeadlessSession implements SessionActor {
         int start = eventCount();
         RawBytes output = RawBytes.empty();
         publish(EventType.RX_BYTES, Direction.DTE_TO_DCE, bytes, null, null, state, null);
-        if (state.call().mode() == CallMode.ONLINE_DATA && !isEscapeSequence(bytes)) {
+        if (state.call().mode() == CallMode.ONLINE_DATA
+                && !SessionBytes.isEscapeSequence(bytes, state.settings().s3())) {
             return response(RawBytes.empty(), start);
         }
         if (state.settings().echo()) {
@@ -118,10 +120,10 @@ public final class HeadlessSession implements SessionActor {
         SmsSubmitResult result;
         Integer macroDelayMs = null;
         String macroOperation = null;
-        String body = entryPayload(raw);
-        if (contains(raw, 27)) {
+        String body = SessionBytes.entryPayload(raw);
+        if (SessionBytes.contains(raw, 27)) {
             result = smsSubmitProcessor.abort(state);
-        } else if (contains(raw, 26)) {
+        } else if (SessionBytes.contains(raw, 26)) {
             MacroDecision decision = macroEngine.evaluateSms(pendingSms.destination(), body, state, profile);
             if (decision.matched()) {
                 ModemState macroState = applyFaults(state.withCall(CallRuntime.command()), decision);
@@ -183,6 +185,35 @@ public final class HeadlessSession implements SessionActor {
         return state;
     }
 
+    public SessionResponse injectDce(RawBytes bytes, String injectionType) {
+        int start = eventCount();
+        events.publishEvent(ModemEvents.audit(
+                events.nextSequence(), sessionId, profile.id(), EventType.INJECTION, Direction.DCE_TO_DTE,
+                injectionType, bytes, state, state));
+        events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
+        return response(bytes, start);
+    }
+
+    public SessionResponse applyState(ModemState next, String injectionType) {
+        return applyState(next, injectionType, EventType.STATE_CHANGE);
+    }
+
+    public SessionResponse applyFault(String type) {
+        return applyState(
+                faultService.apply(state, new com.jkamsker.modemsim.macros.FaultAction(type, null, null, null, null, null)),
+                "fault-" + type, EventType.FAULT_TRIGGERED);
+    }
+
+    private SessionResponse applyState(ModemState next, String injectionType, EventType eventType) {
+        int start = eventCount();
+        ModemState before = state;
+        state = next;
+        events.publishEvent(ModemEvents.audit(
+                events.nextSequence(), sessionId, profile.id(), eventType, Direction.INTERNAL,
+                injectionType, RawBytes.empty(), before, state));
+        return response(RawBytes.empty(), start);
+    }
+
     private RawBytes renderFrames(List<ResponseFrame> frames) {
         RawBytes output = RawBytes.empty();
         ResponseFormatter formatter = new ResponseFormatter(state);
@@ -238,21 +269,7 @@ public final class HeadlessSession implements SessionActor {
         };
     }
 
-    private boolean isEscapeSequence(RawBytes bytes) {
-        String text = bytes.ascii();
-        int end = text.length();
-        while (end > 0 && (text.charAt(end - 1) == state.settings().s3()
-                || text.charAt(end - 1) == '\r'
-                || text.charAt(end - 1) == '\n')) {
-            end--;
-        }
-        return text.substring(0, end).equals("+++");
-    }
-
-    private SessionResponse response(RawBytes output, int start) {
-        return new SessionResponse(output, events.eventsSince(start));
-    }
-
+    private SessionResponse response(RawBytes output, int start) { return new SessionResponse(output, events.eventsSince(start)); }
     private void publish(
             EventType type,
             Direction direction,
@@ -276,24 +293,5 @@ public final class HeadlessSession implements SessionActor {
         events.publish(type, direction, raw, command, before, after, result, smsBodyEntry);
     }
 
-    private boolean contains(byte[] bytes, int expected) {
-        for (byte value : bytes) {
-            if ((value & 0xFF) == expected) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private String entryPayload(byte[] raw) {
-        int end = 0;
-        while (end < raw.length && raw[end] != 26) {
-            end++;
-        }
-        return new String(raw, 0, end, java.nio.charset.StandardCharsets.US_ASCII);
-    }
-
-    private int eventCount() {
-        return events.eventCount();
-    }
+    private int eventCount() { return events.eventCount(); }
 }
