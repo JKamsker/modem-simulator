@@ -115,7 +115,8 @@ function Assert-TimedProcessSucceeded {
 function Invoke-Setupc {
   param(
     [Parameter(Mandatory = $true)][System.IO.FileInfo] $Setupc,
-    [Parameter(Mandatory = $true)][string[]] $SetupArgs
+    [Parameter(Mandatory = $true)][string[]] $SetupArgs,
+    [switch] $AllowTimeout
   )
 
   $timeoutSeconds = 90
@@ -126,6 +127,10 @@ function Invoke-Setupc {
     -WorkingDirectory $Setupc.DirectoryName `
     -TimeoutSeconds $timeoutSeconds `
     -Description $description
+  if ($AllowTimeout -and $result.TimedOut) {
+    Write-Host "$description timed out, but this command can finish device creation before exiting. Continuing to verification."
+    return
+  }
   Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $timeoutSeconds -Description $description
 }
 
@@ -187,7 +192,7 @@ if ($installerResult.TimedOut) {
 }
 Write-Host "Using setupc: $($setupc.FullName)"
 
-Invoke-Setupc -Setupc $setupc -SetupArgs @("install", "-", "-")
+Invoke-Setupc -Setupc $setupc -SetupArgs @("install", "-", "-") -AllowTimeout
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "PortName=$ModemPort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCB0", "PortName=$DtePort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "EmuBR=yes")
