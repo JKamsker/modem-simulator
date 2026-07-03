@@ -3,6 +3,7 @@ package com.jkamsker.modemsim.session;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.profiles.ErrorPolicy;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileRegister;
 import com.jkamsker.modemsim.profiles.ProfileRegisterCatalog;
@@ -157,6 +158,23 @@ class ProtocolRegressionTest {
         assertThat(invalidFlag.outputAscii()).isEqualTo("\r\nERROR\r\n");
         assertThat(invalidFlag.events()).anySatisfy(event -> assertThat(event.eventType()).isEqualTo(EventType.PARSE_ERROR));
         assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("\r\nOK\r\n");
+    }
+
+    @Test
+    void malformedLineHonorsProfileInvalidParameterPolicy() {
+        Profile cme = BuiltinProfiles.acceptanceSierra()
+                .withErrorPolicy(new ErrorPolicy("CME", "CME", "CMS", "NO_RESPONSE"));
+        HeadlessSession cmeSession = new HeadlessSession("parse-cme", cme, 12345);
+        cmeSession.receive(RawBytes.ascii("AT+CMEE=2\r"));
+
+        assertThat(cmeSession.receive(RawBytes.ascii("BOGUS\r")).outputAscii())
+                .contains("+CME ERROR: incorrect parameters");
+
+        Profile error = cme.withErrorPolicy(new ErrorPolicy("ERROR", "CME", "CMS", "NO_RESPONSE"));
+        HeadlessSession errorSession = new HeadlessSession("parse-error-policy", error, 12345);
+        errorSession.receive(RawBytes.ascii("AT+CMEE=2\r"));
+
+        assertThat(errorSession.receive(RawBytes.ascii("BOGUS\r")).outputAscii()).isEqualTo("\r\nERROR\r\n");
     }
 
     @Test

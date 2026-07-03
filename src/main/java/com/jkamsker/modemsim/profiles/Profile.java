@@ -15,6 +15,7 @@ public record Profile(
         String manualDate,
         Dialect dialect,
         Identity identity,
+        ErrorPolicy errorPolicy,
         ModemState initialState,
         List<ProfileCommand> commands,
         List<ProfileRegister> registers,
@@ -25,7 +26,7 @@ public record Profile(
             String id, List<String> parents, String vendor, String status, String profileKind,
             Dialect dialect, Identity identity, ModemState initialState) {
         this(id, parents, vendor, status, profileKind, null, null, null,
-                dialect, identity, initialState, List.of(), List.of(), null, List.of());
+                dialect, identity, ErrorPolicy.defaults(), initialState, List.of(), List.of(), null, List.of());
     }
 
     public Profile(
@@ -34,11 +35,12 @@ public record Profile(
             List<ProfileCommand> commands, List<ProfileRegister> registers,
             ProfileCoverage coverage, List<ProfileDeviation> deviations) {
         this(id, parents, vendor, status, profileKind, null, null, null,
-                dialect, identity, initialState, commands, registers, coverage, deviations);
+                dialect, identity, ErrorPolicy.defaults(), initialState, commands, registers, coverage, deviations);
     }
 
     public Profile {
         parents = List.copyOf(parents);
+        errorPolicy = errorPolicy == null ? ErrorPolicy.defaults() : errorPolicy;
         commands = List.copyOf(commands);
         registers = List.copyOf(registers);
         deviations = List.copyOf(deviations);
@@ -46,19 +48,25 @@ public record Profile(
 
     public Profile withInitialState(ModemState value) {
         return new Profile(id, parents, vendor, status, profileKind, modelFamily, manualVersion, manualDate,
-                dialect, identity, value,
+                dialect, identity, errorPolicy, value,
                 commands, registers, coverage, deviations);
     }
 
     public Profile withDialect(Dialect value) {
         return new Profile(id, parents, vendor, status, profileKind, modelFamily, manualVersion, manualDate,
-                value, identity, initialState,
+                value, identity, errorPolicy, initialState,
+                commands, registers, coverage, deviations);
+    }
+
+    public Profile withErrorPolicy(ErrorPolicy value) {
+        return new Profile(id, parents, vendor, status, profileKind, modelFamily, manualVersion, manualDate,
+                dialect, identity, value, initialState,
                 commands, registers, coverage, deviations);
     }
 
     public Profile withRegisters(List<ProfileRegister> value) {
         return new Profile(id, parents, vendor, status, profileKind, modelFamily, manualVersion, manualDate,
-                dialect, identity, initialState,
+                dialect, identity, errorPolicy, initialState,
                 commands, value, coverage, deviations);
     }
 }

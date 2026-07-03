@@ -12,6 +12,7 @@ public enum CmeError {
     SIM_BUSY(14, "SIM busy"),
     SIM_WRONG(15, "SIM wrong"),
     INCORRECT_PASSWORD(16, "incorrect password"),
+    INCORRECT_PARAMETERS(50, "incorrect parameters"),
     OPERATION_NOT_ALLOWED(3, "operation not allowed");
 
     private final int code;

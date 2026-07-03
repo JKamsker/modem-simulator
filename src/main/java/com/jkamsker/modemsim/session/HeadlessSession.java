@@ -105,7 +105,7 @@ public final class HeadlessSession implements SessionActor {
         List<ParsedCommand> commands;
         try {
             commands = parseCommands(effective);
-        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(events, inputState, lastByteNanos, state, effective, output, start); }
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(profile.errorPolicy(), events, inputState, lastByteNanos, state, effective, output, start); }
         if (commands.isEmpty()) {
             inputState.rememberIncomplete(effective);
             inputState.markDteRx(lastByteNanos);
@@ -183,7 +183,7 @@ public final class HeadlessSession implements SessionActor {
         List<ParsedCommand> commands;
         try {
             commands = parseCommands(bytes);
-        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); }
+        } catch (com.jkamsker.modemsim.parser.AtParseException e) { return SessionParseFailure.response(profile.errorPolicy(), events, inputState, clock.nowNanos(), state, bytes, RawBytes.empty(), start); }
         return commands.isEmpty() ? response(RawBytes.empty(), start)
                 : executeParsedCommands(commands, RawBytes.empty(), clock.nowNanos(), false, start);
     }

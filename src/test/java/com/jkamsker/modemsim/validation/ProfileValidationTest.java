@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.validation;
 
+import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,8 +25,10 @@ class ProfileValidationTest {
 
         assertThat(report.valid()).as(report.errors().toString()).isTrue();
         assertThat(profile.id()).isEqualTo("sierra-hl6-hl8-test");
+        assertThat(profile.errorPolicy().invalidParameter()).isEqualTo("CME_OR_ERROR");
         assertThat(profile.initialState().settings().echo()).isTrue();
         assertThat(profile.initialState().network().smsRateLimit().rejectCmsError()).isEqualTo(500);
+        assertThat(BuiltinProfiles.acceptanceSierra().errorPolicy().timeout()).isEqualTo("NO_RESPONSE");
     }
 
     @Test

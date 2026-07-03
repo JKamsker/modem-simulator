@@ -66,6 +66,7 @@ public final class ProfileXmlLoader {
                 Dom.attr(profile, "manualDate", null),
                 dialect,
                 parseIdentity(Dom.child(profile, "identity")),
+                parseErrorPolicy(Dom.child(profile, "error-policy")),
                 state, metadata.commands(), metadata.registers(), metadata.coverage(), metadata.deviations());
     }
 
@@ -95,6 +96,17 @@ public final class ProfileXmlLoader {
                 identity.getAttribute("model"),
                 Dom.attr(identity, "revision", null),
                 Dom.attr(identity, "imei", null));
+    }
+
+    private ErrorPolicy parseErrorPolicy(Element policy) {
+        if (policy == null) {
+            return ErrorPolicy.defaults();
+        }
+        return new ErrorPolicy(
+                Dom.attr(policy, "invalidParameter", "CME_OR_ERROR"),
+                Dom.attr(policy, "stateFailure", "CME"),
+                Dom.attr(policy, "smsFailure", "CMS"),
+                Dom.attr(policy, "timeout", "NO_RESPONSE"));
     }
 
     ModemState applyDialect(ModemState state, Dialect dialect) {

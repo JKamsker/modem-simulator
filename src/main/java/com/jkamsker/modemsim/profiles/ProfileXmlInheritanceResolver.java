@@ -60,7 +60,7 @@ final class ProfileXmlInheritanceResolver {
         return left == null ? right : new Profile(
                 right.id(), right.parents(), right.vendor(), right.status(), right.profileKind(),
                 right.modelFamily(), right.manualVersion(), right.manualDate(),
-                right.dialect(), right.identity(), right.initialState(),
+                right.dialect(), right.identity(), right.errorPolicy(), right.initialState(),
                 mergeBy(left.commands(), right.commands(), ProfileCommand::name),
                 mergeBy(left.registers(), right.registers(), ProfileRegister::name),
                 mergeCoverage(left.coverage(), right.coverage()),
@@ -70,6 +70,8 @@ final class ProfileXmlInheritanceResolver {
     private Profile overlay(Profile parent, Profile child, Element childElement) {
         Dialect dialect = Dom.child(childElement, "dialect") == null ? parent.dialect() : child.dialect();
         Identity identity = Dom.child(childElement, "identity") == null ? parent.identity() : child.identity();
+        ErrorPolicy errorPolicy = Dom.child(childElement, "error-policy") == null
+                ? parent.errorPolicy() : child.errorPolicy();
         List<ProfileCommand> commands = metadata(parent.commands(), child.commands(), childElement,
                 "commands", ProfileCommand::name);
         List<ProfileRegister> registers = metadata(parent.registers(), child.registers(), childElement,
@@ -81,7 +83,7 @@ final class ProfileXmlInheritanceResolver {
                 value(child.modelFamily(), parent.modelFamily()),
                 value(child.manualVersion(), parent.manualVersion()),
                 value(child.manualDate(), parent.manualDate()),
-                dialect, identity, state,
+                dialect, identity, errorPolicy, state,
                 commands,
                 registers,
                 Dom.child(childElement, "coverage") == null ? parent.coverage()
