@@ -154,6 +154,7 @@ public final class ReplayValidator {
             ReplayReport report) {
         compare(stepNumber, "sequence", expectation.sequence(), event.sequence(), report);
         compare(stepNumber, "monotonicNanos", expectation.monotonicNanos(), event.monotonicNanos(), report);
+        compare(stepNumber, "source", expectation.source(), ModemEventJson.toMap(event).get("source"), report);
         compare(stepNumber, "rawHex", expectation.rawHex(), event.rawHex(), report);
         compare(stepNumber, "profileHash", expectation.profileHash(), event.profileHash(), report);
         compare(stepNumber, "configHash", expectation.configHash(), event.configHash(), report);

@@ -140,7 +140,7 @@ public final class ReplayStepLoader {
 
     private void validateEventNode(JsonNode node, int lineNumber) {
         require(node, lineNumber, "timestamp", "monotonicNanos", "sequence", "sessionId",
-                "eventType", "direction", "rawHex", "profileHash", "configHash",
+                "eventType", "source", "direction", "rawHex", "profileHash", "configHash",
                 "macroHash", "initialStateHash", "sessionSeed", "clockMode", "redaction");
         require(node.path("redaction"), lineNumber, "applied", "policy", "fields", "classes");
         String type = node.path("eventType").asText();

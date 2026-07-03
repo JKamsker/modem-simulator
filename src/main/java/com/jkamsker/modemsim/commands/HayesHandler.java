@@ -157,13 +157,14 @@ public final class HayesHandler implements CommandHandler {
     }
 
     private ModemState resetVolatile(Profile profile, ModemState state) {
+        SessionSettings settings = ProfileRegisterCatalog.applyDefaults(SessionSettings.defaults(), profile.registers())
+                .withEcho(profile.dialect().defaultEcho())
+                .withQuiet(profile.dialect().defaultQuiet())
+                .withVerbose(profile.dialect().defaultVerbose())
+                .withRegister(3, profile.dialect().commandTerminator())
+                .withRegister(4, profile.dialect().responseTerminator());
         return state
-                .withSettings(SessionSettings.defaults()
-                        .withEcho(profile.dialect().defaultEcho())
-                        .withQuiet(profile.dialect().defaultQuiet())
-                        .withVerbose(profile.dialect().defaultVerbose())
-                        .withRegister(3, profile.dialect().commandTerminator())
-                        .withRegister(4, profile.dialect().responseTerminator()))
+                .withSettings(settings)
                 .withCall(CallRuntime.command())
                 .withLines(state.lines().withDcd(false));
     }

@@ -6,6 +6,7 @@ import com.jkamsker.modemsim.monitor.EventType;
 
 public record ReplayEventExpectation(
         EventType eventType,
+        String source,
         Direction direction,
         Long sequence,
         Long monotonicNanos,
@@ -35,7 +36,7 @@ public record ReplayEventExpectation(
             String profileHash, String configHash, String macroHash, String initialStateHash,
             Long sessionSeed, String clockMode, String schedulerOperation,
             Integer sampledDelayMs, Boolean redacted) {
-        this(eventType, direction, sequence, null, rawHex, profileHash, configHash, macroHash,
+        this(eventType, null, direction, sequence, null, rawHex, profileHash, configHash, macroHash,
                 initialStateHash, sessionSeed, clockMode, null, null, schedulerOperation, sampledDelayMs,
                 null, null, null, null, redacted, false, false, null, null);
     }
@@ -44,6 +45,7 @@ public record ReplayEventExpectation(
         JsonNode scheduler = node.path("scheduler");
         return new ReplayEventExpectation(
                 enumValue(EventType.class, node.path("eventType").asText(null)),
+                text(node, "source"),
                 enumValue(Direction.class, node.path("direction").asText(null)),
                 longValue(node, "sequence"),
                 longValue(node, "monotonicNanos"),

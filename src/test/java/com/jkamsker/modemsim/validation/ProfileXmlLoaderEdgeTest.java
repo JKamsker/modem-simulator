@@ -169,6 +169,29 @@ class ProfileXmlLoaderEdgeTest {
     }
 
     @Test
+    void rejectsInvalidRegisterBounds() throws Exception {
+        Path path = tempDir.resolve("bad-registers.xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <modem-simulator version="1.0">
+                  <profile id="bad-registers" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <registers>
+                      <register name="S7" default="20" min="30" max="10"/>
+                    </registers>
+                    <coverage source="bad.md" commandsTotal="0" unknown="0"/>
+                  </profile>
+                </modem-simulator>
+                """);
+
+        ValidationReport report = new ProfileXmlLoader().validate(path);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("register min"));
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("default out of range"));
+    }
+
+    @Test
     void compatibilityDeviationAllowsNonRegisteredLocationFields() throws Exception {
         Path path = tempDir.resolve("deviation.xml");
         Files.writeString(path, """

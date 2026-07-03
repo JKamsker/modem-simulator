@@ -15,6 +15,7 @@ public final class ProfileSemanticValidator {
         validateRequiredState(profile, report);
         validateSimNetwork(profile, report);
         validateNetwork(profile, report);
+        validateRegisters(profile, report);
         validateCoverage(profile, report);
         return report;
     }
@@ -93,6 +94,24 @@ public final class ProfileSemanticValidator {
 
     private boolean blank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private void validateRegisters(Profile profile, ValidationReport report) {
+        Set<String> names = new HashSet<>();
+        for (ProfileRegister register : profile.registers()) {
+            if (!names.add(register.name())) {
+                report.error(profile.id() + ": duplicate register " + register.name());
+            }
+            if (!ProfileRegisterCatalog.supports(register)) {
+                report.error(profile.id() + ": unsupported register " + register.name());
+            }
+            if (register.min() != null && register.max() != null && register.min() > register.max()) {
+                report.error(profile.id() + ": register min must not exceed max for " + register.name());
+            }
+            if (!ProfileRegisterCatalog.accepts(register, register.defaultValue())) {
+                report.error(profile.id() + ": register default out of range for " + register.name());
+            }
+        }
     }
 
     private void validateCoverage(Profile profile, ValidationReport report) {

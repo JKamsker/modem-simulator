@@ -522,7 +522,15 @@
 
   <xs:simpleType name="RegisterNameType">
     <xs:restriction base="xs:string">
-      <xs:pattern value="S[0-9]+"/>
+      <xs:enumeration value="S0"/>
+      <xs:enumeration value="S2"/>
+      <xs:enumeration value="S3"/>
+      <xs:enumeration value="S4"/>
+      <xs:enumeration value="S5"/>
+      <xs:enumeration value="S6"/>
+      <xs:enumeration value="S7"/>
+      <xs:enumeration value="S8"/>
+      <xs:enumeration value="S12"/>
     </xs:restriction>
   </xs:simpleType>
 

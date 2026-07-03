@@ -3,8 +3,11 @@ package com.jkamsker.modemsim.profiles;
 import com.jkamsker.modemsim.state.SessionSettings;
 
 import java.util.List;
+import java.util.Set;
 
 public final class ProfileRegisterCatalog {
+    private static final Set<Integer> SUPPORTED = Set.of(0, 2, 3, 4, 5, 6, 7, 8, 12);
+
     private ProfileRegisterCatalog() {
     }
 
@@ -23,6 +26,11 @@ public final class ProfileRegisterCatalog {
                 && (register.max() == null || value <= register.max());
     }
 
+    public static boolean supports(ProfileRegister register) {
+        Integer parsed = number(register.name());
+        return parsed != null && SUPPORTED.contains(parsed);
+    }
+
     public static SessionSettings applyDefaults(SessionSettings settings, List<ProfileRegister> registers) {
         SessionSettings result = settings;
         for (ProfileRegister register : registers) {
@@ -34,7 +42,7 @@ public final class ProfileRegisterCatalog {
         return result;
     }
 
-    private static Integer number(String name) {
+    static Integer number(String name) {
         if (name == null || !name.matches("S[0-9]+")) {
             return null;
         }
