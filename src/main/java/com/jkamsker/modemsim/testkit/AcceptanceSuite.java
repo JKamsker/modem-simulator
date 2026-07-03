@@ -103,8 +103,18 @@ public final class AcceptanceSuite {
         requireContains(s.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii(), "SIM PIN");
         requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii(), "ERROR");
         require(s.snapshot().sim().pinRetries() == 2);
-        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"1234\"\r")).outputAscii(), "OK");
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii(), "ERROR");
+        require(s.snapshot().sim().pinRetries() == 1);
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii(), "ERROR");
+        require(s.snapshot().sim().pinRetries() == 0);
+        require(s.snapshot().sim().state() == SimState.SIM_PUK_REQUIRED);
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii(), "SIM PUK");
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"00000000\",\"4321\"\r")).outputAscii(), "ERROR");
+        require(s.snapshot().sim().pukRetries() == 9);
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"4321\"\r")).outputAscii(), "OK");
         require(s.snapshot().sim().state() == SimState.READY);
+        require(s.snapshot().sim().pinRetries() == 3);
+        require("4321".equals(s.snapshot().sim().testPin()));
         require(s.snapshot().network().stat() == 0);
     }
 

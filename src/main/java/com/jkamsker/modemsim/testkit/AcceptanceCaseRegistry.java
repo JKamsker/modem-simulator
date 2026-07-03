@@ -31,7 +31,7 @@ final class AcceptanceCaseRegistry {
             case "creg" -> "A03";
             case "profile-macro-negatives" -> "A05";
             case "csq" -> "A04";
-            case "cpin" -> "A06";
+            case "cpin", "cpin-puk" -> "A06";
             case "cops" -> "A07";
             case "cmee" -> "A08";
             case "text-cmgs" -> "A09";
