@@ -201,38 +201,57 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $work = Join-Path $env:RUNNER_TEMP "com0com"
-          $installDir = Join-Path $work "install"
           New-Item -ItemType Directory -Force -Path $work | Out-Null
 
           $zip = Join-Path $work "com0com.zip"
-          Invoke-WebRequest `
-            -Uri "https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download" `
-            -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $work -Force
+          $url = "https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download"
+          Write-Host "Downloading com0com from $url"
+          & curl.exe -L --fail --retry 3 -o $zip $url
+          if ($LASTEXITCODE -ne 0) {
+            throw "curl failed while downloading com0com with exit code $LASTEXITCODE."
+          }
+          Write-Host "Downloaded com0com package bytes: $((Get-Item $zip).Length)"
+          & tar.exe -xf $zip -C $work
+          if ($LASTEXITCODE -ne 0) {
+            throw "tar failed while extracting com0com with exit code $LASTEXITCODE."
+          }
           $installer = Get-ChildItem -Path $work -Filter "*x64_signed.exe" -Recurse | Select-Object -First 1
           if (-not $installer) {
             throw "Could not find com0com x64 signed installer in downloaded package."
           }
+          Write-Host "Using com0com installer: $($installer.FullName)"
 
           $env:CNC_INSTALL_START_MENU_SHORTCUTS = "NO"
           $env:CNC_INSTALL_CNCA0_CNCB0_PORTS = "YES"
           $env:CNC_INSTALL_COMX_COMX_PORTS = "NO"
-          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S", "/D=$installDir" -Wait -PassThru
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -PassThru
+          Write-Host "com0com installer exit code: $($process.ExitCode)"
           if ($process.ExitCode -ne 0) {
             throw "com0com installer failed with exit code $($process.ExitCode)."
           }
 
-          $setupc = Get-ChildItem -Path $installDir -Filter "setupc.exe" -Recurse | Select-Object -First 1
+          $searchRoots = @($work, $env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ -and (Test-Path $_) }
+          $setupc = Get-ChildItem -Path $searchRoots -Filter "setupc.exe" -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
           if (-not $setupc) {
             throw "Could not find setupc.exe after com0com installation."
           }
+          Write-Host "Using setupc: $($setupc.FullName)"
 
-          & $setupc.FullName list
-          & $setupc.FullName change CNCA0 PortName=COM50
-          & $setupc.FullName change CNCB0 PortName=COM51
-          & $setupc.FullName change CNCA0 EmuBR=yes
-          & $setupc.FullName change CNCB0 EmuOverrun=yes
-          & $setupc.FullName list
+          function Invoke-Setupc {
+            param([Parameter(ValueFromRemainingArguments = $true)][string[]] $SetupArgs)
+            & $setupc.FullName @SetupArgs
+            if ($LASTEXITCODE -ne 0) {
+              throw "setupc $($SetupArgs -join ' ') failed with exit code $LASTEXITCODE."
+            }
+          }
+
+          Invoke-Setupc list
+          Invoke-Setupc change CNCA0 PortName=COM50
+          Invoke-Setupc change CNCB0 PortName=COM51
+          Invoke-Setupc change CNCA0 EmuBR=yes
+          Invoke-Setupc change CNCB0 EmuOverrun=yes
+          Invoke-Setupc list
 
           for ($attempt = 0; $attempt -lt 30; $attempt++) {
             $ports = [System.IO.Ports.SerialPort]::GetPortNames()
