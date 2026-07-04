@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.jkamsker.modemsim.monitor.Direction;
 import com.jkamsker.modemsim.monitor.EventType;
 
+import java.util.List;
+
 public record ReplayEventExpectation(
         EventType eventType,
         String source,
@@ -23,6 +25,7 @@ public record ReplayEventExpectation(
         String portRole,
         String schedulerOperation,
         Integer sampledDelayMs,
+        List<Integer> sampledDelayMsWithin,
         Long schedulerDueMonotonicNanos,
         Long schedulerSourceSequence,
         String schedulerSourcePriority,
@@ -40,7 +43,7 @@ public record ReplayEventExpectation(
             Integer sampledDelayMs, Boolean redacted) {
         this(eventType, null, direction, null, null, sequence, null, rawHex, profileHash, configHash, macroHash,
                 initialStateHash, sessionSeed, clockMode, null, null, schedulerOperation, sampledDelayMs,
-                null, null, null, null, redacted, false, false, null, null);
+                null, null, null, null, null, redacted, false, false, null, null);
     }
 
     static ReplayEventExpectation from(JsonNode node) {
@@ -62,8 +65,9 @@ public record ReplayEventExpectation(
                 text(node, "clockMode"),
                 text(node, "port"),
                 text(node, "portRole"),
-                text(scheduler, "operation"),
-                intValue(scheduler, "sampledDelayMs"),
+                firstText(node, scheduler, "operation"),
+                firstInt(node, scheduler, "sampledDelayMs"),
+                intList(firstNode(node, scheduler, "sampledDelayMsWithin")),
                 longValue(scheduler, "dueMonotonicNanos"),
                 longValue(scheduler, "sourceSequence"),
                 text(scheduler, "sourcePriority"),
@@ -80,6 +84,27 @@ public record ReplayEventExpectation(
             return null;
         }
         return node.path(field).asText();
+    }
+
+    private static String firstText(JsonNode first, JsonNode second, String field) {
+        String value = text(first, field);
+        return value == null ? text(second, field) : value;
+    }
+
+    private static Integer firstInt(JsonNode first, JsonNode second, String field) {
+        Integer value = intValue(first, field);
+        return value == null ? intValue(second, field) : value;
+    }
+
+    private static JsonNode firstNode(JsonNode first, JsonNode second, String field) {
+        return first != null && first.has(field) ? first.path(field) : second == null ? null : second.path(field);
+    }
+
+    private static List<Integer> intList(JsonNode node) {
+        if (node == null || !node.isArray() || node.size() != 2) {
+            return null;
+        }
+        return List.of(node.get(0).asInt(), node.get(1).asInt());
     }
 
     private static JsonNode json(JsonNode node, String field) {

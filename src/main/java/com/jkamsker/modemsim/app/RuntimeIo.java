@@ -47,9 +47,9 @@ final class RuntimeIo {
         var next = switch (current.settings().ampD()) {
             case 1 -> current.withCall(current.call().withMode(CallMode.ONLINE_COMMAND)).withLines(current.lines().withDtr(false));
             case 3 -> current.withModem(current.modem().withLifecycle(ModemLifecycle.REBOOTING))
-                    .withLines(current.lines().withDtr(false).withDcd(dcdAfterDisconnect(current)));
+                    .withLines(current.lines().withDtr(false).withDcd(false));
             default -> current.call().carrier()
-                    ? current.withCall(current.call().disconnected()).withLines(current.lines().withDtr(false).withDcd(dcdAfterDisconnect(current)))
+                    ? current.withCall(current.call().disconnected()).withLines(current.lines().withDtr(false).withDcd(false))
                     : current.withLines(current.lines().withDtr(false));
         };
         SessionResponse response = session.applyState(next, "dtr-drop");
@@ -169,10 +169,6 @@ final class RuntimeIo {
         PortBinding binding = sidecar.binding();
         String port = binding.name() == null || binding.name().isBlank() ? binding.id() : binding.name();
         session.diagnostic(type, result, port, binding.role().configName());
-    }
-
-    private boolean dcdAfterDisconnect(ModemState state) {
-        return state.settings().ampC() == 0;
     }
 
     private void write(SerialEndpoint endpoint, RawBytes output) throws IOException {

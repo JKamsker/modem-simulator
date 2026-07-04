@@ -21,7 +21,6 @@ public final class XmlSecurity {
     private static final int MAX_TEXT_LENGTH = 50_000;
     private static final Pattern SCHEMA_LOCATION_ATTR = Pattern.compile(
             "(?is)schemaLocation\\s*=\\s*(['\"])([^'\"]*)\\1");
-    private static final Pattern URI_SCHEME = Pattern.compile("(?i)^[a-z][a-z0-9+.-]*://");
 
     private XmlSecurity() {
     }
@@ -120,7 +119,7 @@ public final class XmlSecurity {
         }
         for (int i = 0; i < node.getAttributes().getLength(); i++) {
             Node attribute = node.getAttributes().item(i);
-            if (attribute.getNodeName().endsWith("schemaLocation") && hasUriScheme(attribute.getNodeValue())) {
+            if (attribute.getNodeName().endsWith("schemaLocation") && !attribute.getNodeValue().isBlank()) {
                 throw new ValidationException("XML external schema references are not allowed");
             }
         }
@@ -130,14 +129,10 @@ public final class XmlSecurity {
         String content = Files.readString(xmlPath);
         var matcher = SCHEMA_LOCATION_ATTR.matcher(content);
         while (matcher.find()) {
-            if (hasUriScheme(matcher.group(2))) {
+            if (!matcher.group(2).isBlank()) {
                 throw new ValidationException("XML external schema references are not allowed");
             }
         }
-    }
-
-    private static boolean hasUriScheme(String value) {
-        return URI_SCHEME.matcher(value.stripLeading()).find();
     }
 
     private static final class SilentErrorHandler implements ErrorHandler {

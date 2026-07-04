@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class JSerialCommEndpoint implements SerialEndpoint {
+    private static final int READ_TIMEOUT_MS = 10;
     private final String portName;
     private SerialPort port;
     private final AtomicBoolean disconnected = new AtomicBoolean();
@@ -28,7 +29,7 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
         if (!port.setFlowControl(flow(config.flowControl()))) {
             throw new SerialException("Unsupported flow control for " + portName, "UNSUPPORTED_PARAMETERS");
         }
-        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 100, 100);
+        port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, READ_TIMEOUT_MS, READ_TIMEOUT_MS);
         if (!port.openPort()) {
             throw new SerialException("Cannot open serial port: " + portName, openFailureCode());
         }

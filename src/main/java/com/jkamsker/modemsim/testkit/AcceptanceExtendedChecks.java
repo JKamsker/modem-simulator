@@ -16,8 +16,6 @@ import com.jkamsker.modemsim.profiles.ProfileRegister;
 import com.jkamsker.modemsim.profiles.ProfileRegisterCatalog;
 import com.jkamsker.modemsim.replay.ReplayPlayback;
 import com.jkamsker.modemsim.replay.ReplayStep;
-import com.jkamsker.modemsim.replay.ReplayStepLoader;
-import com.jkamsker.modemsim.replay.ReplayValidator;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.state.CallMode;
 import com.jkamsker.modemsim.state.CallRuntime;
@@ -84,10 +82,7 @@ final class AcceptanceExtendedChecks {
     }
 
     void goldenYamlLoader() {
-        var transcript = new ReplayStepLoader().loadTranscript(SchemaLocator.projectPath("tests/golden/basic-at.yaml"));
-        require(transcript.metadata().containsKey("purpose"));
-        require(transcript.steps().stream().anyMatch(step -> !step.expectedEvents().isEmpty()));
-        require(new ReplayValidator().validateRecompute(session(), transcript.steps()).valid());
+        new GoldenTranscriptAcceptance().run();
     }
 
     void sRegisterBounds() {

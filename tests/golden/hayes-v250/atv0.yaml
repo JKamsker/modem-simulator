@@ -1,0 +1,82 @@
+---
+name: "hayes-atv0"
+profile: "generic-hayes-v250"
+commandTerminator: "CR"
+responseTerminator: "CRLF"
+defaultEcho: false
+defaultVerbose: true
+defaultQuiet: false
+clockMode: "virtual"
+sessionSeed: 12345
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: "NONE"
+  flowControl: "NONE"
+metadata:
+  acceptanceCase: "A02"
+  command: "ATV0"
+steps:
+- inputHex: "415456300D"
+  outputHex: "300D"
+  expectEvents:
+  - eventType: "RX_BYTES"
+    source: "rx"
+    direction: "DTE_TO_DCE"
+    sequence: 2
+    monotonicNanos: 0
+    rawHex: "415456300D"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true
+  - eventType: "PARSED_COMMAND"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 3
+    monotonicNanos: 0
+    rawHex: "41545630"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "ATV"
+    redaction:
+      applied: true
+  - eventType: "HANDLER_RESULT"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 4
+    monotonicNanos: 0
+    rawHex: ""
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "ATV"
+    finalResult: "OK"
+    redaction:
+      applied: true
+  - eventType: "TX_BYTES"
+    source: "tx"
+    direction: "DCE_TO_DTE"
+    sequence: 5
+    monotonicNanos: 0
+    rawHex: "300D"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true

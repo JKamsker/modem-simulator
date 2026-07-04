@@ -71,6 +71,13 @@ final class SimulatorView {
         return root;
     }
 
+    void close() {
+        if (poller != null) {
+            poller.stop();
+            poller = null;
+        }
+    }
+
     private Node sessionPane() {
         GridPane grid = ui.grid();
         ComboBox<String> profile = ui.combo("session.profile", "sierra-hl6-hl8-v20", "westermo-td22-6177-2203");

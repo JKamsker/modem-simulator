@@ -35,6 +35,57 @@ class ModemSimCliTest {
     }
 
     @Test
+    void validateMacrosCanUseRuntimeConfigContextForTimerAndSeed() throws Exception {
+        Path macros = tempDir.resolve("timer-jitter.xml");
+        Path config = tempDir.resolve("runtime.yaml");
+        Files.writeString(macros, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <macro id="heartbeat" phase="on-timer">
+                    <match type="timer" timerId="heartbeat"/>
+                    <then><delay ms="1000" jitterMs="10"/><emit line="+TIMER"/></then>
+                  </macro>
+                </macros>
+                """);
+        Files.writeString(config, """
+                sessionSeed: 12345
+                clockMode: virtual
+                serialLine:
+                  baudRate: 115200
+                  dataBits: 8
+                  stopBits: 1
+                  parity: NONE
+                  flowControl: NONE
+                macroTimers:
+                  - id: heartbeat
+                    atMs: 1000
+                ports:
+                  - id: modem
+                    type: headless
+                    role: modem-simulation
+                    enabled: true
+                    profile: sierra-hl6-hl8-v20
+                redaction:
+                  enabled: true
+                  maskPin: true
+                  maskPuk: true
+                  maskImsi: true
+                  maskIccid: true
+                  maskImei: true
+                  maskMsisdn: true
+                  maskSmsBody: true
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        assertThat(runner.run(new String[] {"validate-macros", macros.toString()})).isEqualTo(1);
+        assertThat(runner.run(new String[] {
+                "validate-macros", macros.toString(), "--config", config.toString()})).isZero();
+    }
+
+    @Test
     void runCommandProcessesConfiguredHeadlessPort() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
@@ -104,6 +155,14 @@ class ModemSimCliTest {
         assertThat(out.toString()).contains("mode=drive-from-captured-input").contains("PLAY_TO_DTE");
         assertThat(Files.readString(audit)).contains("REPLAY_MARKER").contains("play-to-dte-start");
         assertThat(err.toString()).isEmpty();
+
+        ByteArrayOutputStream caseErr = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner caseRunner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(new ByteArrayOutputStream()), new PrintStream(caseErr));
+        assertThat(caseRunner.run(new String[] {
+                "replay", log.toString(), "--mode", "drive-from-captured-input",
+                "--case", "playback-divergence", "--confirm-divergence"})).isEqualTo(1);
+        assertThat(caseErr.toString()).contains("Expected replay divergence");
     }
 
     @Test
@@ -118,13 +177,15 @@ class ModemSimCliTest {
         assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "drive-from-captured-input"}))
                 .isEqualTo(1);
         assertThat(runner.run(new String[] {
-                "replay", log.toString(), "--mode", "drive-from-captured-input", "--confirm-divergence"}))
+                "replay", log.toString(), "--mode", "drive-from-captured-input",
+                "--case", "playback-divergence", "--confirm-divergence"}))
                 .isZero();
         assertThat(runner.run(new String[] {
                 "replay", log.toString(), "--mode", "play-to-dte", "--audit-log", audit.toString()}))
                 .isEqualTo(1);
         assertThat(runner.run(new String[] {
-                "replay", log.toString(), "--mode", "play-to-dte", "--confirm-divergence",
+                "replay", log.toString(), "--mode", "play-to-dte",
+                "--case", "playback-divergence", "--confirm-divergence",
                 "--audit-log", audit.toString()})).isZero();
         assertThat(out.toString()).contains("DIVERGENCE CONFIRMED mode=drive-from-captured-input")
                 .contains("DIVERGENCE CONFIRMED mode=play-to-dte");

@@ -99,7 +99,7 @@ public final class HayesHandler implements CommandHandler {
     private CommandResult hangup(ModemState state) {
         ModemState disconnected = state
                 .withCall(state.call().disconnected())
-                .withLines(state.lines().withDcd(dcdForCarrier(state, false)));
+                .withLines(state.lines().withDcd(false));
         return CommandResult.ok(disconnected, "HayesHandler");
     }
 
@@ -126,10 +126,6 @@ public final class HayesHandler implements CommandHandler {
         }
         ModemState next = state.withSettings(state.settings().withAmpC(mode));
         return CommandResult.ok(next.withLines(next.lines().withDcd(mode == 0 || next.call().carrier())), "HayesHandler");
-    }
-
-    private boolean dcdForCarrier(ModemState state, boolean carrier) {
-        return state.settings().ampC() == 0 || carrier;
     }
 
     private boolean mobileProfile(Profile profile) {

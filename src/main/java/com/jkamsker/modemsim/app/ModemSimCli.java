@@ -35,20 +35,20 @@ public final class ModemSimCli {
         System.exit(exit);
     }
 
-    static final class ModemSimCliRunner {
+    public static final class ModemSimCliRunner {
         private final PrintStream out;
         private final PrintStream err;
 
-        ModemSimCliRunner() {
+        public ModemSimCliRunner() {
             this(System.out, System.err);
         }
 
-        ModemSimCliRunner(PrintStream out, PrintStream err) {
+        public ModemSimCliRunner(PrintStream out, PrintStream err) {
             this.out = out;
             this.err = err;
         }
 
-        int run(String[] args) {
+        public int run(String[] args) {
             if (args.length == 0) {
                 usage();
                 return 2;

@@ -73,6 +73,7 @@ Ein Profil darf keine zyklische Vererbung erzeugen. Fehlende Eltern sind Validie
 | `candidate` | Gewuenscht, aber Referenzlage noch unsicher. |
 | `out-of-scope` | Bewusst nicht Bestandteil der aktuellen Implementierung oder Abnahme. |
 | `stub` | Syntaktisch vorhanden, noch nicht verifiziert. |
+| `test-fixture` | Ausschliesslich fuer CI-/Abnahme-Fixtures; darf explizite Test-PIN/PUK enthalten. |
 | `verified` | Gegen Manual und/oder echtes Geraet getestet. |
 
 ## Profilart

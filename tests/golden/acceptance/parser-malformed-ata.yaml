@@ -1,0 +1,127 @@
+---
+name: "parser-malformed-ata"
+profile: "generic-hayes-v250"
+commandTerminator: "CR"
+responseTerminator: "CRLF"
+defaultEcho: false
+defaultVerbose: true
+defaultQuiet: false
+clockMode: "virtual"
+sessionSeed: 12345
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: "NONE"
+  flowControl: "NONE"
+metadata:
+  acceptanceCase: "A26"
+steps:
+- inputHex: "41542B4241443D22756E7465726D696E617465640D"
+  outputHex: "0D0A4552524F520D0A"
+  expectEvents:
+  - eventType: "RX_BYTES"
+    source: "rx"
+    direction: "DTE_TO_DCE"
+    sequence: 2
+    monotonicNanos: 0
+    rawHex: "41542B4241443D22756E7465726D696E617465640D"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true
+  - eventType: "PARSE_ERROR"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 3
+    monotonicNanos: 0
+    rawHex: "41542B4241443D22756E7465726D696E617465640D"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    finalResult: "ERROR"
+    redaction:
+      applied: true
+  - eventType: "TX_BYTES"
+    source: "tx"
+    direction: "DCE_TO_DTE"
+    sequence: 4
+    monotonicNanos: 0
+    rawHex: "0D0A4552524F520D0A"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true
+- inputHex: "4154410D"
+  outputHex: "0D0A4E4F20434152524945520D0A"
+  expectEvents:
+  - eventType: "RX_BYTES"
+    source: "rx"
+    direction: "DTE_TO_DCE"
+    sequence: 5
+    monotonicNanos: 0
+    rawHex: "4154410D"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true
+  - eventType: "PARSED_COMMAND"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 6
+    monotonicNanos: 0
+    rawHex: "415441"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "ATA"
+    redaction:
+      applied: true
+  - eventType: "HANDLER_RESULT"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 7
+    monotonicNanos: 0
+    rawHex: ""
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "ATA"
+    finalResult: "NO_CARRIER"
+    redaction:
+      applied: true
+  - eventType: "TX_BYTES"
+    source: "tx"
+    direction: "DCE_TO_DTE"
+    sequence: 8
+    monotonicNanos: 0
+    rawHex: "0D0A4E4F20434152524945520D0A"
+    profileHash: "sha256:a6e5e1df67ce101dea987d46802781f5941115c0824e8b9a397b0a5eb50cdfed"
+    configHash: "sha256:96e874c78fbf3af3266aab12456f76aea1d8a9bb11805373e3190f56dee82efd"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:fbb59d4ae79f4f6d4d5ed4c1ab73fdc8ea81d39ec055e3f81d2c429d74bf9848"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true

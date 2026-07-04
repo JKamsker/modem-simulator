@@ -1,0 +1,81 @@
+---
+name: "cellular-cops"
+profile: "sierra-hl6-hl8-v20"
+commandTerminator: "CR"
+responseTerminator: "CRLF"
+defaultEcho: false
+defaultVerbose: true
+defaultQuiet: false
+clockMode: "virtual"
+sessionSeed: 12345
+serialLine:
+  baudRate: 115200
+  dataBits: 8
+  stopBits: 1
+  parity: "NONE"
+  flowControl: "NONE"
+metadata:
+  acceptanceCase: "A07"
+steps:
+- inputHex: "41542B434F50533F0D"
+  outputHex: "0D0A2B434F50533A20302C302C2254656C656B6F6D2E6465222C370D0A0D0A4F4B0D0A"
+  expectEvents:
+  - eventType: "RX_BYTES"
+    source: "rx"
+    direction: "DTE_TO_DCE"
+    sequence: 2
+    monotonicNanos: 0
+    rawHex: "41542B434F50533F0D"
+    profileHash: "sha256:a3ae4b86d73ae9a16b904522c2742750483315f8e7ab780b6336c29088dfe4fe"
+    configHash: "sha256:abf4240a8039fdaccdd3729c1c8615fadc6a35b0a6be7054bf1c0f022399e6a2"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:b3c3809f47b2b59dfd8061c81dcd60ad1b3a5e7fae1d712109edbe1e0dabe566"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true
+  - eventType: "PARSED_COMMAND"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 3
+    monotonicNanos: 0
+    rawHex: "41542B434F50533F"
+    profileHash: "sha256:a3ae4b86d73ae9a16b904522c2742750483315f8e7ab780b6336c29088dfe4fe"
+    configHash: "sha256:abf4240a8039fdaccdd3729c1c8615fadc6a35b0a6be7054bf1c0f022399e6a2"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:b3c3809f47b2b59dfd8061c81dcd60ad1b3a5e7fae1d712109edbe1e0dabe566"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "+COPS"
+    redaction:
+      applied: true
+  - eventType: "HANDLER_RESULT"
+    source: "internal"
+    direction: "INTERNAL"
+    sequence: 4
+    monotonicNanos: 0
+    rawHex: ""
+    profileHash: "sha256:a3ae4b86d73ae9a16b904522c2742750483315f8e7ab780b6336c29088dfe4fe"
+    configHash: "sha256:abf4240a8039fdaccdd3729c1c8615fadc6a35b0a6be7054bf1c0f022399e6a2"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:b3c3809f47b2b59dfd8061c81dcd60ad1b3a5e7fae1d712109edbe1e0dabe566"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    command: "+COPS"
+    finalResult: "OK"
+    redaction:
+      applied: true
+  - eventType: "TX_BYTES"
+    source: "tx"
+    direction: "DCE_TO_DTE"
+    sequence: 5
+    monotonicNanos: 0
+    rawHex: "0D0A2B434F50533A20302C302C2254656C656B6F6D2E6465222C370D0A0D0A4F4B0D0A"
+    profileHash: "sha256:a3ae4b86d73ae9a16b904522c2742750483315f8e7ab780b6336c29088dfe4fe"
+    configHash: "sha256:abf4240a8039fdaccdd3729c1c8615fadc6a35b0a6be7054bf1c0f022399e6a2"
+    macroHash: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    initialStateHash: "sha256:b3c3809f47b2b59dfd8061c81dcd60ad1b3a5e7fae1d712109edbe1e0dabe566"
+    sessionSeed: 12345
+    clockMode: "virtual"
+    redaction:
+      applied: true

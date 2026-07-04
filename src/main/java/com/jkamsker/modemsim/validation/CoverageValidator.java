@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.validation;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,8 +37,8 @@ public final class CoverageValidator {
             "westermo-gdw11-6615-2220");
     private static final Map<String, Set<String>> REQUIRED_COMMANDS = Map.of(
             "generic-hayes-v250", HAYES,
-            "3gpp-27007-r18", CELLULAR,
-            "3gpp-27005-r16", SMS,
+            "3gpp-27007-r18", union(HAYES, CELLULAR),
+            "3gpp-27005-r16", union(HAYES, SMS),
             "sierra-common", SIERRA,
             "sierra-hl6-hl8-v20", SIERRA,
             "westermo-common", WESTERMO_ANALOG,
@@ -105,7 +106,30 @@ public final class CoverageValidator {
             if (!V1_TARGETS.contains(profile)) {
                 report.error("Unexpected v1 coverage report for " + profile);
             }
+            validateBuiltinCoverage(root, report);
             seen.add(profile);
+        }
+    }
+
+    private void validateBuiltinCoverage(JsonNode root, ValidationReport report) {
+        String profile = root.path("profile").asText();
+        if (!V1_TARGETS.contains(profile)) {
+            return;
+        }
+        var coverage = BuiltinProfiles.byId(profile).coverage();
+        if (coverage == null) {
+            report.error(profile + ": missing builtin coverage metadata");
+            return;
+        }
+        if (root.path("commands_total").asInt() != coverage.commandsTotal()) {
+            report.error(profile + ": commands_total must match builtin coverage commandsTotal");
+        }
+        Set<String> manifest = new HashSet<>();
+        root.path("commands").forEach(command -> manifest.add(command.path("command").asText()));
+        Set<String> builtin = new HashSet<>();
+        coverage.commands().forEach(command -> builtin.add(command.name()));
+        if (!manifest.equals(builtin)) {
+            report.error(profile + ": commands must match builtin coverage command list");
         }
     }
 

@@ -1,31 +1,44 @@
 package com.jkamsker.modemsim.testkit;
 
-import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
+import com.jkamsker.modemsim.replay.ReplayStepLoader;
+import com.jkamsker.modemsim.replay.ReplayValidator;
 import com.jkamsker.modemsim.session.HeadlessSession;
+import com.jkamsker.modemsim.validation.SchemaLocator;
+
+import java.util.List;
 
 final class AcceptanceHayesChecks {
+    private static final String PROFILE_ID = "generic-hayes-v250";
+    private static final List<String> TRANSCRIPT_FILES = List.of(
+            "ate0.yaml",
+            "ate1.yaml",
+            "atq0.yaml",
+            "atq1.yaml",
+            "atv0.yaml",
+            "atv1.yaml",
+            "atz.yaml",
+            "at-and-f.yaml",
+            "at-and-v.yaml",
+            "at-and-w.yaml");
+
     void run() {
-        expect("ATE0\r", "\r\nOK\r\n");
-        expect("ATE1\r", "\r\nOK\r\n");
-        expect("ATQ0\r", "\r\nOK\r\n");
-        expect("ATQ1\r", "");
-        expect("ATV0\r", "0\r");
-        expect("ATV1\r", "\r\nOK\r\n");
-        expect("ATZ\r", "\r\nOK\r\n");
-        expect("AT&F\r", "\r\nOK\r\n");
-        expect("AT&W\r", "\r\nOK\r\n");
-        String view = session().receive(RawBytes.ascii("AT&V\r")).outputAscii();
-        require(view.contains("E0 Q0 V1") && view.contains("S3=13") && view.endsWith("\r\nOK\r\n"), view);
+        for (String file : TRANSCRIPT_FILES) {
+            runTranscript(file);
+        }
     }
 
-    private void expect(String command, String expected) {
-        String actual = session().receive(RawBytes.ascii(command)).outputAscii();
-        require(actual.equals(expected), command + " expected " + expected + " but got " + actual);
+    private void runTranscript(String file) {
+        var path = SchemaLocator.projectPath("tests/golden/hayes-v250", file);
+        var transcript = new ReplayStepLoader().loadTranscript(path);
+        require(PROFILE_ID.equals(transcript.profile()), file + " must use " + PROFILE_ID);
+        require("A02".equals(transcript.metadata().get("acceptanceCase")), file + " missing A02 metadata");
+        var report = new ReplayValidator().validateRecompute(session(), transcript.steps());
+        require(report.valid(), file + " diverged: " + report.divergences());
     }
 
     private HeadlessSession session() {
-        return new HeadlessSession("acceptance-hayes", BuiltinProfiles.byId("generic-hayes-v250"), 12345);
+        return new HeadlessSession("acceptance-hayes", BuiltinProfiles.byId(PROFILE_ID), 12345);
     }
 
     private void require(boolean condition, String message) {

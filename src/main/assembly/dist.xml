@@ -97,5 +97,13 @@
       <directory>${project.basedir}/tests/golden</directory>
       <outputDirectory>tests/golden</outputDirectory>
     </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/logs</directory>
+      <outputDirectory>logs</outputDirectory>
+      <includes>
+        <include>fixture.jsonl</include>
+        <include>playback-divergence.jsonl</include>
+      </includes>
+    </fileSet>
   </fileSets>
 </assembly>

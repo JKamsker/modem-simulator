@@ -5,8 +5,14 @@ import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.state.NetworkRuntime;
 import com.jkamsker.modemsim.state.SimState;
+import com.jkamsker.modemsim.state.SmsMessage;
 import com.jkamsker.modemsim.state.SmsRateLimit;
+import com.jkamsker.modemsim.state.SmsRuntime;
+import com.jkamsker.modemsim.state.SmsStorage;
 import org.junit.jupiter.api.Test;
+
+import java.time.OffsetDateTime;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -97,6 +103,19 @@ class SmsSessionTest {
         assertThat(session.receive(RawBytes.ascii("AT+CMGD=1\r")).outputAscii())
                 .isEqualTo("\r\nOK\r\n");
         assertThat(session.snapshot().sms().messages()).isEmpty();
+    }
+
+    @Test
+    void smsRuntimeReturnsMessagesByAscendingIndexFromAnyBackingMap() {
+        SmsRuntime sms = new SmsRuntime(true, "+491710760000", "0,0,0,0,0", SmsStorage.ME, 42, Map.of(
+                3, message(3, "third"),
+                1, message(1, "first"),
+                2, message(2, "second")));
+
+        assertThat(sms.messagesInSelectedStorage().keySet()).containsExactly(1, 2, 3);
+        assertThat(sms.messagesInSelectedStorage().values())
+                .extracting(SmsMessage::text)
+                .containsExactly("first", "second", "third");
     }
 
     @Test
@@ -229,6 +248,11 @@ class SmsSessionTest {
         session.receive(RawBytes.ascii("AT+CMGS=\"" + recipient + "\"\r"));
         session.receive(RawBytes.ascii(body + "\u001A"));
         session.drainScheduled();
+    }
+
+    private SmsMessage message(int index, String text) {
+        return new SmsMessage(index, SmsStorage.ME, "STO SENT", null, "+491701234567",
+                OffsetDateTime.parse("2026-01-01T00:00:00Z"), text, null);
     }
 
     private HeadlessSession unlimitedSmsSession() {
