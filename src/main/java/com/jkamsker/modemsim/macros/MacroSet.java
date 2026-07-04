@@ -15,7 +15,12 @@ public record MacroSet(String hash, Long randomSeed, String lineEnding, List<Mac
 
     public static String effectiveHash(Long randomSeed, String lineEnding, List<MacroRule> rules) {
         try {
-            String canonical = "seed=" + randomSeed + ";lineEnding=" + lineEnding + ";rules=" + rules;
+            List<MacroRule> orderedRules = rules.stream()
+                    .sorted(ruleOrder())
+                    .toList();
+            String canonical = "seed=" + randomSeed
+                    + ";lineEnding=" + normalizeLineEnding(lineEnding)
+                    + ";rules=" + orderedRules;
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
             return "sha256:" + HexFormat.of().formatHex(digest);
         } catch (Exception e) {
@@ -24,10 +29,16 @@ public record MacroSet(String hash, Long randomSeed, String lineEnding, List<Mac
     }
 
     public MacroSet {
-        lineEnding = lineEnding == null || lineEnding.isBlank() ? "CR" : lineEnding;
-        rules = rules.stream()
-                .sorted(Comparator.comparingInt(MacroRule::priority).reversed()
-                        .thenComparingInt(MacroRule::order))
-                .toList();
+        lineEnding = normalizeLineEnding(lineEnding);
+        rules = rules.stream().sorted(ruleOrder()).toList();
+    }
+
+    private static Comparator<MacroRule> ruleOrder() {
+        return Comparator.comparingInt(MacroRule::priority).reversed()
+                .thenComparingInt(MacroRule::order);
+    }
+
+    private static String normalizeLineEnding(String value) {
+        return value == null || value.isBlank() ? "CR" : value;
     }
 }
