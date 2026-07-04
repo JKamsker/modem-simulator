@@ -232,8 +232,14 @@ public final class ModemSimCli {
         private String option(String[] args, String name, String fallback) {
             for (int i = 0; i < args.length - 1; i++) {
                 if (args[i].equals(name)) {
+                    if (args[i + 1].startsWith("--")) {
+                        throw new IllegalArgumentException("Missing option value: " + name);
+                    }
                     return args[i + 1];
                 }
+            }
+            if (args.length > 0 && args[args.length - 1].equals(name)) {
+                throw new IllegalArgumentException("Missing option value: " + name);
             }
             return fallback;
         }

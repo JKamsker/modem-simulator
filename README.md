@@ -293,7 +293,7 @@ CI runs the same Maven verify target on:
 - `ubuntu-24.04`
 - `windows-2025`
 
-CI also has a Linux GUI-headless lane, a full-coverage lane with GUI classes counted, Linux and Windows ZIP distribution smoke lanes, and an automatic Linux `serial-it` lane that provisions a `socat` PTY pair before running the real serial API smoke test. A manual Windows `serial-it` workflow-dispatch lane is available for runners with com0com or real null-modem hardware by setting `MODEMSIM_WINDOWS_SERIAL_MODEM_PORT` and `MODEMSIM_WINDOWS_SERIAL_DTE_PORT` secrets.
+CI also has a Linux GUI-headless lane, a full-coverage lane with GUI classes counted, Linux and Windows ZIP distribution smoke lanes, and automatic `serial-it` lanes. Linux provisions a `socat` PTY pair. Windows attempts to provision com0com on the hosted runner and emits an explicit warning/summary if the virtual COM pair cannot be used there.
 
 To enable the checked-in local hook for the same source-size guard:
 
@@ -314,7 +314,7 @@ git config core.hooksPath .githooks
 
 The project includes a jSerialComm-backed endpoint for real serial ports and a headless endpoint for deterministic tests. It does not implement kernel drivers or create virtual COM pairs by itself. For full serial integration, provide a physical serial adapter or an OS-level virtual serial pair, then point the simulator at the desired port through the runtime integration layer.
 
-jSerialComm exposes DTR and RTS setters. The simulator maps DCE output signals onto those available controls deterministically: DSR/DCD/RI assert DTR, and CTS asserts RTS. Runtime tests cover DTR drop/reassert behavior; true hardware-line behavior still depends on the adapter and null-modem wiring.
+jSerialComm exposes all six modem-control line getters plus DTR and RTS setters. The simulator reads DTR/DSR/DCD/RI/RTS/CTS in model field order, and maps writable simulator output signals onto the available local controls deterministically: DCD asserts DTR, and CTS asserts RTS. Runtime tests cover DTR drop/reassert behavior; true hardware-line behavior still depends on the adapter and null-modem wiring.
 
 Linux CI creates its serial pair with `socat`; locally you can run the same lane by exporting `MODEMSIM_SERIAL_MODEM_PORT` and `MODEMSIM_SERIAL_DTE_PORT`, then running:
 
@@ -322,7 +322,7 @@ Linux CI creates its serial pair with `socat`; locally you can run the same lane
 ./mvnw -B -DexcludedGroups= -Dgroups=serial-it test
 ```
 
-On Windows, use com0com or real hardware to provide the same two environment variables. The hosted CI lane is manual because GitHub-hosted Windows runners do not provide virtual COM-pair drivers by default.
+On Windows, use com0com or real hardware to provide the same two environment variables locally. Hosted CI attempts com0com automatically, but may skip the Windows serial lane with an explicit warning if the runner cannot expose the created pair to jSerialComm.
 
 ## Security And Test Safety
 

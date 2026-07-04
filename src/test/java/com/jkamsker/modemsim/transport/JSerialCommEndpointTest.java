@@ -16,4 +16,16 @@ class JSerialCommEndpointTest {
         assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(false, 5)).isEqualTo("PORT_NOT_FOUND");
         assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 123)).isEqualTo("PORT_BUSY");
     }
+
+    @Test
+    void lineSnapshotKeepsModemLineFieldOrder() {
+        var lines = JSerialCommEndpoint.lineSnapshot(true, false, true, false, true, false);
+
+        assertThat(lines.dtr()).isTrue();
+        assertThat(lines.dsr()).isFalse();
+        assertThat(lines.dcd()).isTrue();
+        assertThat(lines.ri()).isFalse();
+        assertThat(lines.rts()).isTrue();
+        assertThat(lines.cts()).isFalse();
+    }
 }

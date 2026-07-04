@@ -140,7 +140,7 @@ class ProfileXmlLoaderEdgeTest {
     }
 
     @Test
-    void reportsInheritedMetadataConflicts() throws Exception {
+    void inheritedMetadataConflictsWarnAndUseLaterParent() throws Exception {
         Path path = tempDir.resolve("conflict.xml");
         Files.writeString(path, """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -162,10 +162,15 @@ class ProfileXmlLoaderEdgeTest {
                 """);
 
         ValidationReport report = new ProfileXmlLoader().validate(path);
+        var child = new ProfileXmlLoader().load(path, "child");
 
-        assertThat(report.valid()).isFalse();
-        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("command conflict AT"));
-        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("register conflict S3"));
+        assertThat(report.valid()).as(report.errors().toString()).isTrue();
+        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
+        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("register conflict S3"));
+        assertThat(child.commands()).singleElement().satisfies(command ->
+                assertThat(command.status()).isEqualTo("implemented_stub"));
+        assertThat(child.registers()).singleElement().satisfies(register ->
+                assertThat(register.defaultValue()).isEqualTo(10));
     }
 
     @Test

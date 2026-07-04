@@ -79,7 +79,8 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
 
     @Override
     public ModemLines readLines() {
-        return new ModemLines(port.getDSR(), true, port.getDCD(), port.getRI(), port.getCTS(), true);
+        return lineSnapshot(
+                port.getDTR(), port.getDSR(), port.getDCD(), port.getRI(), port.getRTS(), port.getCTS());
     }
 
     @Override
@@ -165,5 +166,9 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
 
     static String diagnosticForOpenFailure(boolean portPresent, int lastErrorCode) {
         return portPresent ? "PORT_BUSY" : "PORT_NOT_FOUND";
+    }
+
+    static ModemLines lineSnapshot(boolean dtr, boolean dsr, boolean dcd, boolean ri, boolean rts, boolean cts) {
+        return new ModemLines(dtr, dsr, dcd, ri, rts, cts);
     }
 }

@@ -161,7 +161,7 @@ final class ProfileXmlSemanticValidator {
             String name, String label, ValidationReport report) {
         String previous = seen.putIfAbsent(name, parentId);
         if (previous != null && !previous.equals(parentId)) {
-            report.error(childId + ": inherited " + label + " conflict " + name
+            report.warning(childId + ": inherited " + label + " conflict " + name
                     + " from " + previous + " and " + parentId);
         }
     }

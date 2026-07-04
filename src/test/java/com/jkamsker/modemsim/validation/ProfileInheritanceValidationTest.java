@@ -75,7 +75,7 @@ class ProfileInheritanceValidationTest {
     }
 
     @Test
-    void reportsConflictsBetweenBuiltInParentProfiles() throws Exception {
+    void warnsAboutConflictsBetweenBuiltInParentProfiles() throws Exception {
         Path path = tempDir.resolve("builtin-parent-conflict.xml");
         Files.writeString(path, """
                 <?xml version="1.0" encoding="UTF-8"?>
@@ -89,9 +89,9 @@ class ProfileInheritanceValidationTest {
 
         ValidationReport report = new ProfileXmlLoader().validate(path);
 
-        assertThat(report.valid()).isFalse();
-        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("command conflict AT"));
-        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("register conflict S3"));
+        assertThat(report.valid()).as(report.errors().toString()).isTrue();
+        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
+        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("register conflict S3"));
     }
 
     @Test

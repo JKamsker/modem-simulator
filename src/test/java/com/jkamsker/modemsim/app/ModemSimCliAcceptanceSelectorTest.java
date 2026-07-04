@@ -30,6 +30,20 @@ class ModemSimCliAcceptanceSelectorTest {
     }
 
     @Test
+    void rejectsSuiteWithoutValue() {
+        CliRun result = run("test", "--suite");
+
+        assertRejectedSelector(result, "Missing option value: --suite");
+    }
+
+    @Test
+    void rejectsTagsWithoutValue() {
+        CliRun result = run("test", "--tags", "--case", "A01");
+
+        assertRejectedSelector(result, "Missing option value: --tags");
+    }
+
+    @Test
     void rejectsCaseOutsideSelectedSuite() {
         CliRun result = run("test", "--suite", "sms", "--case", "creg");
 
