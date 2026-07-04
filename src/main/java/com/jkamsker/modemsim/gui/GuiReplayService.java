@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.Profile;
+import com.jkamsker.modemsim.replay.ReplayMetadata;
 import com.jkamsker.modemsim.replay.ReplayPlayback;
 import com.jkamsker.modemsim.replay.ReplayReport;
 import com.jkamsker.modemsim.replay.ReplayStep;
@@ -76,23 +77,14 @@ final class GuiReplayService {
         var replaySession = new HeadlessSession("gui-replay", profile, seed,
                 new InMemoryEventSink(), macros, virtualClock ? "virtual" : "monotonic", port, "modem-simulation");
         var sessionStart = replaySession.events().getFirst();
-        ReplayReport report = new ReplayReport();
-        for (ReplayStep step : steps) {
-            for (var event : step.expectedEvents()) {
-                compareHash(report, "profileHash", event.profileHash(), sessionStart.profileHash());
-                compareHash(report, "configHash", event.configHash(), sessionStart.configHash());
-                compareHash(report, "macroHash", event.macroHash(), sessionStart.macroHash());
-                compareHash(report, "initialStateHash", event.initialStateHash(), sessionStart.initialStateHash());
-            }
-        }
-        return report;
+        return ReplayMetadata.report(sessionStart, steps);
     }
 
     private ReplayReport validationReport(
             List<ReplayStep> steps, boolean virtualClock, Profile profile, long seed, String port, MacroEngine macros) {
         var replaySession = new HeadlessSession("gui-replay", profile, seed,
                 new InMemoryEventSink(), macros, virtualClock ? "virtual" : "monotonic", port, "modem-simulation");
-        return new ReplayValidator().validateRecompute(replaySession, steps, strictMetadata(steps));
+        return new ReplayValidator().validateRecompute(replaySession, steps, ReplayMetadata.hasStrictMetadata(steps));
     }
 
     private SessionResponse driveSteps(HeadlessSession session, List<ReplayStep> steps) {
@@ -114,20 +106,7 @@ final class GuiReplayService {
                 message, response);
     }
 
-    private void compareHash(ReplayReport report, String name, String expected, String actual) {
-        if (expected != null && !expected.equals(actual)) {
-            report.divergence(name + " expected " + expected + " but got " + actual);
-        }
-    }
-
     private SessionResponse emptyResponse() {
         return new SessionResponse(RawBytes.empty(), List.of());
-    }
-
-    private boolean strictMetadata(List<ReplayStep> steps) {
-        return steps.stream().flatMap(step -> step.expectedEvents().stream())
-                .anyMatch(event -> event.profileHash() != null || event.configHash() != null
-                        || event.macroHash() != null || event.initialStateHash() != null
-                        || event.sessionSeed() != null || event.clockMode() != null);
     }
 }

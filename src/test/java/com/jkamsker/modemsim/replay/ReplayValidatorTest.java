@@ -106,6 +106,22 @@ class ReplayValidatorTest {
     }
 
     @Test
+    void metadataReportComparesSessionStartHashes() {
+        HeadlessSession session = new HeadlessSession("main", BuiltinProfiles.acceptanceSierra(), 12345);
+        var sessionStart = session.events().getFirst();
+        ReplayStep matching = metadataStep(sessionStart.profileHash(), sessionStart.configHash(),
+                sessionStart.macroHash(), sessionStart.initialStateHash(), sessionStart.sessionSeed(),
+                sessionStart.clockMode());
+        ReplayStep divergent = metadataStep(hash('9'), sessionStart.configHash(), sessionStart.macroHash(),
+                sessionStart.initialStateHash(), sessionStart.sessionSeed(), sessionStart.clockMode());
+
+        assertThat(ReplayMetadata.hasStrictMetadata(List.of(matching))).isTrue();
+        assertThat(ReplayMetadata.report(sessionStart, List.of(matching)).valid()).isTrue();
+        assertThat(ReplayMetadata.report(sessionStart, List.of(divergent)).divergences())
+                .singleElement().asString().contains("profileHash expected " + hash('9'));
+    }
+
+    @Test
     void validatesSchedulerDelayRangeExpectationsFromYaml() throws Exception {
         Path log = dialRangeFixture("dial-range.yaml", "[1000, 5000]");
         List<ReplayStep> steps = new ReplayStepLoader().load(log);
@@ -145,5 +161,18 @@ class ReplayValidatorTest {
                         sampledDelayMsWithin: %s
                 """.formatted(range));
         return log;
+    }
+
+    private ReplayStep metadataStep(
+            String profileHash, String configHash, String macroHash, String initialStateHash,
+            Long sessionSeed, String clockMode) {
+        return new ReplayStep(RawBytes.empty(), RawBytes.empty(), false,
+                List.of(new ReplayEventExpectation(EventType.SESSION_START, Direction.INTERNAL, 1L, "",
+                        profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
+                        null, null, false)));
+    }
+
+    private String hash(char digit) {
+        return "sha256:" + String.valueOf(digit).repeat(64);
     }
 }

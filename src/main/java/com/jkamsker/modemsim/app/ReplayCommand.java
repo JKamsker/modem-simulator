@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.monitor.InMemoryEventSink;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.replay.ReplayEventExpectation;
+import com.jkamsker.modemsim.replay.ReplayMetadata;
 import com.jkamsker.modemsim.replay.ReplayPlayback;
 import com.jkamsker.modemsim.replay.ReplayReport;
 import com.jkamsker.modemsim.replay.ReplayStep;
@@ -39,7 +40,7 @@ final class ReplayCommand {
             return 2;
         }
         List<ReplayStep> steps = new ReplayStepLoader().load(logPath);
-        boolean strictMetadata = strictMetadata(steps);
+        boolean strictMetadata = ReplayMetadata.hasStrictMetadata(steps);
         return switch (mode) {
             case "play-to-dte" -> playToDte(args, steps, replayCase, strictMetadata);
             case "validate-recompute", "drive-from-captured-input" -> validate(args, mode, steps, replayCase, strictMetadata);
@@ -136,22 +137,7 @@ final class ReplayCommand {
 
     private ReplayReport metadataReport(String[] args, List<ReplayStep> steps) {
         var sessionStart = replaySession(args, steps).events().getFirst();
-        ReplayReport report = new ReplayReport();
-        for (ReplayStep step : steps) {
-            for (var event : step.expectedEvents()) {
-                compareHash(report, "profileHash", event.profileHash(), sessionStart.profileHash());
-                compareHash(report, "configHash", event.configHash(), sessionStart.configHash());
-                compareHash(report, "macroHash", event.macroHash(), sessionStart.macroHash());
-                compareHash(report, "initialStateHash", event.initialStateHash(), sessionStart.initialStateHash());
-            }
-        }
-        return report;
-    }
-
-    private void compareHash(ReplayReport report, String name, String expected, String actual) {
-        if (expected != null && !expected.equals(actual)) {
-            report.divergence(name + " expected " + expected + " but got " + actual);
-        }
+        return ReplayMetadata.report(sessionStart, steps);
     }
 
     private HeadlessSession replaySession(String[] args, List<ReplayStep> steps) {
@@ -162,13 +148,6 @@ final class ReplayCommand {
         String role = firstExpected(steps, ReplayEventExpectation::portRole, null);
         return new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
-    }
-
-    private boolean strictMetadata(List<ReplayStep> steps) {
-        return steps.stream().flatMap(step -> step.expectedEvents().stream())
-                .anyMatch(event -> event.profileHash() != null || event.configHash() != null
-                        || event.macroHash() != null || event.initialStateHash() != null
-                        || event.sessionSeed() != null || event.clockMode() != null);
     }
 
     private HeadlessSession auditSession(String[] args, List<ReplayStep> steps, RuntimeEventLog eventLog) {
