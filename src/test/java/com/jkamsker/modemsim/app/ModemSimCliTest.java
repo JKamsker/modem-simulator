@@ -61,9 +61,9 @@ class ModemSimCliTest {
                     atMs: 1000
                 ports:
                   - id: modem
+                    type: headless
                     role: modem-simulation
                     enabled: true
-                    type: headless
                     profile: sierra-hl6-hl8-v20
                 redaction:
                   enabled: true
@@ -151,13 +151,18 @@ class ModemSimCliTest {
 
         assertThat(runner.run(new String[] {"replay", log.toString(), "--mode", "drive-from-captured-input"})).isZero();
         assertThat(runner.run(new String[] {
-                "replay", log.toString(), "--mode", "drive-from-captured-input",
-                "--case", "playback-divergence", "--confirm-divergence"})).isEqualTo(1);
-        assertThat(runner.run(new String[] {
                 "replay", log.toString(), "--mode", "play-to-dte", "--audit-log", audit.toString()})).isZero();
         assertThat(out.toString()).contains("mode=drive-from-captured-input").contains("PLAY_TO_DTE");
         assertThat(Files.readString(audit)).contains("REPLAY_MARKER").contains("play-to-dte-start");
-        assertThat(err.toString()).contains("Expected replay divergence");
+        assertThat(err.toString()).isEmpty();
+
+        ByteArrayOutputStream caseErr = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner caseRunner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(new ByteArrayOutputStream()), new PrintStream(caseErr));
+        assertThat(caseRunner.run(new String[] {
+                "replay", log.toString(), "--mode", "drive-from-captured-input",
+                "--case", "playback-divergence", "--confirm-divergence"})).isEqualTo(1);
+        assertThat(caseErr.toString()).contains("Expected replay divergence");
     }
 
     @Test

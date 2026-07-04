@@ -29,10 +29,10 @@ Use a self-hosted Windows runner with com0com preinstalled for required Windows 
 function Disable-Com0Com {
   param([Parameter(Mandatory = $true)][string] $Reason)
 
-  Write-Host "::warning title=com0com unavailable::$Reason"
+  Write-Host "::error title=com0com unavailable::$Reason"
   Add-GitHubEnvironmentValue -Name "MODEMSIM_WINDOWS_COM0COM_AVAILABLE" -Value "false"
   Write-Com0ComSummary -Message $Reason
-  exit 0
+  exit 1
 }
 
 function Show-ProcessLog {

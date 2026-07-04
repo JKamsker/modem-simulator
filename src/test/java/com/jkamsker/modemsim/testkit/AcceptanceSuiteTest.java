@@ -2,7 +2,11 @@ package com.jkamsker.modemsim.testkit;
 
 import org.junit.jupiter.api.Test;
 
+import com.jkamsker.modemsim.app.ModemSimCli;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,9 +41,9 @@ class AcceptanceSuiteTest {
     }
 
     @Test
-    void documentedTestCommandsRouteToSpecAcceptanceCases() throws IOException {
+    void documentedCommandsRouteToSpecAcceptanceCases() throws IOException {
         AcceptanceSuite suite = new AcceptanceSuite();
-        List<SpecCommand> commands = specTestCommands();
+        List<SpecCommand> commands = specCommands();
 
         assertThat(commands).isNotEmpty();
         for (SpecCommand command : commands) {
@@ -48,10 +52,13 @@ class AcceptanceSuiteTest {
             assertThat(actualCase)
                     .as("documented command routes to the wrong case: %s", command.value())
                     .isEqualTo(command.caseId());
-            assertThat(suite.run(runCase(command.value(), actualCase)).passed())
-                    .as("documented command is no longer executable: %s", command.value())
-                    .isTrue();
+            assertDocumentedCommandExecutable(command.value());
         }
+    }
+
+    @Test
+    void allGoldenYamlFixturesConformAndReplay() {
+        new GoldenTranscriptAcceptance().run();
     }
 
     private static List<String> specCaseIds() throws IOException {
@@ -60,11 +67,11 @@ class AcceptanceSuiteTest {
                 .toList();
     }
 
-    private static List<SpecCommand> specTestCommands() throws IOException {
+    private static List<SpecCommand> specCommands() throws IOException {
         return caseRows().stream()
                 .flatMap(row -> COMMAND_SNIPPET.matcher(row.cells().getLast()).results()
                         .map(match -> match.group(1))
-                        .filter(command -> command.startsWith("modemsim test "))
+                        .filter(command -> command.startsWith("modemsim "))
                         .map(command -> new SpecCommand(row.cells().getFirst(), command)))
                 .toList();
     }
@@ -108,6 +115,12 @@ class AcceptanceSuiteTest {
     }
 
     private static String routedCase(String command, AcceptanceSuite suite) {
+        if (command.startsWith("modemsim coverage verify ")) {
+            return "A16";
+        }
+        if (command.startsWith("modemsim replay ")) {
+            return "A18";
+        }
         Optional<String> caseArg = argument(command, "--case");
         if (caseArg.isPresent()) {
             return AcceptanceCaseRegistry.normalize(caseArg.get());
@@ -118,8 +131,19 @@ class AcceptanceSuiteTest {
         return suite.defaultCaseForSuite(suiteArg);
     }
 
-    private static String runCase(String command, String routedCase) {
-        return argument(command, "--case").orElse(routedCase);
+    private static void assertDocumentedCommandExecutable(String command) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        int exit = new ModemSimCli.ModemSimCliRunner(new PrintStream(out), new PrintStream(err))
+                .run(args(command));
+
+        assertThat(exit)
+                .as("documented command failed: %s%nstdout:%s%nstderr:%s", command, out, err)
+                .isZero();
+    }
+
+    private static String[] args(String command) {
+        return command.substring("modemsim ".length()).split("\\s+");
     }
 
     private static Optional<String> argument(String command, String name) {

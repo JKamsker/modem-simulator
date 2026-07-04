@@ -21,6 +21,7 @@ final class ProfileXmlSemanticValidator {
             "westermo-td36-6618-2202",
             "westermo-gd01-6196-2220",
             "westermo-gdw11-6615-2220");
+    private Map<String, Element> localProfiles = Map.of();
 
     Set<String> profileIds(Element root) {
         Set<String> ids = new HashSet<>(BUILTIN_PARENT_IDS);
@@ -33,6 +34,7 @@ final class ProfileXmlSemanticValidator {
         for (Element profile : Dom.children(root, "profile")) {
             profiles.put(profile.getAttribute("id"), profile);
         }
+        localProfiles = Map.copyOf(profiles);
         for (String id : profiles.keySet()) {
             detectCycle(id, profiles, new HashSet<>(), new HashSet<>(), report);
         }
@@ -63,12 +65,14 @@ final class ProfileXmlSemanticValidator {
             report.error(profile.getAttribute("id") + ": " + kind + " profile must not require mobile state blocks");
         }
         Element network = initial == null ? null : Dom.child(initial, "network");
-        if (cellular && network != null && Dom.child(network, "operator") == null) {
+        if (cellular && network != null && Dom.child(network, "operator") == null
+                && !parentSuppliesOperator(parents, new HashSet<>())) {
             report.error(profile.getAttribute("id") + ": cellular profile requires operator metadata");
         }
+        validateNetworkLocation(profile, network, report);
         validateDelayOperations(profile, network, report);
         validateDuplicateRegisters(profile, report);
-        validateCoverage(profile, Dom.child(profile, "coverage"), report);
+        validateCoverage(profile, kind, Dom.child(profile, "coverage"), report);
     }
 
     private void detectCycle(
@@ -97,6 +101,9 @@ final class ProfileXmlSemanticValidator {
     }
 
     private void detectInheritanceConflicts(Element profile, Map<String, Element> profiles, ValidationReport report) {
+        if (BUILTIN_PARENT_IDS.contains(profile.getAttribute("id"))) {
+            return;
+        }
         Map<String, String> commands = new LinkedHashMap<>();
         Map<String, String> registers = new LinkedHashMap<>();
         for (String parent : ProfileXmlSupport.parents(profile.getAttribute("extends"))) {
@@ -109,7 +116,11 @@ final class ProfileXmlSemanticValidator {
             Map<String, String> commands, Map<String, String> registers,
             Set<String> seen, ValidationReport report) {
         Element parent = profiles.get(parentId);
-        if (parent == null || !seen.add(parentId)) {
+        if (!seen.add(parentId)) {
+            return;
+        }
+        if (parent == null) {
+            collectBuiltinMetadata(childId, parentId, commands, registers, report);
             return;
         }
         for (String grandParent : ProfileXmlSupport.parents(parent.getAttribute("extends"))) {
@@ -119,6 +130,21 @@ final class ProfileXmlSemanticValidator {
         collectNames(childId, parentId, registers, Dom.child(parent, "registers"), "register", "name", "register", report);
     }
 
+    private void collectBuiltinMetadata(
+            String childId, String parentId, Map<String, String> commands,
+            Map<String, String> registers, ValidationReport report) {
+        if (!BUILTIN_PARENT_IDS.contains(parentId)) {
+            return;
+        }
+        Profile parent = BuiltinProfiles.byId(parentId);
+        for (ProfileCommand command : parent.commands()) {
+            collectName(childId, parentId, commands, command.name(), "command", report);
+        }
+        for (ProfileRegister register : parent.registers()) {
+            collectName(childId, parentId, registers, register.name(), "register", report);
+        }
+    }
+
     private void collectNames(
             String childId, String parentId, Map<String, String> seen, Element root,
             String elementName, String attribute, String label, ValidationReport report) {
@@ -126,12 +152,17 @@ final class ProfileXmlSemanticValidator {
             return;
         }
         for (Element element : Dom.children(root, elementName)) {
-            String name = element.getAttribute(attribute);
-            String previous = seen.putIfAbsent(name, parentId);
-            if (previous != null && !previous.equals(parentId)) {
-                report.error(childId + ": inherited " + label + " conflict " + name
-                        + " from " + previous + " and " + parentId);
-            }
+            collectName(childId, parentId, seen, element.getAttribute(attribute), label, report);
+        }
+    }
+
+    private void collectName(
+            String childId, String parentId, Map<String, String> seen,
+            String name, String label, ValidationReport report) {
+        String previous = seen.putIfAbsent(name, parentId);
+        if (previous != null && !previous.equals(parentId)) {
+            report.error(childId + ": inherited " + label + " conflict " + name
+                    + " from " + previous + " and " + parentId);
         }
     }
 
@@ -139,6 +170,34 @@ final class ProfileXmlSemanticValidator {
         if (initial == null || Dom.child(initial, name) == null) {
             report.error(profile.getAttribute("id") + ": cellular profile requires " + name + " state");
         }
+    }
+
+    private boolean parentSuppliesOperator(java.util.List<String> parents, Set<String> seen) {
+        for (String parentId : parents) {
+            if (!seen.add(parentId)) {
+                continue;
+            }
+            Element parent = localProfiles.get(parentId);
+            if (parent != null && profileSuppliesOperator(parent, seen)) {
+                return true;
+            }
+            if (parent == null && BUILTIN_PARENT_IDS.contains(parentId)) {
+                var network = BuiltinProfiles.byId(parentId).initialState().network();
+                if (network != null && network.operator() != null) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean profileSuppliesOperator(Element profile, Set<String> seen) {
+        Element initial = Dom.child(profile, "initial-state");
+        Element network = initial == null ? null : Dom.child(initial, "network");
+        if (network != null && Dom.child(network, "operator") != null) {
+            return true;
+        }
+        return parentSuppliesOperator(ProfileXmlSupport.parents(profile.getAttribute("extends")), seen);
     }
 
     private void validateDelayOperations(Element profile, Element network, ValidationReport report) {
@@ -155,7 +214,7 @@ final class ProfileXmlSemanticValidator {
         }
     }
 
-    private void validateCoverage(Element profile, Element coverage, ValidationReport report) {
+    private void validateCoverage(Element profile, String kind, Element coverage, ValidationReport report) {
         if (coverage == null) {
             return;
         }
@@ -170,10 +229,32 @@ final class ProfileXmlSemanticValidator {
             if (!commands.add(name)) {
                 report.error(id + ": duplicate coverage command " + name);
             }
+            if (Set.of("pstn", "isdn").contains(kind) && cellularCommand(name)) {
+                report.error(id + ": " + kind + " profile must not claim cellular coverage command " + name);
+            }
         }
         if (commandsTotal < commands.size()) {
             report.error(id + ": coverage commandsTotal must cover listed commands");
         }
+    }
+
+    private void validateNetworkLocation(Element profile, Element network, ValidationReport report) {
+        if (network == null || Set.of("1", "5").contains(network.getAttribute("stat")) || compatibilityDeviation(profile)) {
+            return;
+        }
+        if (network.hasAttribute("lac") || network.hasAttribute("ci") || network.hasAttribute("act")) {
+            report.error(profile.getAttribute("id") + ": non-registered CREG state must not expose lac/ci/act");
+        }
+    }
+
+    private boolean compatibilityDeviation(Element profile) {
+        Element deviations = Dom.child(profile, "deviations");
+        return deviations != null && Dom.children(deviations, "deviation").stream()
+                .anyMatch(deviation -> "compatibility".equals(deviation.getAttribute("severity")));
+    }
+
+    private boolean cellularCommand(String name) {
+        return name.startsWith("AT+C") || name.startsWith("+C");
     }
 
     private void validateDuplicateRegisters(Element profile, ValidationReport report) {

@@ -69,6 +69,13 @@ final class SimulatorView {
         return root;
     }
 
+    void close() {
+        if (poller != null) {
+            poller.stop();
+            poller = null;
+        }
+    }
+
     private Node sessionPane() {
         return new GuiSessionPane(ui, controller, output, this::handle).node();
     }

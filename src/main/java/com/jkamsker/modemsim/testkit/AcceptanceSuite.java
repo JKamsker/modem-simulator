@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.testkit;
 
 import com.jkamsker.modemsim.app.ReplayAcceptance;
+import com.jkamsker.modemsim.app.RuntimeNoControlApiAcceptance;
 import com.jkamsker.modemsim.app.RuntimePortGroupAcceptance;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
@@ -9,7 +10,6 @@ import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Dialect;
 import com.jkamsker.modemsim.profiles.Profile;
-import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.profiles.UnknownAtCommandPolicy;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import com.jkamsker.modemsim.state.CallMode;
@@ -40,8 +40,8 @@ public final class AcceptanceSuite {
             switch (normalized) {
                 case "A01" -> require(session().receive(RawBytes.ascii("AT\r")).outputHex(), "0D0A4F4B0D0A");
                 case "A02" -> new AcceptanceHayesChecks().run();
-                case "A03" -> requireContains(session().receive(RawBytes.ascii("AT+CREG?\r")).outputAscii(), "+CREG: 2,1");
-                case "A04" -> requireContains(session().receive(RawBytes.ascii("AT+CSQ\r")).outputAscii(), "+CSQ: 18,0");
+                case "A03" -> new AcceptanceCellularChecks().creg();
+                case "A04" -> new AcceptanceCellularChecks().csq();
                 case "A05" -> new AcceptanceProfileChecks(SAMPLE_PROFILE).run();
                 case "A06" -> cpin();
                 case "A07" -> requireContains(session().receive(RawBytes.ascii("AT+COPS?\r")).outputAscii(), "Telekom.de");
@@ -57,8 +57,7 @@ public final class AcceptanceSuite {
                     require(new CoverageValidator().verifyV1Targets(spec("src/main/resources/coverage/v1-targets")).valid());
                     new AcceptanceProfileChecks(SAMPLE_PROFILE).runBuiltins();
                 }
-                case "A17" -> require(!new ProfileXmlLoader()
-                        .validate(spec("src/test/resources/profiles/xxe-profile.xml")).valid());
+                case "A17" -> new XmlHardeningAcceptance().run();
                 case "A18" -> replay();
                 case "A19" -> dataMode();
                 case "A20" -> pduAndStorage();
@@ -108,10 +107,10 @@ public final class AcceptanceSuite {
         requireContains(s.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii(), "SIM PUK");
         requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"00000000\",\"4321\"\r")).outputAscii(), "ERROR");
         require(s.snapshot().sim().pukRetries() == 9);
-        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"4321\"\r")).outputAscii(), "OK");
+        requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"1234\"\r")).outputAscii(), "OK");
         require(s.snapshot().sim().state() == SimState.READY);
         require(s.snapshot().sim().pinRetries() == 3);
-        require("4321".equals(s.snapshot().sim().testPin()));
+        require("1234".equals(s.snapshot().sim().testPin()));
         require(s.snapshot().network().stat() == 0);
     }
 
@@ -144,6 +143,8 @@ public final class AcceptanceSuite {
     private void noControlApi() {
         var hits = forbiddenControlApiReferences();
         require(hits.isEmpty());
+        var runtimeHits = new RuntimeNoControlApiAcceptance().listenerHitsDuringHeadlessSmoke();
+        require(runtimeHits.isEmpty(), runtimeHits.toString());
         String httpToken = "http";
         String wsToken = "web" + "socket";
         for (Thread thread : Thread.getAllStackTraces().keySet()) {
@@ -162,12 +163,12 @@ public final class AcceptanceSuite {
 
     private void dataMode() {
         HeadlessSession s = new HeadlessSession("main", BuiltinProfiles.byId("generic-hayes-v250"), 12345);
-        String dial = s.receive(RawBytes.ascii("ATD123\r")).outputAscii();
-        if (!dial.contains("CONNECT")) {
+        String dialOutput = s.receive(RawBytes.ascii("ATD123\r")).outputAscii();
+        if (!dialOutput.contains("CONNECT")) {
             require(s.snapshot().call().mode() == CallMode.DIALING);
-            dial = s.drainScheduled().outputAscii();
+            dialOutput = s.drainScheduled().outputAscii();
         }
-        requireContains(dial, "CONNECT");
+        requireContains(dialOutput, "CONNECT");
         require(s.snapshot().lines().dcd());
         s.advanceTime(1_000);
         require(s.receive(RawBytes.ascii("+++")).outputAscii().isEmpty());

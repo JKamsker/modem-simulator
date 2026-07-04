@@ -55,10 +55,34 @@ final class TrmReplayParser {
 
     private ReplayEventExpectation txExpectation(Entry tx) {
         return new ReplayEventExpectation(
-                EventType.TX_BYTES, null, Direction.DCE_TO_DTE, null, null,
-                null, tx.timestampMs() * 1_000_000L, RawBytes.ascii(tx.payload()).toHex(),
-                null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, false, false, false, null, null);
+                EventType.TX_BYTES,
+                null,
+                Direction.DCE_TO_DTE,
+                null,
+                null,
+                null,
+                tx.timestampMs() * 1_000_000L,
+                RawBytes.ascii(tx.payload()).toHex(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                false,
+                false,
+                null,
+                null);
     }
 
     private Direction direction(String value) {

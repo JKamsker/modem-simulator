@@ -7,6 +7,7 @@ import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.session.HeadlessSession;
+import com.jkamsker.modemsim.state.SimState;
 import com.jkamsker.modemsim.validation.SchemaLocator;
 import com.jkamsker.modemsim.validation.ValidationReport;
 import com.jkamsker.modemsim.validation.XmlSecurity;
@@ -33,6 +34,10 @@ final class AcceptanceProfileChecks {
         String jsonl = ModemEventJson.toJsonLines(new HeadlessSession("profile-redaction", profile, 12345)
                 .receive(RawBytes.ascii("AT+CPIN=\"9876\"\r")).events());
         require(!jsonl.contains("9876") && jsonl.contains("<redacted>"), "PIN leaked into event log");
+        String pukJsonl = ModemEventJson.toJsonLines(new HeadlessSession("profile-puk-redaction",
+                pukLocked(profile), 12345).receive(RawBytes.ascii("AT+CPIN=\"87654321\",\"2468\"\r")).events());
+        require(!pukJsonl.contains("87654321") && !pukJsonl.contains("2468")
+                && pukJsonl.contains("puk"), "PUK leaked into event log");
         runNegatives();
     }
 
@@ -115,6 +120,13 @@ final class AcceptanceProfileChecks {
 
     private Path negative(String file) {
         return SchemaLocator.projectPath("docs/Tasks/Initial-Spec/examples/negative/" + file);
+    }
+
+    private Profile pukLocked(Profile profile) {
+        var base = profile.initialState();
+        return profile.withInitialState(base
+                .withSim(base.sim().withState(SimState.SIM_PUK_REQUIRED))
+                .withNetwork(base.network().withRegistration(0)));
     }
 
     private boolean contains(ValidationReport report, String text) {

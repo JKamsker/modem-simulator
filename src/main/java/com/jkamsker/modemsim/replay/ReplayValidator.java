@@ -142,7 +142,9 @@ public final class ReplayValidator {
                 requireExpected(stepNumber, "scheduler.sourceSequence", expectation.schedulerSourceSequence(), report);
                 requireExpected(stepNumber, "scheduler.sourcePriority", expectation.schedulerSourcePriority(), report);
                 requireExpected(stepNumber, "scheduler.operation", expectation.schedulerOperation(), report);
-                requireExpected(stepNumber, "scheduler.sampledDelayMs", expectation.sampledDelayMs(), report);
+                if (expectation.sampledDelayMs() == null && expectation.sampledDelayMsWithin() == null) {
+                    requireExpected(stepNumber, "scheduler.sampledDelayMs", null, report);
+                }
                 requireExpected(stepNumber, "scheduler.cancelled", expectation.schedulerCancelled(), report);
             }
         }
@@ -206,6 +208,7 @@ public final class ReplayValidator {
             int stepNumber, ModemEvent event, ReplayEventExpectation expectation, ReplayReport report) {
         compare(stepNumber, "scheduler.operation", expectation.schedulerOperation(), scheduler(event, "operation"), report);
         compare(stepNumber, "scheduler.sampledDelayMs", expectation.sampledDelayMs(), scheduler(event, "sampledDelayMs"), report);
+        compareSampledDelayRange(stepNumber, event, expectation, report);
         compare(stepNumber, "scheduler.dueMonotonicNanos",
                 expectation.schedulerDueMonotonicNanos(), scheduler(event, "dueMonotonicNanos"), report);
         compare(stepNumber, "scheduler.sourceSequence",
@@ -213,6 +216,19 @@ public final class ReplayValidator {
         compare(stepNumber, "scheduler.sourcePriority",
                 expectation.schedulerSourcePriority(), scheduler(event, "sourcePriority"), report);
         compare(stepNumber, "scheduler.cancelled", expectation.schedulerCancelled(), scheduler(event, "cancelled"), report);
+    }
+
+    private void compareSampledDelayRange(
+            int stepNumber, ModemEvent event, ReplayEventExpectation expectation, ReplayReport report) {
+        List<Integer> range = expectation.sampledDelayMsWithin();
+        if (range == null) {
+            return;
+        }
+        Object value = scheduler(event, "sampledDelayMs");
+        if (!(value instanceof Number number) || number.intValue() < range.get(0) || number.intValue() > range.get(1)) {
+            report.divergence("step " + stepNumber + " scheduler.sampledDelayMsWithin expected "
+                    + range + " but got " + value);
+        }
     }
 
     private Object scheduler(ModemEvent event, String key) {

@@ -94,7 +94,7 @@ public final class ProfileSemanticValidator {
     }
 
     private boolean testProfile(Profile profile) {
-        return Set.of("candidate", "stub", "out-of-scope").contains(profile.status());
+        return "test-fixture".equals(profile.status());
     }
 
     private boolean hasCompatibilityDeviation(Profile profile) {

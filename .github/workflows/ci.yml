@@ -104,6 +104,20 @@ jobs:
         run: |
           rm -rf target/dist-smoke
           unzip -q target/*-dist.zip -d target/dist-smoke
+          run_documented_commands() {
+            spec_file="$app_home/docs/Tasks/Initial-Spec/spec/13_teststrategie_abnahme.md"
+            commands_file=$(mktemp)
+            grep -o '`modemsim [^`]*`' "$spec_file" | sed 's/^`modemsim //; s/`$//' > "$commands_file"
+            test "$(wc -l < "$commands_file" | tr -d ' ')" -ge 32
+            while IFS= read -r args; do
+              echo "Running documented command: modemsim $args"
+              if [ "$RUNNER_OS" = "Windows" ]; then
+                cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd $args"
+              else
+                (cd "$app_home" && bin/modemsim $args)
+              fi
+            done < "$commands_file"
+          }
           if [ "$RUNNER_OS" = "Windows" ]; then
             launcher=$(find target/dist-smoke -path '*/bin/modemsim.cmd' -type f | head -n 1)
             app_home=$(dirname "$(dirname "$launcher")")
@@ -115,6 +129,7 @@ jobs:
             cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd coverage verify --profiles v1-targets"
             cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd replay src\\test\\resources\\replay\\basic-at-events.jsonl --mode validate-recompute"
             cmd.exe /c "cd /d $app_home_win && bin\\modemsim.cmd test --suite acceptance --case all"
+            run_documented_commands
           else
             launcher=$(find target/dist-smoke -path '*/bin/modemsim' -type f | head -n 1)
             app_home=$(dirname "$(dirname "$launcher")")
@@ -128,12 +143,19 @@ jobs:
               bin/modemsim replay src/test/resources/replay/basic-at-events.jsonl --mode validate-recompute
               bin/modemsim test --suite acceptance --case all
             )
+            run_documented_commands
           fi
       - name: Smoke GUI launcher presence
         shell: bash
         run: |
           test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui' -type f | head -n 1)"
           test -n "$(find target/dist-smoke -path '*/bin/modemsim-gui.cmd' -type f | head -n 1)"
+      - name: Smoke packaged GUI launcher
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          gui_launcher=$(find target/dist-smoke -path '*/bin/modemsim-gui' -type f | head -n 1)
+          xvfb-run -a "$gui_launcher" --headless-smoke
       - name: Verify packaged native access flags
         shell: bash
         run: |
@@ -201,6 +223,5 @@ jobs:
         shell: pwsh
         run: .\.github\scripts\install-com0com.ps1
       - name: Serial lane
-        if: env.MODEMSIM_WINDOWS_COM0COM_AVAILABLE == 'true'
         shell: pwsh
         run: .\mvnw.cmd -B -DexcludedGroups= -Dgroups=serial-it test

@@ -53,6 +53,69 @@ class XmlSecurityTest {
     }
 
     @Test
+    void rejectsEveryExternalSchemaUriToken() throws Exception {
+        Path xml = write("schema-location-tokens.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:schemaLocation="urn:test https://example.invalid/schema.xsd"/>
+                """);
+
+        assertThatThrownBy(() -> XmlSecurity.parse(xml))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+    }
+
+    @Test
+    void rejectsNonSlashAbsoluteSchemaUris() throws Exception {
+        Path fileUri = write("schema-location-file.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="file:/etc/passwd"/>
+                """);
+        Path jarUri = write("schema-location-jar.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="jar:file:/tmp/schema.jar!/schema.xsd"/>
+                """);
+
+        assertThatThrownBy(() -> XmlSecurity.parse(fileUri))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+        assertThatThrownBy(() -> XmlSecurity.parse(jarUri))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+    }
+
+    @Test
+    void rejectsProtocolRelativeAndLocalSchemaLocations() throws Exception {
+        Path protocolRelative = write("schema-location-protocol-relative.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="//example.invalid/schema.xsd"/>
+                """);
+        Path absolute = write("schema-location-absolute.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="/tmp/schema.xsd"/>
+                """);
+        Path relative = write("schema-location-relative.xml", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      xsi:noNamespaceSchemaLocation="../schema.xsd"/>
+                """);
+
+        assertThatThrownBy(() -> XmlSecurity.parse(protocolRelative))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+        assertThatThrownBy(() -> XmlSecurity.parse(absolute))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+        assertThatThrownBy(() -> XmlSecurity.parse(relative))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("external schema");
+    }
+
+    @Test
     void rejectsExcessiveDepth() throws Exception {
         StringBuilder xml = new StringBuilder("<root>");
         for (int i = 0; i < 70; i++) {

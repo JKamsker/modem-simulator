@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.state;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -15,7 +16,11 @@ public record SmsRuntime(
         Map<Integer, SmsMessage> messages
 ) {
     public SmsRuntime {
-        messages = Map.copyOf(messages);
+        Map<Integer, SmsMessage> ordered = new LinkedHashMap<>();
+        messages.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
+        messages = Collections.unmodifiableMap(ordered);
     }
 
     public static SmsRuntime defaults() {

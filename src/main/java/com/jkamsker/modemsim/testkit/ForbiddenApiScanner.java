@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-final class ForbiddenApiScanner {
+public final class ForbiddenApiScanner {
     private static final List<String> NEEDLES = List.of(
             "Http" + "Server",
             "Server" + "Socket",
@@ -24,7 +24,7 @@ final class ForbiddenApiScanner {
             "netty" + "-all",
             "spring-boot-starter-" + "web");
 
-    List<String> scan() {
+    public List<String> scan() {
         var hits = new ArrayList<String>();
         scanForNeedles(SchemaLocator.projectPath("src/main/java"), hits);
         scanForNeedles(SchemaLocator.projectPath("pom.xml"), hits);
@@ -33,7 +33,7 @@ final class ForbiddenApiScanner {
         return hits;
     }
 
-    List<String> scanCurrentProcessListeners() {
+    public List<String> scanCurrentProcessListeners() {
         var hits = new ArrayList<String>();
         scanCurrentProcessListeners(hits);
         return hits;
