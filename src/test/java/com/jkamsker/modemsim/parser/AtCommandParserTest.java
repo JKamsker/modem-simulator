@@ -73,6 +73,21 @@ class AtCommandParserTest {
     }
 
     @Test
+    void commandKindPredicatesDoNotMatchTheWrongFamily() {
+        ParsedCommand basic = parser.parse(RawBytes.ascii("ATD123\r"), EntryMode.COMMAND).getFirst();
+        ParsedCommand extended = parser.parse(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"), EntryMode.COMMAND)
+                .getFirst();
+        ParsedCommand register = parser.parse(RawBytes.ascii("ATS7?\r"), EntryMode.COMMAND).getFirst();
+
+        assertThat(basic.isBasic("ATD")).isTrue();
+        assertThat(basic.isExtended("ATD")).isFalse();
+        assertThat(extended.isExtended("+CMGS")).isTrue();
+        assertThat(extended.isBasic("+CMGS")).isFalse();
+        assertThat(register.isBasic("S7")).isFalse();
+        assertThat(register.isExtended("S7")).isFalse();
+    }
+
+    @Test
     void appliesBackspaceBeforeTokenizing() {
         var commands = parser.parse(RawBytes.copyOf(new byte[] {'A', 'T', 'X', 8, 'I', '\r'}), EntryMode.COMMAND);
 

@@ -8,9 +8,21 @@ public record MacroStatePredicate(String path, String comparator, String value) 
         String actual = StateValueValidator.read(state, path);
         return switch (comparator) {
             case "equals" -> StateValueValidator.equalValue(actual, value);
-            case "lessThan" -> actual != null && Integer.parseInt(actual) < Integer.parseInt(value);
-            case "greaterThan" -> actual != null && Integer.parseInt(actual) > Integer.parseInt(value);
+            case "lessThan" -> compare(actual, value, -1);
+            case "greaterThan" -> compare(actual, value, 1);
             default -> false;
         };
+    }
+
+    private boolean compare(String actual, String expected, int direction) {
+        try {
+            if (actual == null) {
+                return false;
+            }
+            int comparison = Integer.compare(Integer.parseInt(actual), Integer.parseInt(expected));
+            return direction < 0 ? comparison < 0 : comparison > 0;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

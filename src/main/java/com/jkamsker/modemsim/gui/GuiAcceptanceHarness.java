@@ -99,21 +99,7 @@ public final class GuiAcceptanceHarness {
     }
 
     private void runUnderXvfb() {
-        try {
-            String java = Path.of(System.getProperty("java.home"), "bin", "java").toString();
-            Process process = new ProcessBuilder("xvfb-run", "-a", java,
-                    "-Dmodemsim.gui.acceptance.child=true", "-cp", childClasspath(),
-                    GuiAcceptanceHarness.class.getName(), "live-log-filter-export")
-                    .redirectErrorStream(true)
-                    .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            require(process.waitFor() == 0, "xvfb JavaFX probe failed: " + output);
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException("Cannot start xvfb JavaFX probe", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while running xvfb JavaFX probe", e);
-        }
+        GuiXvfbProbe.run(childClasspath());
     }
 
     private boolean displayMissing() {

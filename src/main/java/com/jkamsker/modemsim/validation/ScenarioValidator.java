@@ -8,14 +8,20 @@ import java.util.Set;
 
 public final class ScenarioValidator {
     public ValidationReport validate(Path scenarioPath) {
+        return validateScenario(scenarioPath).report();
+    }
+
+    public ValidatedScenario validateScenario(Path scenarioPath) {
         ValidationReport report = ValidationReport.ok();
+        Element root = null;
         try {
-            XmlSecurity.validate(scenarioPath, SchemaLocator.schemaPath("scenario.schema.xsd"));
-            validateSemantics(XmlSecurity.parse(scenarioPath).getDocumentElement(), report);
+            root = XmlSecurity.parseValidated(scenarioPath, SchemaLocator.schemaPath("scenario.schema.xsd"))
+                    .getDocumentElement();
+            validateSemantics(root, report);
         } catch (ValidationException e) {
             report.error(e.getMessage());
         }
-        return report;
+        return new ValidatedScenario(root, report);
     }
 
     private void validateSemantics(Element root, ValidationReport report) {
@@ -138,5 +144,8 @@ public final class ScenarioValidator {
         if (error != null) {
             report.error(error);
         }
+    }
+
+    public record ValidatedScenario(Element root, ValidationReport report) {
     }
 }

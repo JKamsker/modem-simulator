@@ -55,11 +55,18 @@ public record ParsedCommand(
     }
 
     public boolean isExtended(String name) {
-        return normalizedName.equalsIgnoreCase(name);
+        return extendedKind() && normalizedName.equalsIgnoreCase(name);
     }
 
     public boolean isBasic(String name) {
-        return normalizedName.equalsIgnoreCase(name);
+        return kind == CommandKind.BASIC && normalizedName.equalsIgnoreCase(name);
+    }
+
+    private boolean extendedKind() {
+        return switch (kind) {
+            case EXTENDED_EXEC, EXTENDED_SET, EXTENDED_READ, EXTENDED_TEST -> true;
+            default -> false;
+        };
     }
 
     private static List<AtToken> defaultTokens(

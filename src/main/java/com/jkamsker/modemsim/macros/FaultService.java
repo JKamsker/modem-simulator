@@ -11,15 +11,14 @@ import com.jkamsker.modemsim.state.SignalRuntime;
 public final class FaultService {
     public ModemState apply(ModemState state, FaultAction action) {
         return switch (action.type()) {
-            case "network-outage" -> networkOutage(state);
-            case "network-restore" -> networkRestore(state, action);
-            case "modem-reboot" -> state
+            case NETWORK_OUTAGE -> networkOutage(state);
+            case NETWORK_RESTORE -> networkRestore(state, action);
+            case MODEM_REBOOT -> state
                     .withModem(new ModemRuntimeInfo(ModemLifecycle.REBOOTING, FreezeMode.NONE, value(action.durationMs(), 0)))
                     .withLines(state.lines().withDsr(false).withDcd(false));
-            case "modem-freeze" -> state.withModem(state.modem().frozen(
+            case MODEM_FREEZE -> state.withModem(state.modem().frozen(
                     action.freezeMode() == null ? FreezeMode.NO_RESPONSE : action.freezeMode()));
-            case "modem-unfreeze" -> state.withModem(state.modem().withLifecycle(ModemLifecycle.READY));
-            default -> state;
+            case MODEM_UNFREEZE -> state.withModem(state.modem().withLifecycle(ModemLifecycle.READY));
         };
     }
 

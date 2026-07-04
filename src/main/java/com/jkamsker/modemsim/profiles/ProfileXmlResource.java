@@ -16,7 +16,7 @@ final class ProfileXmlResource {
     static Profile load(ProfileXmlLoader loader, String resource, String profileId) {
         Path xmlPath = copy(resource);
         try {
-            return loader.load(xmlPath, profileId);
+            return loader.loadBuiltinResource(xmlPath, profileId);
         } finally {
             delete(xmlPath);
         }

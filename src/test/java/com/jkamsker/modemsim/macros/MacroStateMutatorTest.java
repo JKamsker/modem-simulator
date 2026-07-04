@@ -78,14 +78,25 @@ class MacroStateMutatorTest {
     }
 
     @Test
-    void ignoresUnknownPathsAndRejectsInvalidCallModes() {
+    void rejectsUnknownPathsAndInvalidCallModes() {
         var source = BuiltinProfiles.acceptanceSierra().initialState();
         var mutator = new MacroStateMutator();
 
-        assertThat(mutator.apply(source, List.of(patch("state.unknown", "x")))).isSameAs(source);
+        assertThatThrownBy(() -> mutator.apply(source, List.of(patch("state.unknown", "x"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown state patch path");
         assertThatThrownBy(() -> mutator.apply(source, List.of(patch("state.call.mode", "invalid"))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid call mode");
+    }
+
+    @Test
+    void numericStatePredicatesTreatMalformedNumbersAsNonMatches() {
+        var state = BuiltinProfiles.acceptanceSierra().initialState();
+
+        assertThat(new MacroStatePredicate("state.network.lac", "lessThan", "10").matches(state)).isFalse();
+        assertThat(new MacroStatePredicate("state.signal.rssi", "greaterThan", "not-a-number")
+                .matches(state)).isFalse();
     }
 
     private static MacroStatePatch patch(String path, String value) {

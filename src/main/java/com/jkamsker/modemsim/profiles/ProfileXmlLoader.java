@@ -34,19 +34,30 @@ public final class ProfileXmlLoader {
         return ProfileXmlResource.load(this, resource, profileId);
     }
 
+    Profile loadBuiltinResource(Path xmlPath, String profileId) {
+        ValidatedRoot validated = validateRoot(xmlPath, true);
+        validated.report().throwIfInvalid();
+        return new ProfileXmlInheritanceResolver(this, validated.root())
+                .resolve(ProfileXmlSelector.byId(validated.root(), profileId));
+    }
+
     public ValidationReport validate(Path xmlPath) {
         return validateRoot(xmlPath).report();
     }
 
     private ValidatedRoot validateRoot(Path xmlPath) {
+        return validateRoot(xmlPath, false);
+    }
+
+    private ValidatedRoot validateRoot(Path xmlPath, boolean allowBuiltinIds) {
         ValidationReport report = ValidationReport.ok();
         Element root = null;
         try {
-            XmlSecurity.validate(xmlPath, SchemaLocator.schemaPath("modem-profile.schema.xsd"));
-            root = XmlSecurity.parse(xmlPath).getDocumentElement();
+            root = XmlSecurity.parseValidated(xmlPath, SchemaLocator.schemaPath("modem-profile.schema.xsd"))
+                    .getDocumentElement();
             Set<String> profileIds = xmlSemanticValidator.profileIds(root);
             ProfileXmlInheritanceResolver resolver = new ProfileXmlInheritanceResolver(this, root);
-            xmlSemanticValidator.validateRoot(root, report);
+            xmlSemanticValidator.validateRoot(root, report, allowBuiltinIds);
             for (Element profile : Dom.children(root, "profile")) {
                 xmlSemanticValidator.validate(profile, profileIds, report);
                 report.merge(semanticValidator.validate(resolver.resolve(profile)));

@@ -251,4 +251,23 @@ class ProfileInheritanceValidationTest {
         assertThat(report.valid()).isFalse();
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("duplicate profile id"));
     }
+
+    @Test
+    void rejectsLocalProfileIdsThatShadowBuiltIns() throws Exception {
+        Path path = tempDir.resolve("builtin-shadow.xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <modem-simulator version="1.0">
+                  <profile id="generic-hayes-v250" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                  </profile>
+                </modem-simulator>
+                """);
+
+        ValidationReport report = new ProfileXmlLoader().validate(path);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error ->
+                assertThat(error).contains("duplicate built-in profile id"));
+    }
 }

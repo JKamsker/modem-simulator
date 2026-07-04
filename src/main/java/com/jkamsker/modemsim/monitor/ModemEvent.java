@@ -41,6 +41,22 @@ public record ModemEvent(
         scheduler = copy(scheduler);
     }
 
+    public ModemEvent withDroppedEventCount(long value) {
+        return new ModemEvent(
+                timestamp, monotonicNanos, sequence, sessionId, eventType, direction, rawHex, textEscaped,
+                parsedCommand, profile, port, portRole, profileHash, configHash, macroHash, initialStateHash,
+                sessionSeed, clockMode, macroId, latencyMs, injectionType, value, replayDivergent, handler,
+                result, scheduler, stateBefore, stateAfter, redaction);
+    }
+
+    public ModemEvent droppedEventsSummary(long nextSequence, long value) {
+        return new ModemEvent(
+                timestamp, monotonicNanos, nextSequence, sessionId, EventType.DROPPED_EVENTS, Direction.NONE,
+                "", null, null, profile, port, portRole, profileHash, configHash, macroHash, initialStateHash,
+                sessionSeed, clockMode, null, null, null, value, false, null, "dropped-events",
+                null, null, null, RedactionInfo.none());
+    }
+
     private static Map<String, Object> copy(Map<String, Object> value) {
         return value == null ? null : Map.copyOf(value);
     }

@@ -44,7 +44,7 @@ public final class MacroStateMutator {
             case "state.modem.lifecycle", "state.modem.freezeMode", "state.modem.bootDelayMs" -> modemPatch(state, patch);
             case "state.modemLines.dtr", "state.modemLines.dsr", "state.modemLines.dcd",
                     "state.modemLines.ri", "state.modemLines.rts", "state.modemLines.cts" -> linePatch(state, patch);
-            default -> state;
+            default -> throw new IllegalArgumentException("Unknown state patch path: " + patch.path());
         };
     }
 

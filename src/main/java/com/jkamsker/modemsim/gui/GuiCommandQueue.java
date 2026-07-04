@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-final class GuiCommandQueue {
+final class GuiCommandQueue implements AutoCloseable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "modemsim-gui-session-queue");
         thread.setDaemon(true);
@@ -19,5 +19,10 @@ final class GuiCommandQueue {
 
     CompletableFuture<SessionResponse> submitAsync(GuiSessionCommand command) {
         return CompletableFuture.supplyAsync(command.action(), executor);
+    }
+
+    @Override
+    public void close() {
+        executor.shutdownNow();
     }
 }

@@ -47,7 +47,16 @@ public final class XmlSecurity {
     }
 
     public static void validate(Path xmlPath, Path schemaPath) {
+        validate(parse(xmlPath), schemaPath);
+    }
+
+    public static Document parseValidated(Path xmlPath, Path schemaPath) {
         Document document = parse(xmlPath);
+        validate(document, schemaPath);
+        return document;
+    }
+
+    private static void validate(Document document, Path schemaPath) {
         try {
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);

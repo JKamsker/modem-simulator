@@ -49,8 +49,8 @@ public final class MacroLoader {
         ValidationReport report = ValidationReport.ok();
         MacroSet macroSet = null;
         try {
-            XmlSecurity.validate(path, SchemaLocator.schemaPath("macro-schema-draft.xsd"));
-            Element root = XmlSecurity.parse(path).getDocumentElement();
+            Element root = XmlSecurity.parseValidated(path, SchemaLocator.schemaPath("macro-schema-draft.xsd"))
+                    .getDocumentElement();
             xmlSemanticValidator.validate(root, report);
             macroSet = parse(root);
             validateCompiledSemantics(macroSet, report);

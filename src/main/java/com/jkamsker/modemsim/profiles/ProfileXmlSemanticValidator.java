@@ -30,9 +30,16 @@ final class ProfileXmlSemanticValidator {
     }
 
     void validateRoot(Element root, ValidationReport report) {
+        validateRoot(root, report, false);
+    }
+
+    void validateRoot(Element root, ValidationReport report, boolean allowBuiltinIds) {
         Map<String, Element> profiles = new LinkedHashMap<>();
         for (Element profile : Dom.children(root, "profile")) {
             String id = profile.getAttribute("id");
+            if (!allowBuiltinIds && BUILTIN_PARENT_IDS.contains(id)) {
+                report.error(id + ": duplicate built-in profile id");
+            }
             if (profiles.containsKey(id)) {
                 report.error(id + ": duplicate profile id");
             } else {

@@ -9,7 +9,6 @@ import com.jkamsker.modemsim.state.ModemState;
 import com.jkamsker.modemsim.validation.Dom;
 import com.jkamsker.modemsim.validation.ScenarioValidator;
 import com.jkamsker.modemsim.validation.StateInvariantValidator;
-import com.jkamsker.modemsim.validation.XmlSecurity;
 import org.w3c.dom.Element;
 
 import java.nio.file.Path;
@@ -24,8 +23,7 @@ public final class InitialScenarioLoader {
         if (scenarioPath == null) {
             return state;
         }
-        new ScenarioValidator().validate(scenarioPath).throwIfInvalid();
-        Element root = XmlSecurity.parse(scenarioPath).getDocumentElement();
+        Element root = validatedRoot(scenarioPath);
         Element initial = Dom.child(root, "initial-state");
         ModemState next = initial == null ? state : mutator.apply(state, patches(initial));
         for (Element step : Dom.children(root, "step")) {
@@ -41,8 +39,7 @@ public final class InitialScenarioLoader {
         if (scenarioPath == null) {
             return List.of();
         }
-        new ScenarioValidator().validate(scenarioPath).throwIfInvalid();
-        Element root = XmlSecurity.parse(scenarioPath).getDocumentElement();
+        Element root = validatedRoot(scenarioPath);
         List<InitialScenarioStep> steps = new ArrayList<>();
         for (Element step : Dom.children(root, "step")) {
             long atMs = Long.parseLong(step.getAttribute("atMs"));
@@ -51,6 +48,12 @@ public final class InitialScenarioLoader {
             }
         }
         return steps;
+    }
+
+    private Element validatedRoot(Path scenarioPath) {
+        var validated = new ScenarioValidator().validateScenario(scenarioPath);
+        validated.report().throwIfInvalid();
+        return validated.root();
     }
 
     private ModemState applyStep(Element step, ModemState state) {

@@ -15,9 +15,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public final class RuntimeNoControlApiAcceptance {
     public List<String> listenerHitsDuringHeadlessSmoke() {
         List<String> hits = new CopyOnWriteArrayList<>();
+        java.nio.file.Path eventLog = null;
         try {
-            java.nio.file.Path eventLog = Files.createTempFile("modemsim-no-control-api", ".jsonl");
-            eventLog.toFile().deleteOnExit();
+            eventLog = Files.createTempFile("modemsim-no-control-api", ".jsonl");
             RuntimeConfig config = new RuntimeConfig(
                     12345, ClockMode.VIRTUAL, false, false,
                     eventLog,
@@ -29,6 +29,14 @@ public final class RuntimeNoControlApiAcceptance {
             return List.copyOf(hits);
         } catch (IOException e) {
             throw new IllegalStateException("runtime control API probe failed", e);
+        } finally {
+            if (eventLog != null) {
+                try {
+                    Files.deleteIfExists(eventLog);
+                } catch (IOException ignored) {
+                    // Best-effort cleanup for a temporary acceptance event log.
+                }
+            }
         }
     }
 }

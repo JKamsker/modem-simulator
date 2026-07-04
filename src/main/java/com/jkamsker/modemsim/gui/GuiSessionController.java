@@ -233,6 +233,8 @@ final class GuiSessionController {
         macroTimerIds = Set.copyOf(timerIds);
     }
 
+    void close() { closeRuntime(); queue.close(); }
+
     private SessionResponse enqueue(String type, java.util.function.Supplier<SessionResponse> action) {
         InMemoryEventSink beforeSink = eventSink;
         int start = eventSink == null ? eventCursor : Math.min(eventCursor, eventSink.eventCount());

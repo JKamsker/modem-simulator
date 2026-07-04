@@ -190,7 +190,7 @@ public final class HeadlessSession implements SessionActor {
     }
     public synchronized SessionResponse applyState(ModemState next, String injectionType) { return applyState(next, injectionType, EventType.STATE_CHANGE); }
     public synchronized SessionResponse applyFault(String type) { return applyState(faultService.apply(state, new com.jkamsker.modemsim.macros.FaultAction(type, type.equals("reboot") || type.equals("modem-reboot") ? 3000 : null, null, null, null, null)), null, type, EventType.FAULT_TRIGGERED); }
-    public synchronized SessionResponse applyFault(com.jkamsker.modemsim.macros.FaultAction action) { return applyState(faultService.apply(state, action), null, action.type(), EventType.FAULT_TRIGGERED); }
+    public synchronized SessionResponse applyFault(com.jkamsker.modemsim.macros.FaultAction action) { return applyState(faultService.apply(state, action), null, action.typeName(), EventType.FAULT_TRIGGERED); }
     public synchronized SessionResponse fireTimer(String timerId) {
         int start = eventCount(); long startedNanos = clock.nowNanos(); MacroDecision decision = macroEngine.evaluateTimer(timerId, state, profile);
         if (!decision.matched()) { return response(RawBytes.empty(), start); }

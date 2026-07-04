@@ -74,6 +74,7 @@ final class SimulatorView {
             poller.stop();
             poller = null;
         }
+        controller.close();
     }
 
     private Node sessionPane() {
