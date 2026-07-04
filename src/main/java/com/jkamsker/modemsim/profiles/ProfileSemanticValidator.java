@@ -70,8 +70,9 @@ public final class ProfileSemanticValidator {
         if (network == null) {
             return;
         }
-        String expectedNumeric = network.operator().mcc() + network.operator().mnc();
-        if (!network.operator().numeric().equals(expectedNumeric)) {
+        if (network.operator() == null) {
+            report.error(profile.id() + ": network requires operator metadata");
+        } else if (!network.operator().numeric().equals(network.operator().mcc() + network.operator().mnc())) {
             report.error(profile.id() + ": operator numeric must equal MCC+MNC");
         }
         if (network.smsRateLimit().rejectCmsError() == 310) {

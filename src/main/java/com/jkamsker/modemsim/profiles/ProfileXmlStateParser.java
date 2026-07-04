@@ -86,7 +86,7 @@ final class ProfileXmlStateParser {
 
     private OperatorInfo parseOperator(Element operator) {
         if (operator == null) {
-            return OperatorInfo.telekom();
+            return null;
         }
         return new OperatorInfo(
                 operator.getAttribute("selectionMode"), operator.getAttribute("format"),

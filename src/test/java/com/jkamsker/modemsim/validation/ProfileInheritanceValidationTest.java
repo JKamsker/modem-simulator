@@ -95,6 +95,42 @@ class ProfileInheritanceValidationTest {
     }
 
     @Test
+    void laterLocalParentUsesInheritedEffectiveMetadata() throws Exception {
+        Path path = tempDir.resolve("recursive-parent-conflict.xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <modem-simulator version="1.0">
+                  <profile id="left" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <commands><command name="AT" status="implemented_full"/></commands>
+                    <registers><register name="S3" default="13"/></registers>
+                  </profile>
+                  <profile id="grand-right" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <commands><command name="AT" status="implemented_stub"/></commands>
+                    <registers><register name="S3" default="10"/></registers>
+                  </profile>
+                  <profile id="right" vendor="test" status="candidate" profileKind="base" extends="grand-right">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                  </profile>
+                  <profile id="child" vendor="test" status="candidate" profileKind="base" extends="left right">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                  </profile>
+                </modem-simulator>
+                """);
+
+        ValidationReport report = new ProfileXmlLoader().validate(path);
+        var child = new ProfileXmlLoader().load(path, "child");
+
+        assertThat(report.valid()).as(report.errors().toString()).isTrue();
+        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
+        assertThat(child.commands()).singleElement().satisfies(command ->
+                assertThat(command.status()).isEqualTo("implemented_stub"));
+        assertThat(child.registers()).singleElement().satisfies(register ->
+                assertThat(register.defaultValue()).isEqualTo(10));
+    }
+
+    @Test
     void childNetworkOverridesRequireParentOperatorMetadata() throws Exception {
         Path path = tempDir.resolve("network-override-without-operator.xml");
         Files.writeString(path, """
@@ -104,6 +140,34 @@ class ProfileInheritanceValidationTest {
                            extends="generic-hayes-v250">
                     <dialect commandTerminator="CR" responseTerminator="CRLF"/>
                     <initial-state><network cregN="2" stat="1"/></initial-state>
+                  </profile>
+                </modem-simulator>
+                """);
+
+        ValidationReport report = new ProfileXmlLoader().validate(path);
+
+        assertThat(report.valid()).isFalse();
+        assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("operator metadata"));
+    }
+
+    @Test
+    void inheritedNetworkRequiresExplicitOperatorMetadata() throws Exception {
+        Path path = tempDir.resolve("inherited-network-without-operator.xml");
+        Files.writeString(path, """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <modem-simulator version="1.0">
+                  <profile id="parent" vendor="test" status="candidate" profileKind="base">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <initial-state><network cregN="2" stat="1"/></initial-state>
+                  </profile>
+                  <profile id="child" vendor="test" status="candidate" profileKind="cellular" extends="parent">
+                    <dialect commandTerminator="CR" responseTerminator="CRLF"/>
+                    <initial-state>
+                      <sim state="READY"/>
+                      <signal rssi="18" ber="0"/>
+                      <call mode="command" carrier="false"/>
+                      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+                    </initial-state>
                   </profile>
                 </modem-simulator>
                 """);

@@ -48,10 +48,7 @@ final class ProfileXmlInheritanceResolver {
         Profile inherited = null;
         for (String parent : child.parents()) {
             Profile parentProfile = resolve(parent, stack);
-            Element parentElement = localProfiles.get(parent);
-            inherited = inherited == null ? parentProfile
-                    : parentElement == null ? mergeParent(inherited, parentProfile)
-                    : overlay(inherited, parentProfile, parentElement);
+            inherited = mergeParent(inherited, parentProfile);
         }
         return inherited == null ? child : overlay(inherited, child, element);
     }
