@@ -117,22 +117,42 @@ function Invoke-Setupc {
   param(
     [Parameter(Mandatory = $true)][System.IO.FileInfo] $Setupc,
     [Parameter(Mandatory = $true)][string[]] $SetupArgs,
+    [int] $TimeoutSeconds = 90,
     [switch] $AllowTimeout
   )
 
-  $timeoutSeconds = 90
   $description = "setupc $($SetupArgs -join ' ')"
   $result = Invoke-TimedProcess `
     -FilePath $Setupc.FullName `
     -ArgumentList $SetupArgs `
     -WorkingDirectory $Setupc.DirectoryName `
-    -TimeoutSeconds $timeoutSeconds `
+    -TimeoutSeconds $TimeoutSeconds `
     -Description $description
   if ($AllowTimeout -and $result.TimedOut) {
     Write-Host "$description timed out, but this command can finish device creation before exiting. Continuing to verification."
     return
   }
-  Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $timeoutSeconds -Description $description
+  Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $TimeoutSeconds -Description $description
+}
+
+function Invoke-OptionalProcess {
+  param(
+    [Parameter(Mandatory = $true)][string] $FilePath,
+    [string[]] $ArgumentList = @(),
+    [Parameter(Mandatory = $true)][int] $TimeoutSeconds,
+    [Parameter(Mandatory = $true)][string] $Description
+  )
+
+  $result = Invoke-TimedProcess `
+    -FilePath $FilePath `
+    -ArgumentList $ArgumentList `
+    -TimeoutSeconds $TimeoutSeconds `
+    -Description $Description
+  if ($result.TimedOut) {
+    Write-Host "::warning title=com0com diagnostics::$Description timed out after $TimeoutSeconds seconds."
+  } elseif ($result.ExitCode -ne 0) {
+    Write-Host "::warning title=com0com diagnostics::$Description failed with exit code $($result.ExitCode)."
+  }
 }
 
 function Assert-Sha256 {
@@ -202,14 +222,23 @@ if (Test-Path $catalogPath) {
 }
 Write-Host "Using setupc: $($setupc.FullName)"
 
-Invoke-Setupc -Setupc $setupc -SetupArgs @("install", "PortName=$ModemPort", "PortName=$DtePort") -AllowTimeout
+Invoke-Setupc `
+  -Setupc $setupc `
+  -SetupArgs @("install", "PortName=$ModemPort", "PortName=$DtePort") `
+  -TimeoutSeconds 240 `
+  -AllowTimeout
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "PortName=$ModemPort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCB0", "PortName=$DtePort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "EmuBR=yes")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCB0", "EmuOverrun=yes")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("list")
+Invoke-OptionalProcess `
+  -FilePath "pnputil.exe" `
+  -ArgumentList @("/scan-devices") `
+  -TimeoutSeconds 60 `
+  -Description "pnputil scan-devices"
 
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
+for ($attempt = 0; $attempt -lt 120; $attempt++) {
   $ports = [System.IO.Ports.SerialPort]::GetPortNames()
   if (($ports -contains $ModemPort) -and ($ports -contains $DtePort)) {
     break
@@ -219,6 +248,12 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
 
 $ports = [System.IO.Ports.SerialPort]::GetPortNames()
 if (-not (($ports -contains $ModemPort) -and ($ports -contains $DtePort))) {
+  Write-Host "com0com PnP device state:"
+  Get-PnpDevice |
+    Where-Object { $_.FriendlyName -like "*com0com*" -or $_.InstanceId -like "*com0com*" } |
+    Format-Table -AutoSize |
+    Out-String |
+    ForEach-Object { Write-Host $_ }
   Disable-Com0Com -Reason "Ports did not appear. Available ports: $($ports -join ', ')"
 }
 
