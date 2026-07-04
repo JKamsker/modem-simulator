@@ -92,7 +92,7 @@ final class GuiReplayService {
             List<ReplayStep> steps, boolean virtualClock, Profile profile, long seed, String port, MacroEngine macros) {
         var replaySession = new HeadlessSession("gui-replay", profile, seed,
                 new InMemoryEventSink(), macros, virtualClock ? "virtual" : "monotonic", port, "modem-simulation");
-        return new ReplayValidator().validateRecompute(replaySession, steps, true);
+        return new ReplayValidator().validateRecompute(replaySession, steps, strictMetadata(steps));
     }
 
     private SessionResponse driveSteps(HeadlessSession session, List<ReplayStep> steps) {
@@ -122,5 +122,12 @@ final class GuiReplayService {
 
     private SessionResponse emptyResponse() {
         return new SessionResponse(RawBytes.empty(), List.of());
+    }
+
+    private boolean strictMetadata(List<ReplayStep> steps) {
+        return steps.stream().flatMap(step -> step.expectedEvents().stream())
+                .anyMatch(event -> event.profileHash() != null || event.configHash() != null
+                        || event.macroHash() != null || event.initialStateHash() != null
+                        || event.sessionSeed() != null || event.clockMode() != null);
     }
 }

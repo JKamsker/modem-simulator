@@ -164,7 +164,7 @@ public final class AcceptanceSuite {
     private void dataMode() {
         HeadlessSession s = new HeadlessSession("main", BuiltinProfiles.byId("generic-hayes-v250"), 12345);
         String dialOutput = s.receive(RawBytes.ascii("ATD123\r")).outputAscii();
-        if (dialOutput.isEmpty()) {
+        if (!dialOutput.contains("CONNECT")) {
             require(s.snapshot().call().mode() == CallMode.DIALING);
             dialOutput = s.drainScheduled().outputAscii();
         }

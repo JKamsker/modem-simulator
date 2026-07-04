@@ -209,6 +209,29 @@ class ModemSimCliTest {
     }
 
     @Test
+    void replayPlayToDteSupportsTrmTranscripts() throws Exception {
+        Path log = tempDir.resolve("capture.trm");
+        Path audit = tempDir.resolve("trm-audit.jsonl");
+        Files.writeString(log, """
+                RX 1 11 (4858538528): AT+CREG?
+                TX 1 11 (4858538535): +CREG: 0,1
+                """);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
+                new PrintStream(out), new PrintStream(err));
+
+        int exit = runner.run(new String[] {
+                "replay", log.toString(), "--mode", "play-to-dte",
+                "--endpoint", "headless", "--audit-log", audit.toString()});
+
+        assertThat(exit).isZero();
+        assertThat(out.toString()).contains("outputHex=2B435245473A20302C31");
+        assertThat(Files.readString(audit)).contains("play-to-dte-start");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
     void headlessCommandRunsGoldenTranscriptScript() throws Exception {
         Path script = tempDir.resolve("script.yaml");
         Files.writeString(script, """

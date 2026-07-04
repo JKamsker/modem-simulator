@@ -39,14 +39,15 @@ final class ReplayCommand {
             return 2;
         }
         List<ReplayStep> steps = new ReplayStepLoader().load(logPath);
+        boolean strictMetadata = strictMetadata(steps);
         return switch (mode) {
-            case "play-to-dte" -> playToDte(args, steps, replayCase);
-            case "validate-recompute", "drive-from-captured-input" -> validate(args, mode, steps, replayCase);
+            case "play-to-dte" -> playToDte(args, steps, replayCase, strictMetadata);
+            case "validate-recompute", "drive-from-captured-input" -> validate(args, mode, steps, replayCase, strictMetadata);
             default -> unsupported(mode);
         };
     }
 
-    private int validate(String[] args, String mode, List<ReplayStep> steps, String replayCase) {
+    private int validate(String[] args, String mode, List<ReplayStep> steps, String replayCase, boolean strictMetadata) {
         String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
         long seed = longOption(args, "--seed", 12345L);
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
@@ -54,7 +55,7 @@ final class ReplayCommand {
         String role = firstExpected(steps, ReplayEventExpectation::portRole, null);
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
-        ReplayReport report = new ReplayValidator().validateRecompute(session, steps, true);
+        ReplayReport report = new ReplayValidator().validateRecompute(session, steps, strictMetadata);
         if (report.valid()) {
             if (replayCase != null) {
                 err.println("Expected replay divergence for case: " + replayCase);
@@ -71,8 +72,8 @@ final class ReplayCommand {
         return 1;
     }
 
-    private int playToDte(String[] args, List<ReplayStep> steps, String replayCase) {
-        ReplayReport hashReport = validateReport(args, "validate-recompute", steps);
+    private int playToDte(String[] args, List<ReplayStep> steps, String replayCase, boolean strictMetadata) {
+        ReplayReport hashReport = strictMetadata ? validateReport(args, steps) : new ReplayReport();
         if (hashReport.valid() && replayCase != null) {
             err.println("Expected replay divergence for case: " + replayCase);
             return 1;
@@ -127,7 +128,7 @@ final class ReplayCommand {
         return 2;
     }
 
-    private ReplayReport validateReport(String[] args, String mode, List<ReplayStep> steps) {
+    private ReplayReport validateReport(String[] args, List<ReplayStep> steps) {
         String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
         long seed = longOption(args, "--seed", 12345L);
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
@@ -136,6 +137,13 @@ final class ReplayCommand {
         HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
         return new ReplayValidator().validateRecompute(session, steps, true);
+    }
+
+    private boolean strictMetadata(List<ReplayStep> steps) {
+        return steps.stream().flatMap(step -> step.expectedEvents().stream())
+                .anyMatch(event -> event.profileHash() != null || event.configHash() != null
+                        || event.macroHash() != null || event.initialStateHash() != null
+                        || event.sessionSeed() != null || event.clockMode() != null);
     }
 
     private HeadlessSession auditSession(String[] args, List<ReplayStep> steps, RuntimeEventLog eventLog) {

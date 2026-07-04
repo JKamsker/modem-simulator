@@ -10,7 +10,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.control.Slider;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,8 +48,12 @@ final class GuiViewSupport {
     }
 
     void add(GridPane grid, int row, String label, Node control) {
-        grid.add(new Label(label), 0, row);
+        grid.add(labelWithHelp(label, GuiHelpText.forLabel(label)), 0, row);
         grid.add(control, 1, row);
+    }
+
+    Node explainer(String label, String help) {
+        return labelWithHelp(label, help);
     }
 
     TextField field(String id, String value) {
@@ -61,6 +68,17 @@ final class GuiViewSupport {
             combo.getSelectionModel().selectFirst();
         }
         return combo;
+    }
+
+    Slider slider(String id, double min, double max, double value) {
+        Slider slider = register(new Slider(min, max, value), id);
+        slider.setBlockIncrement(1);
+        slider.setSnapToTicks(true);
+        return slider;
+    }
+
+    void select(ComboBox<String> combo, String value) {
+        combo.getSelectionModel().select(value);
     }
 
     Label label(String id, String text) {
@@ -93,5 +111,14 @@ final class GuiViewSupport {
 
     String value(Object value) {
         return value == null ? "" : value.toString();
+    }
+
+    private Node labelWithHelp(String text, String help) {
+        Label label = new Label(text);
+        Label icon = new Label("?");
+        Tooltip tooltip = new Tooltip(help);
+        Tooltip.install(label, tooltip);
+        Tooltip.install(icon, tooltip);
+        return new HBox(4, label, icon);
     }
 }

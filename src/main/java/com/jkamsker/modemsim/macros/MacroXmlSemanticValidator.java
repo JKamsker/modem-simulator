@@ -168,6 +168,10 @@ final class MacroXmlSemanticValidator {
         if (payloads != 1) {
             report.error(id + ": " + name + " must declare exactly one payload");
         }
+        if (action.hasAttribute("lineEnding") && action.getAttribute("line").isBlank()
+                && action.getTextContent().trim().isBlank()) {
+            report.error(id + ": lineEnding requires an emit line payload");
+        }
     }
 
     private void validateFaultAction(String id, Element action, ValidationReport report) {

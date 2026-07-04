@@ -3,6 +3,7 @@ package com.jkamsker.modemsim.macros;
 import com.jkamsker.modemsim.commands.RawFrame;
 import com.jkamsker.modemsim.commands.ResponseFrame;
 import com.jkamsker.modemsim.commands.TextFrame;
+import com.jkamsker.modemsim.commands.LineEnding;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.Profile;
@@ -108,13 +109,13 @@ public final class MacroEngine {
 
     private void addEmit(List<ResponseFrame> frames, MacroAction action) {
         if (action.attr("line") != null) {
-            frames.add(new TextFrame(action.attr("line")));
+            frames.add(new TextFrame(action.attr("line"), lineEnding(action)));
         } else if (action.attr("rawHex") != null) {
             frames.add(new RawFrame(RawBytes.hex(action.attr("rawHex"))));
         } else if (action.attr("raw") != null) {
             frames.add(new RawFrame(RawBytes.ascii(action.attr("raw"))));
         } else if (action.text() != null && !action.text().isBlank()) {
-            frames.add(new TextFrame(action.text()));
+            frames.add(new TextFrame(action.text(), lineEnding(action)));
         }
     }
 
@@ -126,6 +127,10 @@ public final class MacroEngine {
         } else if (action.attr("text") != null) {
             frames.add(new RawFrame(RawBytes.ascii(tokens(action.attr("text")))));
         }
+    }
+
+    private LineEnding lineEnding(MacroAction action) {
+        return LineEnding.from(action.attr("lineEnding"));
     }
 
     private String tokens(String text) {

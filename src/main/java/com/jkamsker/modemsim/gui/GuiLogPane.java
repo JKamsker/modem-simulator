@@ -1,6 +1,9 @@
 package com.jkamsker.modemsim.gui;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jkamsker.modemsim.monitor.ModemEvent;
+import com.jkamsker.modemsim.monitor.ModemEventJson;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.scene.Node;
@@ -15,6 +18,7 @@ import javafx.scene.layout.VBox;
 import java.util.List;
 
 final class GuiLogPane {
+    private static final ObjectMapper JSON = new ObjectMapper();
     private final GuiViewSupport ui;
     private final ObservableList<ModemEvent> events;
     private final TextArea export;
@@ -52,12 +56,21 @@ final class GuiLogPane {
                 filtered.setPredicate(event -> matches(event, text)));
         TextArea selection = ui.register(new TextArea(), "log.selection");
         selection.setEditable(false);
+        selection.setWrapText(true);
         table.getSelectionModel().selectedItemProperty().addListener((ignored, old, event) ->
-                selection.setText(event == null ? "" : controller.jsonl(java.util.List.of(event))));
+                selection.setText(event == null ? "" : pretty(event)));
         Button exportButton = ui.button("log.export", "Export");
         exportButton.setOnAction(event -> export.setText(controller.jsonl(List.copyOf(filtered))));
         VBox.setVgrow(table, Priority.ALWAYS);
         return new VBox(8, new HBox(8, filter, exportButton), table, selection);
+    }
+
+    private String pretty(ModemEvent event) {
+        try {
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(ModemEventJson.toMap(event));
+        } catch (JsonProcessingException e) {
+            return controller.jsonl(java.util.List.of(event));
+        }
     }
 
     static boolean matches(ModemEvent event, String text) {

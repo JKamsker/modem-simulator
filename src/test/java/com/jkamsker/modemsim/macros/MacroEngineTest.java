@@ -31,7 +31,7 @@ class MacroEngineTest {
         session.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
         SessionAssertions.assertNoImmediateOutput(session.receive(RawBytes.ascii("smscommand dst\u001A")));
 
-        assertThat(session.drainScheduled().outputAscii()).isEqualTo("\r\n+CMS ERROR: 123\r\n");
+        assertThat(session.drainScheduled().outputAscii()).isEqualTo("+CMS ERROR: 123\r");
         assertThat(session.snapshot().sms().messages()).isEmpty();
     }
 

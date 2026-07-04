@@ -5,6 +5,7 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -45,6 +46,8 @@ class SimulatorViewHeadlessTest {
             });
 
             assertThat(find(root, "session.initialScenario")).isNotNull();
+            assertThat(find(root, "session.dataFormat")).isNotNull();
+            assertThat(find(root, "state.signalRssi")).isNotNull();
             assertThat(find(root, "macro.id")).isNotNull();
             assertThat(disabled).containsExactly(true, true, true, true, true, true, true, false, false);
         } finally {
@@ -99,7 +102,7 @@ class SimulatorViewHeadlessTest {
                 ((Button) find(root, "inject.sendUrc")).fire();
                 assertThat(((TextArea) find(root, "session.output")).getText()).contains("+CREG: 4");
 
-                ((TextField) find(root, "state.networkStat")).setText("4");
+                ((ComboBox<?>) find(root, "state.networkStat")).getSelectionModel().select(4);
                 ((Button) find(root, "state.apply")).fire();
                 assertThat(table.getItems().stream().map(String::valueOf))
                         .anyMatch(text -> text.contains("STATE_CHANGE"));

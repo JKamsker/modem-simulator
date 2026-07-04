@@ -55,7 +55,7 @@ public final class ReplayValidator {
                 return report;
             }
             lastSequence = validateMetadata(i + 1, events, lastSequence, report);
-            validateExpectedEvents(i + 1, events, step.expectedEvents(), report);
+            validateExpectedEvents(i + 1, events, step.expectedEvents(), requireEventMetadata, report);
             if (!report.valid()) {
                 return report;
             }
@@ -91,9 +91,13 @@ public final class ReplayValidator {
             int stepNumber,
             List<ModemEvent> events,
             List<ReplayEventExpectation> expectations,
+            boolean requireEventMetadata,
             ReplayReport report) {
         int cursor = 0;
         for (ReplayEventExpectation expectation : expectations) {
+            if (!requireEventMetadata && payloadTranscript(expectation)) {
+                continue;
+            }
             int matched = findMatch(events, expectation, cursor);
             if (matched < 0) {
                 report.divergence("step " + stepNumber + " missing event " + expectation.eventType()
@@ -103,6 +107,14 @@ public final class ReplayValidator {
             compareExpectation(stepNumber, events.get(matched), expectation, report);
             cursor = matched + 1;
         }
+    }
+
+    private boolean payloadTranscript(ReplayEventExpectation event) {
+        return event.eventType() == com.jkamsker.modemsim.monitor.EventType.TX_BYTES
+                && event.sequence() == null && event.monotonicNanos() != null
+                && event.profileHash() == null && event.configHash() == null
+                && event.macroHash() == null && event.initialStateHash() == null
+                && event.sessionSeed() == null && event.clockMode() == null;
     }
 
     private void validateExpectedMetadata(

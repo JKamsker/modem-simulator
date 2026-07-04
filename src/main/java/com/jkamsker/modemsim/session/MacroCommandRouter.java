@@ -5,6 +5,7 @@ import com.jkamsker.modemsim.commands.DefaultCommandRouter;
 import com.jkamsker.modemsim.commands.RawFrame;
 import com.jkamsker.modemsim.commands.ResponseFrame;
 import com.jkamsker.modemsim.commands.TextFrame;
+import com.jkamsker.modemsim.commands.LineEnding;
 import com.jkamsker.modemsim.macros.MacroAction;
 import com.jkamsker.modemsim.macros.MacroDecision;
 import com.jkamsker.modemsim.macros.MacroEngine;
@@ -146,8 +147,16 @@ final class MacroCommandRouter {
         if (action.attr("rawHex") != null) { return new RawFrame(RawBytes.hex(action.attr("rawHex"))); }
         if (action.attr("raw") != null) { return new RawFrame(RawBytes.ascii(action.attr("raw"))); }
         if (action.attr("text") != null) { return new RawFrame(RawBytes.ascii(tokens(action.attr("text")))); }
-        if (action.attr("line") != null) { return new TextFrame(action.attr("line")); }
-        return new TextFrame(action.text());
+        if (action.attr("line") != null) {
+            return action.type().equals("emit")
+                    ? new TextFrame(action.attr("line"), lineEnding(action))
+                    : new TextFrame(action.attr("line"));
+        }
+        return action.type().equals("emit") ? new TextFrame(action.text(), lineEnding(action)) : new TextFrame(action.text());
+    }
+
+    private LineEnding lineEnding(MacroAction action) {
+        return LineEnding.from(action.attr("lineEnding"));
     }
 
     private String tokens(String text) {
