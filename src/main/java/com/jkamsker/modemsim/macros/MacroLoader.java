@@ -8,6 +8,7 @@ import com.jkamsker.modemsim.validation.ValidationReport;
 import com.jkamsker.modemsim.validation.XmlSecurity;
 import org.w3c.dom.Element;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -194,7 +195,9 @@ public final class MacroLoader {
 
     private String hash(Path path) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return "sha256:" + java.util.HexFormat.of().formatHex(digest.digest(Files.readAllBytes(path)));
+        String normalized = Files.readString(path).replace("\r\n", "\n").replace('\r', '\n');
+        return "sha256:" + java.util.HexFormat.of().formatHex(
+                digest.digest(normalized.getBytes(StandardCharsets.UTF_8)));
     }
 
     private Long randomSeed(Element root) {

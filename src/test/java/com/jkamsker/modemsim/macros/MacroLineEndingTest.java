@@ -52,6 +52,27 @@ class MacroLineEndingTest {
         assertThat(local.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("+PING\n");
     }
 
+    @Test
+    void macroHashIsStableAcrossTextFileLineEndings() throws Exception {
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <macros version="1.0">
+                  <custom-response id="custom" priority="10">
+                    <if command="+CMSG123"/>
+                    <send line="ERR"/>
+                  </custom-response>
+                </macros>
+                """;
+        Path lf = tempDir.resolve("lf.xml");
+        Path crlf = tempDir.resolve("crlf.xml");
+        Files.writeString(lf, xml);
+        Files.writeString(crlf, xml.replace("\n", "\r\n"));
+
+        MacroLoader loader = new MacroLoader();
+
+        assertThat(loader.load(crlf).hash()).isEqualTo(loader.load(lf).hash());
+    }
+
     private HeadlessSession session(String content) throws Exception {
         MacroSet macros = new MacroLoader().load(write(content));
         return new HeadlessSession("line-ending", BuiltinProfiles.acceptanceSierra(), 12345,
