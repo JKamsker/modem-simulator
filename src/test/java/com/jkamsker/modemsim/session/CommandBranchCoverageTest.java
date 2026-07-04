@@ -103,6 +103,9 @@ class CommandBranchCoverageTest {
         locked.receive(RawBytes.ascii("AT+CMEE=2\r"));
         assertThat(locked.receive(RawBytes.ascii("AT+CSQ\r")).outputAscii())
                 .contains("+CME ERROR: SIM PIN required");
+        assertThat(locked.receive(RawBytes.ascii("AT+CPIN=\"1234\",\"9999\"\r")).outputAscii())
+                .contains("+CME ERROR: incorrect password");
+        assertThat(locked.snapshot().sim().state()).isEqualTo(SimState.SIM_PIN_REQUIRED);
         locked = lockedSession();
         locked.receive(RawBytes.ascii("AT+CMEE=1\r"));
         assertThat(locked.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii())

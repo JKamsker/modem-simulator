@@ -32,11 +32,17 @@ class EventBackpressureTest {
         sink.dropNextDroppable();
         delivery.publish(event(1, EventType.RX_BYTES, Direction.DTE_TO_DCE));
         delivery.publish(event(3, EventType.STATE_CHANGE, Direction.INTERNAL));
+        delivery.publish(event(4, EventType.RX_BYTES, Direction.DTE_TO_DCE));
 
         ModemEvent summary = first(sink.events(), EventType.DROPPED_EVENTS);
         ModemEvent stateChange = first(sink.events(), EventType.STATE_CHANGE);
+        ModemEvent rxAfterReset = sink.events().stream()
+                .filter(event -> event.eventType() == EventType.RX_BYTES)
+                .findFirst()
+                .orElseThrow();
         assertThat(summary.direction().name()).isEqualTo("NONE");
         assertThat(stateChange.droppedEventCount()).isEqualTo(1);
+        assertThat(rxAfterReset.droppedEventCount()).isZero();
 
         Path json = tempDir.resolve("dropped.json");
         Files.writeString(json, ModemEventJson.toJson(summary));

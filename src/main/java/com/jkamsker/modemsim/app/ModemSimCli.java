@@ -32,9 +32,7 @@ public final class ModemSimCli {
 
     public static void main(String[] args) {
         int exit = new ModemSimCliRunner().run(args);
-        if (exit != 0) {
-            System.exit(exit);
-        }
+        System.exit(exit);
     }
 
     static final class ModemSimCliRunner {
@@ -68,7 +66,7 @@ public final class ModemSimCli {
                 case "run" -> runRuntime(args);
                 case "headless" -> headless(args);
                 case "validate-profile" -> report(new ProfileXmlLoader().validate(pathArg(args, 1)));
-                case "validate-macros" -> report(new MacroLoader().validate(pathArg(args, 1)));
+                case "validate-macros" -> validateMacros(args);
                 case "validate-scenario" -> report(new ScenarioValidator().validate(pathArg(args, 1)));
                 case "validate-config" -> report(new ConfigValidator().validate(pathArg(args, 1)));
                 case "coverage" -> coverage(args);
@@ -119,6 +117,20 @@ public final class ModemSimCli {
 
         private int replay(String[] args) {
             return new ReplayCommand(out, err).run(args);
+        }
+
+        private int validateMacros(String[] args) {
+            Path macros = pathArg(args, 1);
+            String configPath = option(args, "--config", null);
+            if (configPath != null) {
+                RuntimeConfig config = new RuntimeConfigLoader().load(Path.of(configPath));
+                var timerIds = config.macroTimers().stream()
+                        .map(RuntimeTimer::id)
+                        .collect(java.util.stream.Collectors.toSet());
+                return report(new MacroLoader(timerIds, true).validate(macros));
+            }
+            return report(new MacroLoader(timerIdOptions(args), option(args, "--session-seed", null) != null)
+                    .validate(macros));
         }
 
         private int headless(String[] args) {
@@ -230,6 +242,16 @@ public final class ModemSimCli {
             return fallback;
         }
 
+        private java.util.Set<String> timerIdOptions(String[] args) {
+            java.util.Set<String> values = new java.util.LinkedHashSet<>();
+            for (int i = 0; i < args.length - 1; i++) {
+                if (args[i].equals("--timer-id")) {
+                    values.add(args[i + 1]);
+                }
+            }
+            return values;
+        }
+
         private void usage() {
             err.println("""
                     Usage:
@@ -237,7 +259,7 @@ public final class ModemSimCli {
                       modemsim run --port COM7 --baud 115200 --profile sierra-hl6-hl8-v20
                       modemsim headless --profile sierra-hl6-hl8-v20 --script tests/transcript.jsonl
                       modemsim validate-profile <profile.xml>
-                      modemsim validate-macros <macros.xml>
+                      modemsim validate-macros <macros.xml> [--config config.yaml|--timer-id id --session-seed seed]
                       modemsim validate-scenario <scenario.xml>
                       modemsim validate-config <config.yaml>
                       modemsim coverage verify --profiles v1-targets

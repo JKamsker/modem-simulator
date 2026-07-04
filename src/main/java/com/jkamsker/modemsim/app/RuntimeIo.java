@@ -35,8 +35,14 @@ final class RuntimeIo {
             writeResponse(endpoint, session, sidecars, response);
             return response.output();
         }
-        if (lines.dtr() || !current.lines().dtr() || current.settings().ampD() == 0) {
+        if (lines.dtr() || !current.lines().dtr()) {
             return RawBytes.empty();
+        }
+        if (current.settings().ampD() == 0) {
+            var next = current.withLines(current.lines().withDtr(false));
+            SessionResponse response = session.applyState(next, "line-change");
+            writeResponse(endpoint, session, sidecars, response);
+            return response.output();
         }
         var next = switch (current.settings().ampD()) {
             case 1 -> current.withCall(current.call().withMode(CallMode.ONLINE_COMMAND)).withLines(current.lines().withDtr(false));

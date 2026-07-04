@@ -115,6 +115,10 @@ class AtCommandParserTest {
                 .isInstanceOf(AtParseException.class);
         assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7=\r"), EntryMode.COMMAND))
                 .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7?=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7=42?\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
         assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+=1\r"), EntryMode.COMMAND))
                 .isInstanceOf(AtParseException.class);
         assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+CPIN??\r"), EntryMode.COMMAND))

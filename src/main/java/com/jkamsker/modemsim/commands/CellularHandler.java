@@ -111,6 +111,9 @@ public final class CellularHandler implements CommandHandler {
             values[i] = unquote(values[i]);
         }
         if (state.sim().state() == SimState.SIM_PIN_REQUIRED) {
+            if (values.length != 1) {
+                return CmeError.INCORRECT_PASSWORD.result(state, "CellularHandler");
+            }
             return pinUnlock(state, values[0]);
         }
         if (state.sim().state() == SimState.SIM_PUK_REQUIRED) {
@@ -130,7 +133,7 @@ public final class CellularHandler implements CommandHandler {
     }
 
     private CommandResult pukUnlock(ModemState state, String[] values) {
-        if (values.length < 2) {
+        if (values.length != 2) {
             return CmeError.INCORRECT_PASSWORD.result(state, "CellularHandler");
         }
         if (state.sim().pukRetries() <= 0) {

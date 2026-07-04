@@ -20,6 +20,8 @@ public final class ReplayAcceptance {
             Path canonical = SchemaLocator.projectPath("src/test/resources/replay/basic-at-events.jsonl");
             require(runReplay(canonical, "--mode", "validate-recompute").exit() == 0);
             require(runReplay(canonical, "--mode", "drive-from-captured-input").exit() == 0);
+            require(runReplay(canonical, "--mode", "drive-from-captured-input",
+                    "--case", "playback-divergence", "--confirm-divergence").exit() != 0);
             Path audit = Files.createTempFile("modemsim-acceptance-play", ".jsonl");
             CliRun play = runReplay(canonical, "--mode", "play-to-dte", "--audit-log", audit.toString());
             require(play.exit() == 0 && Files.readString(audit).contains("play-to-dte-start"));
@@ -36,11 +38,13 @@ public final class ReplayAcceptance {
     private void replayDivergenceConfirmation() throws java.io.IOException {
         Path log = divergentLog();
         require(runReplay(log, "--mode", "drive-from-captured-input").exit() != 0);
-        CliRun drive = runReplay(log, "--mode", "drive-from-captured-input", "--confirm-divergence");
+        CliRun drive = runReplay(log, "--mode", "drive-from-captured-input",
+                "--case", "playback-divergence", "--confirm-divergence");
         require(drive.exit() == 0 && drive.out().contains("DIVERGENCE CONFIRMED"));
         Path audit = Files.createTempFile("modemsim-acceptance-divergent-play", ".jsonl");
         require(runReplay(log, "--mode", "play-to-dte", "--audit-log", audit.toString()).exit() != 0);
-        CliRun play = runReplay(log, "--mode", "play-to-dte", "--confirm-divergence",
+        CliRun play = runReplay(log, "--mode", "play-to-dte",
+                "--case", "playback-divergence", "--confirm-divergence",
                 "--audit-log", audit.toString());
         require(play.exit() == 0 && play.out().contains("DIVERGENCE CONFIRMED"));
     }

@@ -75,7 +75,8 @@ public final class AtCommandParser {
     private List<ParsedCommand> parseBody(RawBytes source, String rawLine, String body, EntryMode mode) {
         RawBytes lineSource = RawBytes.ascii(rawLine);
         if (body.isEmpty()) {
-            return List.of(command(lineSource, rawLine, "AT", CommandKind.BASIC, "", 0, mode));
+            return List.of(command(lineSource, rawLine, "AT", CommandKind.BASIC, "", 0, mode,
+                    0, lineSource.length(), false));
         }
         List<ParsedCommand> commands = new ArrayList<>();
         int index = 0;
@@ -146,6 +147,9 @@ public final class AtCommandParser {
         }
         if (end < body.length() && body.charAt(end) == '?') {
             end++;
+            if (end < body.length() && (body.charAt(end) == '?' || body.charAt(end) == '=')) {
+                throw new AtParseException("invalid S-register read syntax");
+            }
         } else if (end < body.length() && body.charAt(end) == '=') {
             end++;
             int valueStart = end;
@@ -154,6 +158,9 @@ public final class AtCommandParser {
             }
             if (end == valueStart) {
                 throw new AtParseException("missing S-register value");
+            }
+            if (end < body.length() && (body.charAt(end) == '?' || body.charAt(end) == '=')) {
+                throw new AtParseException("invalid S-register write syntax");
             }
         }
         return new Slice(body.substring(start, end), end, end, false);
@@ -235,11 +242,6 @@ public final class AtCommandParser {
         if (name.equals("AT&D") && !args.matches("[0-3]?")) {
             throw new AtParseException("invalid &D argument");
         }
-    }
-
-    private ParsedCommand command(
-            RawBytes source, String raw, String name, CommandKind kind, String args, int index, EntryMode mode) {
-        return command(source, raw, name, kind, args, index, mode, 0, source.length(), raw.indexOf('"') >= 0);
     }
 
     private ParsedCommand command(

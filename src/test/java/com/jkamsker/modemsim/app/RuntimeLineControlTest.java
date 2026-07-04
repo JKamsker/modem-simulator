@@ -42,6 +42,26 @@ class RuntimeLineControlTest {
         assertThat(Files.readString(result.eventLogPath())).contains("dtr-drop").contains("\"dtr\":false");
     }
 
+    @Test
+    void dtrDropUnderAmpD0UpdatesLineStateWithoutDroppingCarrier() throws Exception {
+        LineDropEndpoint endpoint = new LineDropEndpoint();
+        endpoint.enqueue(RawBytes.ascii("AT&D0\r"), 0);
+        endpoint.enqueue(RawBytes.ascii("ATD123\r"), 1);
+        endpoint.enqueue(RawBytes.empty(), 5_000_000_000L);
+        RuntimeConfig config = new RuntimeConfig(
+                12345, ClockMode.VIRTUAL, false, false, tempDir.resolve("dtr-ampd0.jsonl"),
+                new SerialConfig(115200, 8, 1, Parity.NONE, FlowControl.NONE),
+                List.of(new PortBinding("modem", EndpointType.HEADLESS, PortRole.MODEM_SIMULATION,
+                        null, true, "sierra-hl6-hl8-v20", "tagged-text")));
+
+        RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config, List.of(), 2);
+
+        assertThat(result.output().ascii()).contains("CONNECT");
+        assertThat(endpoint.lastLines.dtr()).isFalse();
+        assertThat(endpoint.lastLines.dcd()).isTrue();
+        assertThat(Files.readString(result.eventLogPath())).contains("line-change").contains("\"dtr\":false");
+    }
+
     private static final class LineDropEndpoint implements SerialEndpoint {
         private final Queue<SerialRead> reads = new ArrayDeque<>();
         private RawBytes written = RawBytes.empty();

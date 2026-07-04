@@ -6,12 +6,10 @@ import com.jkamsker.modemsim.commands.RawFrame;
 import com.jkamsker.modemsim.commands.ResponseFrame;
 import com.jkamsker.modemsim.commands.TextFrame;
 import com.jkamsker.modemsim.macros.MacroAction;
-import com.jkamsker.modemsim.macros.FaultService;
 import com.jkamsker.modemsim.macros.MacroDecision;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
 import com.jkamsker.modemsim.macros.MacroPhase;
-import com.jkamsker.modemsim.macros.MacroStateMutator;
 import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.parser.RawBytes;
@@ -25,8 +23,6 @@ final class MacroCommandRouter {
     private final Profile profile;
     private final DefaultCommandRouter router;
     private final MacroEngine macroEngine;
-    private final FaultService faultService = new FaultService();
-    private final MacroStateMutator stateMutator = new MacroStateMutator();
     private final FrameRenderer renderer;
     private final MacroScheduler scheduler;
     private final DecisionSink decisionSink;
@@ -131,11 +127,11 @@ final class MacroCommandRouter {
         for (MacroAction action : decision.actions()) {
             delayed = delayed || action.type().equals("delay");
             if (action.type().equals("fault")) {
-                pending = faultService.apply(pending, MacroLoader.fault(action));
+                pending = SessionCommand.macroFault(MacroLoader.fault(action)).apply(pending);
                 if (delayed) { delayedActions.add(action); }
                 if (!delayed) { immediate = pending; }
             } else if (action.type().equals("set")) {
-                pending = stateMutator.apply(pending, List.of(MacroLoader.statePatch(action)));
+                pending = SessionCommand.macroSet(MacroLoader.statePatch(action)).apply(pending);
                 if (delayed) { delayedActions.add(action); }
                 if (!delayed) { immediate = pending; }
             } else if (action.type().equals("emit") || action.type().equals("send")) {
@@ -178,22 +174,26 @@ final class MacroCommandRouter {
     ModemState applyFaults(ModemState source, MacroDecision decision) {
         ModemState next = source;
         for (var fault : decision.faults()) {
-            next = faultService.apply(next, fault);
+            next = SessionCommand.macroFault(fault).apply(next);
         }
         return next;
     }
 
     ModemState applyEffects(ModemState source, MacroDecision decision) {
-        return stateMutator.apply(applyFaults(source, decision), decision.statePatches());
+        ModemState next = applyFaults(source, decision);
+        for (var patch : decision.statePatches()) {
+            next = SessionCommand.macroSet(patch).apply(next);
+        }
+        return next;
     }
 
     ModemState applyDelayedActions(ModemState source, PendingMacroTransition transition) {
         ModemState next = source;
         for (MacroAction action : transition.actions()) {
             if (action.type().equals("fault")) {
-                next = faultService.apply(next, MacroLoader.fault(action));
+                next = SessionCommand.macroFault(MacroLoader.fault(action)).apply(next);
             } else if (action.type().equals("set")) {
-                next = stateMutator.apply(next, List.of(MacroLoader.statePatch(action)));
+                next = SessionCommand.macroSet(MacroLoader.statePatch(action)).apply(next);
             }
         }
         return next;

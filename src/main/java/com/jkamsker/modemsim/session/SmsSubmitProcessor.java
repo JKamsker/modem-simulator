@@ -19,18 +19,20 @@ public final class SmsSubmitProcessor {
     public SmsSubmitResult submit(PendingSms pending, String body, long nowNanos, ModemState state) {
         ResponseFormatter formatter = new ResponseFormatter(state);
         ModemState commandMode = state.withCall(CallRuntime.command());
+        String submittedBody = pending.pduMode() ? normalizedPdu(body) : body;
         RawBytes simError = simError(formatter, commandMode);
         if (simError != null) {
             return new SmsSubmitResult(commandMode, simError, "CME_ERROR");
         }
-        Integer cmsError = validateSubmit(pending, body, commandMode, nowNanos);
+        Integer cmsError = validateSubmit(pending, submittedBody, commandMode, nowNanos);
         if (cmsError != null) {
             return new SmsSubmitResult(commandMode, formatter.line("+CMS ERROR: " + cmsError), "CMS_ERROR");
         }
         bucket(commandMode, pending).addLast(nowNanos);
         int reference = commandMode.sms().nextMessageReference();
         ModemState stored = commandMode.withSms(commandMode.sms().storeOutbound(
-                pending.destination(), pending.pduMode() ? null : body, pending.pduMode() ? body : null,
+                pending.destination(), pending.pduMode() ? null : submittedBody,
+                pending.pduMode() ? submittedBody : null,
                 OffsetDateTime.parse("2026-01-01T00:00:00Z").plusNanos(nowNanos)));
         RawBytes response = formatter.line("+CMGS: " + reference)
                 .append(formatter.line("OK"));
@@ -110,5 +112,9 @@ public final class SmsSubmitProcessor {
         int totalOctets = body.length() / 2;
         int smscLength = Integer.parseInt(body.substring(0, 2), 16);
         return totalOctets == 1 + smscLength + tpduOctets;
+    }
+
+    private String normalizedPdu(String body) {
+        return body.replaceAll("\\s+", "").toUpperCase(java.util.Locale.ROOT);
     }
 }

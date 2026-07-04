@@ -56,8 +56,23 @@ final class AcceptanceExtendedChecks {
                 event.eventType() == EventType.DROPPED_EVENTS && event.droppedEventCount() > 0));
         require(sink.events().stream().anyMatch(event ->
                 event.eventType() != EventType.DROPPED_EVENTS && event.droppedEventCount() > 0));
+        int positiveCarry = firstPositiveCarryIndex(sink.events());
+        s.receive(RawBytes.ascii("AT\r"));
+        require(sink.events().stream().skip(positiveCarry + 1L)
+                .anyMatch(event -> event.eventType() != EventType.DROPPED_EVENTS
+                        && event.droppedEventCount() == 0));
         auditHardStopsMutations();
         new RuntimeDiagnosticsAcceptance().auditHardStop();
+    }
+
+    private int firstPositiveCarryIndex(List<ModemEvent> events) {
+        for (int i = 0; i < events.size(); i++) {
+            ModemEvent event = events.get(i);
+            if (event.eventType() != EventType.DROPPED_EVENTS && event.droppedEventCount() > 0) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     void diagnostics() {

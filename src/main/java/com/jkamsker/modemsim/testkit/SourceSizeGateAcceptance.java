@@ -51,7 +51,8 @@ final class SourceSizeGateAcceptance {
                 SchemaLocator.projectPath(wrapperName()).toAbsolutePath().toString(),
                 "-f", project.resolve("pom.xml").toString(), "verify");
         require(result.exitCode() != 0 && result.output().contains("TooLarge.java"),
-                "maven verify did not reject oversized source: " + result.output());
+                "maven verify did not reject oversized source, exit=" + result.exitCode()
+                        + ": " + result.output());
     }
 
     private ProcessResult runProcess(Path workingDirectory, String... command) throws java.io.IOException {
@@ -121,7 +122,16 @@ final class SourceSizeGateAcceptance {
                     </plugins>
                   </build>
                 </project>
-                """.formatted(xml(System.getProperty("java.class.path")));
+                """.formatted(xml(gateClasspath()));
+    }
+
+    private String gateClasspath() {
+        try {
+            return Path.of(SourceSizeGate.class.getProtectionDomain()
+                    .getCodeSource().getLocation().toURI()).toString();
+        } catch (java.net.URISyntaxException e) {
+            throw new IllegalStateException("cannot resolve source-size gate classpath", e);
+        }
     }
 
     private String wrapperName() {

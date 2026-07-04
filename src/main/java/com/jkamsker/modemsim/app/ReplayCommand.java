@@ -33,15 +33,20 @@ final class ReplayCommand {
     int run(String[] args) {
         Path logPath = pathArg(args, 1);
         String mode = option(args, "--mode", "validate-recompute");
+        String replayCase = option(args, "--case", null);
+        if (replayCase != null && !replayCase.equals("playback-divergence")) {
+            err.println("Unsupported replay case: " + replayCase);
+            return 2;
+        }
         List<ReplayStep> steps = new ReplayStepLoader().load(logPath);
         return switch (mode) {
-            case "play-to-dte" -> playToDte(args, steps);
-            case "validate-recompute", "drive-from-captured-input" -> validate(args, mode, steps);
+            case "play-to-dte" -> playToDte(args, steps, replayCase);
+            case "validate-recompute", "drive-from-captured-input" -> validate(args, mode, steps, replayCase);
             default -> unsupported(mode);
         };
     }
 
-    private int validate(String[] args, String mode, List<ReplayStep> steps) {
+    private int validate(String[] args, String mode, List<ReplayStep> steps, String replayCase) {
         String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
         long seed = longOption(args, "--seed", 12345L);
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
@@ -51,6 +56,10 @@ final class ReplayCommand {
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
         ReplayReport report = new ReplayValidator().validateRecompute(session, steps, true);
         if (report.valid()) {
+            if (replayCase != null) {
+                err.println("Expected replay divergence for case: " + replayCase);
+                return 1;
+            }
             out.println("REPLAY OK mode=" + mode + " steps=" + steps.size());
             return 0;
         }
@@ -62,8 +71,12 @@ final class ReplayCommand {
         return 1;
     }
 
-    private int playToDte(String[] args, List<ReplayStep> steps) {
+    private int playToDte(String[] args, List<ReplayStep> steps, String replayCase) {
         ReplayReport hashReport = validateReport(args, "validate-recompute", steps);
+        if (hashReport.valid() && replayCase != null) {
+            err.println("Expected replay divergence for case: " + replayCase);
+            return 1;
+        }
         if (!hashReport.valid()) {
             hashReport.divergences().forEach(divergence -> err.println("DIVERGENCE: " + divergence));
             if (hashReport.hasHardFailures() || !hasFlag(args, "--confirm-divergence")) {

@@ -159,10 +159,10 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     }
 
     private String openFailureCode() {
-        if (!portPresent()) {
-            return "PORT_NOT_FOUND";
-        }
-        int error = port.getLastErrorCode();
-        return error == 5 || error == 13 ? "PORT_PERMISSION_DENIED" : "PORT_BUSY";
+        return diagnosticForOpenFailure(portPresent(), port.getLastErrorCode());
+    }
+
+    static String diagnosticForOpenFailure(boolean portPresent, int lastErrorCode) {
+        return portPresent ? "PORT_BUSY" : "PORT_NOT_FOUND";
     }
 }

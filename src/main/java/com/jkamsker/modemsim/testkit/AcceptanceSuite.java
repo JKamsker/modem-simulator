@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.app.ReplayAcceptance;
 import com.jkamsker.modemsim.app.RuntimePortGroupAcceptance;
 import com.jkamsker.modemsim.macros.MacroEngine;
 import com.jkamsker.modemsim.macros.MacroLoader;
+import com.jkamsker.modemsim.monitor.EventType;
 import com.jkamsker.modemsim.parser.RawBytes;
 import com.jkamsker.modemsim.profiles.BuiltinProfiles;
 import com.jkamsker.modemsim.profiles.Dialect;
@@ -131,7 +132,12 @@ public final class AcceptanceSuite {
     private void smsMacro() {
         HeadlessSession s = macroSession(SMS_MACROS);
         s.receive(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"));
-        s.receive(RawBytes.ascii("smscommand dst\u001A"));
+        var submit = s.receive(RawBytes.ascii("smscommand dst\u001A"));
+        require(submit.events().stream().anyMatch(event ->
+                event.eventType() == EventType.SCHEDULER_ENQUEUE
+                        && "macro-sms-error-123".equals(event.scheduler().get("operation"))
+                        && event.scheduler().get("sampledDelayMs") instanceof Integer delay
+                        && delay > 0), "SMS macro scheduler metadata missing");
         requireContains(s.drainScheduled().outputAscii(), "+CMS ERROR: 123");
     }
 
@@ -155,7 +161,7 @@ public final class AcceptanceSuite {
     }
 
     private void dataMode() {
-        HeadlessSession s = session();
+        HeadlessSession s = new HeadlessSession("main", BuiltinProfiles.byId("generic-hayes-v250"), 12345);
         s.receive(RawBytes.ascii("ATD123\r"));
         require(s.snapshot().call().mode() == CallMode.DIALING);
         requireContains(s.drainScheduled().outputAscii(), "CONNECT");

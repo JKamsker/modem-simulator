@@ -150,6 +150,11 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <initial-state>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
     <coverage source="references/snapshots/westermo-td22.md" commandsTotal="18" unknown="0"/>
   </profile>
 
@@ -159,6 +164,11 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <initial-state>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
     <coverage source="references/snapshots/westermo-td22.md" commandsTotal="18" unknown="0"/>
   </profile>
 
@@ -168,6 +178,11 @@
     <dialect commandTerminator="CR" responseTerminator="CRLF" smsPromptBytes="0D0A3E20"
              resetPolicy="nvram-on-atz" lineModel="minimal-v250"
              unknownAtCommand="ERROR" extendedPrefixes="+ % # ! **"/>
+    <initial-state>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
     <coverage source="references/snapshots/westermo-td36.md" commandsTotal="18" unknown="0"/>
   </profile>
 
