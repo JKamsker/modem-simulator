@@ -74,7 +74,7 @@ final class ReplayCommand {
     }
 
     private int playToDte(String[] args, List<ReplayStep> steps, String replayCase, boolean strictMetadata) {
-        ReplayReport hashReport = strictMetadata ? validateReport(args, steps) : new ReplayReport();
+        ReplayReport hashReport = strictMetadata ? metadataReport(args, steps) : new ReplayReport();
         if (hashReport.valid() && replayCase != null) {
             err.println("Expected replay divergence for case: " + replayCase);
             return 1;
@@ -130,14 +130,38 @@ final class ReplayCommand {
     }
 
     private ReplayReport validateReport(String[] args, List<ReplayStep> steps) {
+        HeadlessSession session = replaySession(args, steps);
+        return new ReplayValidator().validateRecompute(session, steps, true);
+    }
+
+    private ReplayReport metadataReport(String[] args, List<ReplayStep> steps) {
+        var sessionStart = replaySession(args, steps).events().getFirst();
+        ReplayReport report = new ReplayReport();
+        for (ReplayStep step : steps) {
+            for (var event : step.expectedEvents()) {
+                compareHash(report, "profileHash", event.profileHash(), sessionStart.profileHash());
+                compareHash(report, "configHash", event.configHash(), sessionStart.configHash());
+                compareHash(report, "macroHash", event.macroHash(), sessionStart.macroHash());
+                compareHash(report, "initialStateHash", event.initialStateHash(), sessionStart.initialStateHash());
+            }
+        }
+        return report;
+    }
+
+    private void compareHash(ReplayReport report, String name, String expected, String actual) {
+        if (expected != null && !expected.equals(actual)) {
+            report.divergence(name + " expected " + expected + " but got " + actual);
+        }
+    }
+
+    private HeadlessSession replaySession(String[] args, List<ReplayStep> steps) {
         String profile = option(args, "--profile", "sierra-hl6-hl8-v20");
         long seed = longOption(args, "--seed", 12345L);
         String clock = firstExpected(steps, ReplayEventExpectation::clockMode, "virtual");
         String port = firstExpected(steps, ReplayEventExpectation::port, null);
         String role = firstExpected(steps, ReplayEventExpectation::portRole, null);
-        HeadlessSession session = new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
+        return new HeadlessSession("replay", new ProfileResolver().resolve(profile), seed,
                 new InMemoryEventSink(), MacroEngine.empty(), clock, port, role);
-        return new ReplayValidator().validateRecompute(session, steps, true);
     }
 
     private boolean strictMetadata(List<ReplayStep> steps) {

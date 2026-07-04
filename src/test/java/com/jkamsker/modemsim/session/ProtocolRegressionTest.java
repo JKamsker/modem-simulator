@@ -234,6 +234,16 @@ class ProtocolRegressionTest {
     }
 
     @Test
+    void coalescedParseErrorDoesNotDiscardLaterLines() {
+        HeadlessSession session = new HeadlessSession("line-scoped-parse-error", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.receive(RawBytes.ascii("AT+CPIN??\rAT\r"));
+
+        assertThat(response.outputAscii()).isEqualTo("\r\nERROR\r\n\r\nOK\r\n");
+        assertThat(response.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
+    }
+
+    @Test
     void numericFinalResultUsesV0TerminatorShape() {
         HeadlessSession session = new HeadlessSession("v0", BuiltinProfiles.acceptanceSierra(), 12345);
 

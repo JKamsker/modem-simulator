@@ -37,4 +37,15 @@ final class AtParserText {
         int next = terminatorIndex + 1;
         return terminator == '\r' && next < text.length() && text.charAt(next) == '\n' ? next + 1 : next;
     }
+
+    static boolean hasRemainingLine(String text, int terminator, int terminatorIndex) {
+        int next = nextLineStart(text, terminator, terminatorIndex);
+        while (next < text.length()) {
+            char ch = text.charAt(next++);
+            if (ch != '\r' && ch != '\n') {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -42,7 +42,14 @@ public final class AtCommandParser {
         while ((terminatorIndex = edited.indexOf((char) terminator, start)) >= 0) {
             String line = edited.substring(start, terminatorIndex);
             if (!line.isEmpty()) {
-                commands.addAll(parseLine(source, line, mode));
+                try {
+                    commands.addAll(parseLine(source, line, mode));
+                } catch (AtParseException e) {
+                    if (commands.isEmpty() && !AtParserText.hasRemainingLine(edited, terminator, terminatorIndex)) {
+                        throw e;
+                    }
+                    commands.add(parseErrorCommand(line, mode));
+                }
             }
             start = AtParserText.nextLineStart(edited, terminator, terminatorIndex);
         }
@@ -65,6 +72,12 @@ public final class AtCommandParser {
     private static ParsedCommand special(
             RawBytes source, String raw, String name, CommandKind kind, EntryMode mode) {
         return new ParsedCommand(source, raw, name, kind, "", List.of(name), 0, mode);
+    }
+
+    private ParsedCommand parseErrorCommand(String line, EntryMode mode) {
+        int rawStart = line.regionMatches(true, 0, "AT", 0, 2) ? 2 : 0;
+        return command(RawBytes.ascii(line), line.substring(rawStart), "PARSE_ERROR",
+                CommandKind.BASIC, "", 0, mode, rawStart, line.length(), false);
     }
 
     private List<ParsedCommand> parseBody(RawBytes source, String rawLine, String body, EntryMode mode) {
