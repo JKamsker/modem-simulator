@@ -12,10 +12,12 @@ public final class ReplayMetadata {
         ReplayReport report = new ReplayReport();
         for (ReplayStep step : steps) {
             for (ReplayEventExpectation event : step.expectedEvents()) {
-                compareHash(report, "profileHash", event.profileHash(), sessionStart.profileHash());
-                compareHash(report, "configHash", event.configHash(), sessionStart.configHash());
-                compareHash(report, "macroHash", event.macroHash(), sessionStart.macroHash());
-                compareHash(report, "initialStateHash", event.initialStateHash(), sessionStart.initialStateHash());
+                compare(report, "profileHash", event.profileHash(), sessionStart.profileHash());
+                compare(report, "configHash", event.configHash(), sessionStart.configHash());
+                compare(report, "macroHash", event.macroHash(), sessionStart.macroHash());
+                compare(report, "initialStateHash", event.initialStateHash(), sessionStart.initialStateHash());
+                compare(report, "sessionSeed", event.sessionSeed(), sessionStart.sessionSeed());
+                compare(report, "clockMode", event.clockMode(), sessionStart.clockMode());
             }
         }
         return report;
@@ -28,7 +30,7 @@ public final class ReplayMetadata {
                         || event.sessionSeed() != null || event.clockMode() != null);
     }
 
-    private static void compareHash(ReplayReport report, String name, String expected, String actual) {
+    private static void compare(ReplayReport report, String name, Object expected, Object actual) {
         if (expected != null && !expected.equals(actual)) {
             report.divergence(name + " expected " + expected + " but got " + actual);
         }

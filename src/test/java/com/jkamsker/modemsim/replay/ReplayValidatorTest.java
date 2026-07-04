@@ -113,12 +113,14 @@ class ReplayValidatorTest {
                 sessionStart.macroHash(), sessionStart.initialStateHash(), sessionStart.sessionSeed(),
                 sessionStart.clockMode());
         ReplayStep divergent = metadataStep(hash('9'), sessionStart.configHash(), sessionStart.macroHash(),
-                sessionStart.initialStateHash(), sessionStart.sessionSeed(), sessionStart.clockMode());
+                sessionStart.initialStateHash(), 999L, "monotonic");
 
         assertThat(ReplayMetadata.hasStrictMetadata(List.of(matching))).isTrue();
         assertThat(ReplayMetadata.report(sessionStart, List.of(matching)).valid()).isTrue();
         assertThat(ReplayMetadata.report(sessionStart, List.of(divergent)).divergences())
-                .singleElement().asString().contains("profileHash expected " + hash('9'));
+                .anySatisfy(message -> assertThat(message).contains("profileHash expected " + hash('9')))
+                .anySatisfy(message -> assertThat(message).contains("sessionSeed expected 999"))
+                .anySatisfy(message -> assertThat(message).contains("clockMode expected monotonic"));
     }
 
     @Test
