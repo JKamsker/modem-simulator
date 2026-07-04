@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$Com0ComUrl = "https://sourceforge.net/projects/com0com/files/com0com/3.0.0.0/com0com-3.0.0.0-i386-and-x64-signed.zip/download"
-$ExpectedCom0ComZipSha256 = "6E5D4359865277430D4AE88C73FB7E648A0ED8E81AEA5002478179CFCB0BB0E1"
+$Com0ComUrl = "https://files.akeo.ie/blog/com0com.7z"
+$ExpectedCom0ComArchiveSha256 = "90305C1D690985BFFA6BBBC9E4729A7D132765F11CFFAFFC30D3FC7EE0B30772"
 $ModemPort = "COM50"
 $DtePort = "COM51"
 
@@ -135,15 +135,6 @@ function Invoke-Setupc {
   Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $timeoutSeconds -Description $description
 }
 
-function Find-Setupc {
-  param([Parameter(Mandatory = $true)][string] $WorkDirectory)
-
-  $searchRoots = @($WorkDirectory, $env:ProgramFiles, ${env:ProgramFiles(x86)}) |
-    Where-Object { $_ -and (Test-Path $_) }
-  Get-ChildItem -Path $searchRoots -Filter "setupc.exe" -Recurse -ErrorAction SilentlyContinue |
-    Select-Object -First 1
-}
-
 function Assert-Sha256 {
   param(
     [Parameter(Mandatory = $true)][string] $Path,
@@ -159,57 +150,59 @@ function Assert-Sha256 {
   Write-Host "Verified $Description SHA-256: $actualSha256"
 }
 
+function Find-SevenZip {
+  $command = Get-Command "7z.exe" -ErrorAction SilentlyContinue
+  if ($command) {
+    return $command.Source
+  }
+
+  $candidatePaths = @(
+    (Join-Path $env:ProgramFiles "7-Zip\7z.exe"),
+    (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe")
+  )
+  foreach ($candidatePath in $candidatePaths) {
+    if ($candidatePath -and (Test-Path $candidatePath)) {
+      return $candidatePath
+    }
+  }
+
+  throw "Could not find 7z.exe to extract the com0com archive."
+}
+
 $work = Join-Path $env:RUNNER_TEMP "com0com"
 New-Item -ItemType Directory -Force -Path $work | Out-Null
 
-$zip = Join-Path $work "com0com.zip"
+$archive = Join-Path $work "com0com.7z"
 Write-Host "Downloading com0com from $Com0ComUrl"
-& curl.exe -L --fail --retry 3 -o $zip $Com0ComUrl
+& curl.exe -L --fail --retry 3 -o $archive $Com0ComUrl
 if ($LASTEXITCODE -ne 0) {
   throw "curl failed while downloading com0com with exit code $LASTEXITCODE."
 }
-Write-Host "Downloaded com0com package bytes: $((Get-Item $zip).Length)"
-Assert-Sha256 -Path $zip -ExpectedSha256 $ExpectedCom0ComZipSha256 -Description "com0com package"
+Write-Host "Downloaded com0com archive bytes: $((Get-Item $archive).Length)"
+Assert-Sha256 -Path $archive -ExpectedSha256 $ExpectedCom0ComArchiveSha256 -Description "com0com archive"
 
-& tar.exe -xf $zip -C $work
-if ($LASTEXITCODE -ne 0) {
-  throw "tar failed while extracting com0com with exit code $LASTEXITCODE."
+$sevenZip = Find-SevenZip
+$extractResult = Invoke-TimedProcess `
+  -FilePath $sevenZip `
+  -ArgumentList @("x", "-y", "-o$work", $archive) `
+  -TimeoutSeconds 60 `
+  -Description "extract com0com archive"
+Assert-TimedProcessSucceeded -Result $extractResult -TimeoutSeconds 60 -Description "extract com0com archive"
+
+$driverDirectory = Join-Path $work "x64"
+$setupcPath = Join-Path $driverDirectory "setupc.exe"
+if (-not (Test-Path $setupcPath)) {
+  throw "Could not find x64 setupc.exe in extracted com0com archive."
 }
-
-$installer = Get-ChildItem -Path $work -Filter "*x64_signed.exe" -Recurse | Select-Object -First 1
-if (-not $installer) {
-  throw "Could not find com0com x64 signed installer in downloaded package."
-}
-Write-Host "Using com0com installer: $($installer.FullName)"
-
-$env:CNC_INSTALL_START_MENU_SHORTCUTS = "NO"
-$env:CNC_INSTALL_CNCA0_CNCB0_PORTS = "NO"
-$env:CNC_INSTALL_COMX_COMX_PORTS = "NO"
-$installerTimeoutSeconds = 120
-$installerResult = Invoke-TimedProcess `
-  -FilePath $installer.FullName `
-  -ArgumentList @("/S") `
-  -TimeoutSeconds $installerTimeoutSeconds `
-  -Description "com0com installer"
-
-$setupc = Find-Setupc -WorkDirectory $work
-if (-not $setupc) {
-  if ($installerResult.TimedOut) {
-    Disable-Com0Com -Reason "com0com installer timed out after $installerTimeoutSeconds seconds and setupc.exe was not found."
-  }
-  if ($installerResult.ExitCode -ne 0) {
-    Disable-Com0Com -Reason "com0com installer failed with exit code $($installerResult.ExitCode) and setupc.exe was not found."
-  }
-  Disable-Com0Com -Reason "setupc.exe was not found after com0com installation."
-}
-if ($installerResult.TimedOut) {
-  Write-Host "Installer timed out, but setupc.exe exists. Trying bounded setupc provisioning fallback."
-} elseif ($installerResult.ExitCode -ne 0) {
-  Write-Host "Installer returned exit code $($installerResult.ExitCode), but setupc.exe exists. Trying bounded setupc provisioning fallback."
+$setupc = Get-Item $setupcPath
+$catalogPath = Join-Path $driverDirectory "com0com.cat"
+if (Test-Path $catalogPath) {
+  $catalogSignature = Get-AuthenticodeSignature -FilePath $catalogPath
+  Write-Host "com0com catalog signature status: $($catalogSignature.Status)"
 }
 Write-Host "Using setupc: $($setupc.FullName)"
 
-Invoke-Setupc -Setupc $setupc -SetupArgs @("install", "-", "-") -AllowTimeout
+Invoke-Setupc -Setupc $setupc -SetupArgs @("install", "PortName=$ModemPort", "PortName=$DtePort") -AllowTimeout
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "PortName=$ModemPort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCB0", "PortName=$DtePort")
 Invoke-Setupc -Setupc $setupc -SetupArgs @("change", "CNCA0", "EmuBR=yes")
