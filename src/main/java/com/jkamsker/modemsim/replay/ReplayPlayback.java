@@ -108,7 +108,7 @@ public final class ReplayPlayback {
                 .map(event -> event.rawHex() == null ? RawBytes.empty() : RawBytes.hex(event.rawHex()))
                 .reduce(RawBytes.empty(), RawBytes::append);
         if (!step.expectedOutput().toHex().equals(eventOutput.toHex())) {
-            report.divergence("step " + stepNumber + " TX metadata does not match expected output");
+            report.outputDivergence("step " + stepNumber + " TX metadata does not match expected output");
         }
     }
 

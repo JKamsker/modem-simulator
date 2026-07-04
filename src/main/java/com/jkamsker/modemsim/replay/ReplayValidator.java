@@ -50,7 +50,7 @@ public final class ReplayValidator {
                 events.addAll(session.stop("replay-stop").events());
             }
             if (!output.toHex().equals(step.expectedOutput().toHex())) {
-                report.divergence("step " + (i + 1) + " expected "
+                report.outputDivergence("step " + (i + 1) + " expected "
                         + step.expectedOutput().toHex() + " but got " + output.toHex());
                 return report;
             }

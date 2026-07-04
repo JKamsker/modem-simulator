@@ -187,6 +187,14 @@ class GuiSessionControllerTest {
         assertThat(blocked.response().outputHex()).isEmpty();
         assertThat(confirmed.hashStatus()).isEqualTo("hash divergence confirmed");
         assertThat(confirmed.response().outputAscii()).isEqualTo("\r\nOK\r\n");
+
+        Path outputMismatch = matchingReplayLog(tempDir.resolve("output-mismatch.jsonl"));
+        Files.writeString(outputMismatch, Files.readString(outputMismatch)
+                .replace("0D0A4F4B0D0A", "0D0A4552524F520D0A"));
+        ReplaySummary outputBlocked = controller().replay(
+                outputMismatch, "drive-from-captured-input", true, false, true);
+        assertThat(outputBlocked.message()).contains("expected 0D0A4552524F520D0A but got 0D0A4F4B0D0A");
+        assertThat(outputBlocked.response().outputHex()).isEmpty();
     }
 
     @Test
