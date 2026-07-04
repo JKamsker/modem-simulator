@@ -162,15 +162,10 @@ public final class ModemSimCli {
         private int test(String[] args) {
             AcceptanceSuite suite = new AcceptanceSuite();
             String suiteName = option(args, "--suite", "acceptance");
-            String suiteDefaultCase = suite.defaultCaseForSuite(suiteName);
             String tagName = option(args, "--tags", null);
-            String defaultCase = tagName == null
-                    ? suiteDefaultCase
-                    : suite.defaultCaseForSuite(tagName);
+            String defaultCase = suite.defaultCaseForSelector(suiteName, tagName);
             String caseId = option(args, "--case", defaultCase);
-            var results = caseId.equals("all")
-                    ? suite.caseIds().stream().map(suite::run).toList()
-                    : java.util.List.of(suite.run(caseId));
+            var results = suite.selectCaseIds(suiteName, tagName, caseId).stream().map(suite::run).toList();
             results.forEach(result -> out.println(result.caseId() + " " + (result.passed() ? "OK" : result.message())));
             return results.stream().allMatch(AcceptanceResult::passed) ? 0 : 1;
         }

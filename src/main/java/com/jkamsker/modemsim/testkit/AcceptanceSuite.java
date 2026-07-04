@@ -82,7 +82,15 @@ public final class AcceptanceSuite {
     }
 
     public String defaultCaseForSuite(String suite) {
-        return AcceptanceCaseRegistry.defaultCaseForSuite(suite);
+        return AcceptanceCaseRegistry.defaultCaseForSuite(suite, caseIds());
+    }
+
+    public String defaultCaseForSelector(String suite, String tag) {
+        return AcceptanceCaseRegistry.defaultCaseForSelector(suite, tag, caseIds());
+    }
+
+    public List<String> selectCaseIds(String suite, String tag, String requestedCase) {
+        return AcceptanceCaseRegistry.selectCaseIds(suite, tag, requestedCase, caseIds());
     }
 
     private HeadlessSession session() {

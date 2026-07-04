@@ -12,27 +12,53 @@ class ModemSimCliAcceptanceSelectorTest {
     void rejectsUnknownSuiteEvenWhenCaseIsPresent() {
         CliRun result = run("test", "--suite", "typo", "--case", "A01");
 
-        assertRejectedSelector(result);
+        assertRejectedSelector(result, "Unknown acceptance suite: typo");
     }
 
     @Test
     void rejectsUnknownTagsEvenWhenCaseIsPresent() {
         CliRun result = run("test", "--tags", "typo", "--case", "A01");
 
-        assertRejectedSelector(result);
+        assertRejectedSelector(result, "Unknown acceptance tag: typo");
     }
 
     @Test
     void validatesSuiteWhenTagsArePresent() {
         CliRun result = run("test", "--suite", "typo", "--tags", "gui", "--case", "live-log");
 
-        assertRejectedSelector(result);
+        assertRejectedSelector(result, "Unknown acceptance suite: typo");
     }
 
-    private static void assertRejectedSelector(CliRun result) {
+    @Test
+    void rejectsCaseOutsideSelectedSuite() {
+        CliRun result = run("test", "--suite", "sms", "--case", "creg");
+
+        assertRejectedSelector(result, "Acceptance case creg is not in suite sms");
+    }
+
+    @Test
+    void tagAllRunsOnlyTaggedCases() {
+        CliRun result = run("test", "--tags", "gui", "--case", "all");
+
+        assertThat(result.exit()).isZero();
+        assertThat(result.out()).contains("A13 OK", "A14 OK", "A27 OK");
+        assertThat(result.out()).doesNotContain("A01 OK", "A09 OK");
+        assertThat(result.err()).isEmpty();
+    }
+
+    @Test
+    void serialItTagIsKnown() {
+        CliRun result = run("test", "--tags", "serial-it", "--case", "A01");
+
+        assertThat(result.exit()).isZero();
+        assertThat(result.out()).contains("A01 OK");
+        assertThat(result.err()).isEmpty();
+    }
+
+    private static void assertRejectedSelector(CliRun result, String message) {
         assertThat(result.exit()).isEqualTo(1);
         assertThat(result.out()).isEmpty();
-        assertThat(result.err()).contains("Unknown acceptance suite: typo");
+        assertThat(result.err()).contains(message);
     }
 
     private static CliRun run(String... args) {
