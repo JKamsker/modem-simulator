@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.validation;
 
 import com.jkamsker.modemsim.parser.RawBytes;
+import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.profiles.ProfileXmlLoader;
 import com.jkamsker.modemsim.session.HeadlessSession;
 import org.junit.jupiter.api.Test;
@@ -17,8 +18,7 @@ class ProfileInheritanceValidationTest {
 
     @Test
     void inheritedNetworkOverridesCanReuseParentOperatorMetadata() throws Exception {
-        Path path = tempDir.resolve("network-override.xml");
-        Files.writeString(path, """
+        LoadedProfile loaded = loadValidated("network-override.xml", "child", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="parent" vendor="test" status="candidate" profileKind="cellular">
@@ -41,18 +41,14 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-        var child = new ProfileXmlLoader().load(path, "child");
-
-        assertThat(report.valid()).as(report.errors().toString()).isTrue();
-        assertThat(new HeadlessSession("inherited", child, 12345)
+        assertThat(loaded.report().valid()).as(loaded.report().errors().toString()).isTrue();
+        assertThat(new HeadlessSession("inherited", loaded.profile(), 12345)
                 .receive(RawBytes.ascii("AT+COPS?\r")).outputAscii()).contains("Telekom.de");
     }
 
     @Test
     void childMetadataOverridesParentWithoutConflict() throws Exception {
-        Path path = tempDir.resolve("child-command-override.xml");
-        Files.writeString(path, """
+        LoadedProfile loaded = loadValidated("child-command-override.xml", "child", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="parent" vendor="test" status="candidate" profileKind="base">
@@ -66,18 +62,14 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-        var child = new ProfileXmlLoader().load(path, "child");
-
-        assertThat(report.valid()).as(report.errors().toString()).isTrue();
-        assertThat(child.commands()).singleElement().satisfies(command ->
+        assertThat(loaded.report().valid()).as(loaded.report().errors().toString()).isTrue();
+        assertThat(loaded.profile().commands()).singleElement().satisfies(command ->
                 assertThat(command.status()).isEqualTo("implemented_stub"));
     }
 
     @Test
     void warnsAboutConflictsBetweenBuiltInParentProfiles() throws Exception {
-        Path path = tempDir.resolve("builtin-parent-conflict.xml");
-        Files.writeString(path, """
+        ValidationReport report = validate("builtin-parent-conflict.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="child" vendor="test" status="candidate" profileKind="base"
@@ -87,8 +79,6 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-
         assertThat(report.valid()).as(report.errors().toString()).isTrue();
         assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
         assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("register conflict S3"));
@@ -96,8 +86,7 @@ class ProfileInheritanceValidationTest {
 
     @Test
     void laterLocalParentUsesInheritedEffectiveMetadata() throws Exception {
-        Path path = tempDir.resolve("recursive-parent-conflict.xml");
-        Files.writeString(path, """
+        LoadedProfile loaded = loadValidated("recursive-parent-conflict.xml", "child", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="left" vendor="test" status="candidate" profileKind="base">
@@ -121,22 +110,18 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-        var child = new ProfileXmlLoader().load(path, "child");
-
-        assertThat(report.valid()).as(report.errors().toString()).isTrue();
-        assertThat(report.warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
-        assertThat(child.identity().manufacturer()).isEqualTo("Right");
-        assertThat(child.commands()).singleElement().satisfies(command ->
+        assertThat(loaded.report().valid()).as(loaded.report().errors().toString()).isTrue();
+        assertThat(loaded.report().warnings()).anySatisfy(warning -> assertThat(warning).contains("command conflict AT"));
+        assertThat(loaded.profile().identity().manufacturer()).isEqualTo("Right");
+        assertThat(loaded.profile().commands()).singleElement().satisfies(command ->
                 assertThat(command.status()).isEqualTo("implemented_stub"));
-        assertThat(child.registers()).singleElement().satisfies(register ->
+        assertThat(loaded.profile().registers()).singleElement().satisfies(register ->
                 assertThat(register.defaultValue()).isEqualTo(10));
     }
 
     @Test
     void laterParentNetworkPreservesEarlierUndeclaredSubfields() throws Exception {
-        Path path = tempDir.resolve("parent-network-subfield-merge.xml");
-        Files.writeString(path, """
+        LoadedProfile loaded = loadValidated("parent-network-subfield-merge.xml", "child", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="rate-parent" vendor="test" status="candidate" profileKind="base">
@@ -170,23 +155,20 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-        var child = new ProfileXmlLoader().load(path, "child");
-        var network = child.initialState().network();
+        var network = loaded.profile().initialState().network();
 
-        assertThat(report.valid()).as(report.errors().toString()).isTrue();
+        assertThat(loaded.report().valid()).as(loaded.report().errors().toString()).isTrue();
         assertThat(network.operator().longName()).isEqualTo("OperatorParent");
         assertThat(network.smsRateLimit().maxMessages()).isEqualTo(2);
         assertThat(network.delays()).containsKey("sms-submit");
-        assertThat(child.initialState().lines().dtr()).isFalse();
-        assertThat(child.initialState().lines().dcd()).isTrue();
-        assertThat(child.initialState().lines().ri()).isTrue();
+        assertThat(loaded.profile().initialState().lines().dtr()).isFalse();
+        assertThat(loaded.profile().initialState().lines().dcd()).isTrue();
+        assertThat(loaded.profile().initialState().lines().ri()).isTrue();
     }
 
     @Test
     void childNetworkOverridesRequireParentOperatorMetadata() throws Exception {
-        Path path = tempDir.resolve("network-override-without-operator.xml");
-        Files.writeString(path, """
+        ValidationReport report = validate("network-override-without-operator.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="child" vendor="test" status="candidate" profileKind="cellular"
@@ -197,16 +179,13 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-
         assertThat(report.valid()).isFalse();
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("operator metadata"));
     }
 
     @Test
     void inheritedNetworkRequiresExplicitOperatorMetadata() throws Exception {
-        Path path = tempDir.resolve("inherited-network-without-operator.xml");
-        Files.writeString(path, """
+        ValidationReport report = validate("inherited-network-without-operator.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="parent" vendor="test" status="candidate" profileKind="base">
@@ -225,16 +204,13 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-
         assertThat(report.valid()).isFalse();
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("operator metadata"));
     }
 
     @Test
     void rejectsDuplicateProfileIds() throws Exception {
-        Path path = tempDir.resolve("duplicate-profile-id.xml");
-        Files.writeString(path, """
+        ValidationReport report = validate("duplicate-profile-id.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="duplicate" vendor="test" status="candidate" profileKind="base">
@@ -246,16 +222,13 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-
         assertThat(report.valid()).isFalse();
         assertThat(report.errors()).anySatisfy(error -> assertThat(error).contains("duplicate profile id"));
     }
 
     @Test
     void rejectsLocalProfileIdsThatShadowBuiltIns() throws Exception {
-        Path path = tempDir.resolve("builtin-shadow.xml");
-        Files.writeString(path, """
+        ValidationReport report = validate("builtin-shadow.xml", """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <modem-simulator version="1.0">
                   <profile id="generic-hayes-v250" vendor="test" status="candidate" profileKind="base">
@@ -264,10 +237,27 @@ class ProfileInheritanceValidationTest {
                 </modem-simulator>
                 """);
 
-        ValidationReport report = new ProfileXmlLoader().validate(path);
-
         assertThat(report.valid()).isFalse();
         assertThat(report.errors()).anySatisfy(error ->
                 assertThat(error).contains("duplicate built-in profile id"));
+    }
+
+    private ValidationReport validate(String name, String xml) throws Exception {
+        return new ProfileXmlLoader().validate(writeProfile(name, xml));
+    }
+
+    private LoadedProfile loadValidated(String name, String profileId, String xml) throws Exception {
+        Path path = writeProfile(name, xml);
+        ProfileXmlLoader loader = new ProfileXmlLoader();
+        return new LoadedProfile(loader.validate(path), loader.load(path, profileId));
+    }
+
+    private Path writeProfile(String name, String xml) throws Exception {
+        Path path = tempDir.resolve(name);
+        Files.writeString(path, xml);
+        return path;
+    }
+
+    private record LoadedProfile(ValidationReport report, Profile profile) {
     }
 }

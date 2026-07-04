@@ -119,6 +119,16 @@ class AtCommandParserTest {
     }
 
     @Test
+    void preservesValidPrefixBeforeLaterParseError() {
+        var commands = parser.parse(RawBytes.ascii("ATQ1;+CPIN??\r"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName)
+                .containsExactly("ATQ", "PARSE_ERROR");
+        assertThat(commands).extracting(ParsedCommand::commandIndexInLine).containsExactly(0, 1);
+        assertThat(commands.get(1).rawText()).isEqualTo("+CPIN??");
+    }
+
+    @Test
     void rejectsMalformedLines() {
         assertThatThrownBy(() -> parser.parse(RawBytes.ascii("BOGUS\r"), EntryMode.COMMAND))
                 .isInstanceOf(AtParseException.class);

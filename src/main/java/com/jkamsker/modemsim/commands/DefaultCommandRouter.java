@@ -21,7 +21,7 @@ public final class DefaultCommandRouter {
             return new CommandResult(state, List.of(), null, "FreezePolicy", true);
         }
         if (command.normalizedName().equals("PARSE_ERROR")) {
-            return new CommandResult(state, List.of(), ResultCode.ERROR, "AtCommandParser", true);
+            return CommandResult.invalidParameter(profile.errorPolicy(), state, "AtCommandParser");
         }
         ProfileCommand declaration = declaration(profile, command);
         if (declaration == null || !executable(declaration)) {

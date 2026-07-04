@@ -223,6 +223,17 @@ class ProtocolRegressionTest {
     }
 
     @Test
+    void chainedParseErrorKeepsEarlierCommandsEffective() {
+        HeadlessSession session = new HeadlessSession("partial-parse-error", BuiltinProfiles.acceptanceSierra(), 12345);
+
+        SessionResponse response = session.receive(RawBytes.ascii("ATQ1;+CPIN??\r"));
+
+        assertThat(response.outputHex()).isEmpty();
+        assertThat(session.snapshot().settings().quiet()).isTrue();
+        assertThat(response.events()).extracting(event -> event.eventType()).contains(EventType.PARSE_ERROR);
+    }
+
+    @Test
     void numericFinalResultUsesV0TerminatorShape() {
         HeadlessSession session = new HeadlessSession("v0", BuiltinProfiles.acceptanceSierra(), 12345);
 

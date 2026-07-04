@@ -26,8 +26,8 @@ public final class AtCommandParser {
     }
 
     public List<ParsedCommand> parse(RawBytes source, EntryMode mode) {
-        String edited = applyBackspace(source.toByteArray());
-        if (!hasTerminator(edited)) {
+        String edited = AtParserText.applyBackspace(source.toByteArray(), backspace);
+        if (!AtParserText.hasTerminator(edited, terminator)) {
             if (edited.equals("A/")) {
                 return List.of(special(source, edited, "A/", CommandKind.SPECIAL_REPEAT, mode));
             }
@@ -44,14 +44,9 @@ public final class AtCommandParser {
             if (!line.isEmpty()) {
                 commands.addAll(parseLine(source, line, mode));
             }
-            start = nextLineStart(edited, terminatorIndex);
+            start = AtParserText.nextLineStart(edited, terminator, terminatorIndex);
         }
         return commands;
-    }
-
-    private int nextLineStart(String text, int terminatorIndex) {
-        int next = terminatorIndex + 1;
-        return terminator == '\r' && next < text.length() && text.charAt(next) == '\n' ? next + 1 : next;
     }
 
     private List<ParsedCommand> parseLine(RawBytes source, String line, EntryMode mode) {
@@ -83,13 +78,28 @@ public final class AtCommandParser {
         int position = 0;
         while (position < body.length()) {
             if (body.charAt(position) == ';') {
-                throw new AtParseException("stray command separator");
+                if (position == 0 || body.charAt(position - 1) == ';') {
+                    throw new AtParseException("stray command separator");
+                }
+                position++;
+                continue;
             }
-            Slice slice = nextSlice(body, position);
-            String rawText = (index == 0 ? "AT" : "") + slice.text();
-            commands.add(toCommand(lineSource, rawText, slice.text(), index++, mode,
-                    2 + position, 2 + slice.end(), slice.quoted()));
-            position = slice.next();
+            try {
+                Slice slice = nextSlice(body, position);
+                String rawText = (index == 0 ? "AT" : "") + slice.text();
+                commands.add(toCommand(lineSource, rawText, slice.text(), index, mode,
+                        2 + position, 2 + slice.end(), slice.quoted()));
+                index++;
+                position = slice.next();
+            } catch (AtParseException e) {
+                if (commands.isEmpty()) {
+                    throw e;
+                }
+                String failingRaw = rawLine.substring(2 + position);
+                commands.add(command(lineSource, failingRaw, "PARSE_ERROR", CommandKind.BASIC, "",
+                        index, mode, 2 + position, lineSource.length(), false));
+                return commands;
+            }
         }
         return commands;
     }
@@ -252,15 +262,7 @@ public final class AtCommandParser {
     }
 
     private int firstSeparator(String slice) {
-        int question = slice.indexOf('?');
-        int equals = slice.indexOf('=');
-        if (question < 0) {
-            return equals;
-        }
-        if (equals < 0) {
-            return question;
-        }
-        return Math.min(question, equals);
+        return AtParserText.firstSeparator(slice);
     }
 
     private boolean startsWithExtendedPrefix(String text, int start) {
@@ -273,23 +275,6 @@ public final class AtCommandParser {
                 .mapToInt(String::length)
                 .findFirst()
                 .orElse(0);
-    }
-
-    private boolean hasTerminator(String text) {
-        return text.indexOf((char) terminator) >= 0;
-    }
-
-    private String applyBackspace(byte[] bytes) {
-        StringBuilder builder = new StringBuilder(bytes.length);
-        for (byte value : bytes) {
-            int unsigned = value & 0xFF;
-            if (unsigned == backspace && !builder.isEmpty()) {
-                builder.deleteCharAt(builder.length() - 1);
-            } else if (unsigned != backspace) {
-                builder.append((char) unsigned);
-            }
-        }
-        return builder.toString();
     }
 
     private record Slice(String text, int end, int next, boolean quoted) {

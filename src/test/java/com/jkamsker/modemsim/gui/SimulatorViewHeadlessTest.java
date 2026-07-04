@@ -26,12 +26,8 @@ class SimulatorViewHeadlessTest {
 
     @Test
     void startsJavaFxViewAndAppliesReadOnlyToRealControls() throws Exception {
-        startToolkit();
-        SimulatorView view = new SimulatorView();
-        Parent root = fx(view::root);
-
-        try {
-            List<Boolean> disabled = fx(() -> {
+        List<Boolean> disabled = withView(root -> {
+            List<Boolean> disabledControls = fx(() -> {
                 ((CheckBox) find(root, "session.readOnly")).setSelected(true);
                 return List.of(
                         find(root, "state.apply").isDisabled(),
@@ -49,38 +45,26 @@ class SimulatorViewHeadlessTest {
             assertThat(find(root, "session.dataFormat")).isNotNull();
             assertThat(find(root, "state.signalRssi")).isNotNull();
             assertThat(find(root, "macro.id")).isNotNull();
-            assertThat(disabled).containsExactly(true, true, true, true, true, true, true, false, false);
-        } finally {
-            close(view);
-        }
+            return disabledControls;
+        });
+
+        assertThat(disabled).containsExactly(true, true, true, true, true, true, true, false, false);
     }
 
     @Test
     void urcHelperUsesSafeGuiPath() throws Exception {
-        startToolkit();
-        SimulatorView view = new SimulatorView(true);
-        Parent root = fx(view::root);
-
-        try {
-            String output = fx(() -> {
+        String output = withView(true, root -> fx(() -> {
                 ((CheckBox) find(root, "inject.safetyConfirm")).setSelected(true);
                 ((Button) find(root, "inject.sendUrc")).fire();
                 return ((TextArea) find(root, "session.output")).getText();
-            });
+        }));
 
-            assertThat(output).contains("+CREG: 4");
-        } finally {
-            close(view);
-        }
+        assertThat(output).contains("+CREG: 4");
     }
 
     @Test
     void realViewLogControlsFilterAndExportEvents() throws Exception {
-        startToolkit();
-        SimulatorView view = new SimulatorView(true);
-        Parent root = fx(view::root);
-
-        try {
+        withView(true, root ->
             fx(() -> {
                 ((Button) find(root, "inject.sendDte")).fire();
                 TableView<?> table = (TableView<?>) find(root, "log.table");
@@ -95,19 +79,12 @@ class SimulatorViewHeadlessTest {
                         .doesNotContain("\"eventType\":\"RX_BYTES\"");
                 ((TextField) find(root, "log.filter")).clear();
                 return null;
-            });
-        } finally {
-            close(view);
-        }
+            }));
     }
 
     @Test
     void realViewInjectionControlsRouteThroughSafety() throws Exception {
-        startToolkit();
-        SimulatorView view = new SimulatorView(true);
-        Parent root = fx(view::root);
-
-        try {
+        withView(true, root ->
             fx(() -> {
                 ((Button) find(root, "inject.sendDce")).fire();
                 assertThat(((TextArea) find(root, "session.output")).getText())
@@ -116,19 +93,12 @@ class SimulatorViewHeadlessTest {
                 ((Button) find(root, "inject.sendUrc")).fire();
                 assertThat(((TextArea) find(root, "session.output")).getText()).contains("+CREG: 4");
                 return null;
-            });
-        } finally {
-            close(view);
-        }
+            }));
     }
 
     @Test
     void realViewStateMacroAndReplayControlsAreAvailable() throws Exception {
-        startToolkit();
-        SimulatorView view = new SimulatorView(true);
-        Parent root = fx(view::root);
-
-        try {
+        withView(true, root ->
             fx(() -> {
                 ((Button) find(root, "inject.sendDte")).fire();
                 TableView<?> table = (TableView<?>) find(root, "log.table");
@@ -144,7 +114,19 @@ class SimulatorViewHeadlessTest {
                 assertThat(find(root, "replay.driveFromCapturedInput")).isNotNull();
                 assertThat(find(root, "replay.playToDte")).isNotNull();
                 return null;
-            });
+            }));
+    }
+
+    private static <T> T withView(ViewAction<T> action) throws Exception {
+        return withView(false, action);
+    }
+
+    private static <T> T withView(boolean allowUnsafeDceTransmit, ViewAction<T> action) throws Exception {
+        startToolkit();
+        SimulatorView view = new SimulatorView(allowUnsafeDceTransmit);
+        Parent root = fx(view::root);
+        try {
+            return action.run(root);
         } finally {
             close(view);
         }
@@ -196,5 +178,9 @@ class SimulatorViewHeadlessTest {
             }
         }
         return null;
+    }
+
+    private interface ViewAction<T> {
+        T run(Parent root) throws Exception;
     }
 }
