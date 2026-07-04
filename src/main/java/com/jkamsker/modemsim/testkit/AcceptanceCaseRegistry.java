@@ -6,6 +6,7 @@ final class AcceptanceCaseRegistry {
 
     static String defaultCaseForSuite(String suite) {
         return switch (suite) {
+            case "acceptance" -> "all";
             case "hayes" -> "A02";
             case "validation" -> "A05";
             case "cellular" -> "A03";
@@ -22,7 +23,7 @@ final class AcceptanceCaseRegistry {
             case "parser" -> "A26";
             case "build" -> "A30";
             case "golden" -> "A31";
-            default -> "all";
+            default -> throw new IllegalArgumentException("Unknown acceptance suite: " + suite);
         };
     }
 
