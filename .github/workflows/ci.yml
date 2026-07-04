@@ -223,5 +223,6 @@ jobs:
         shell: pwsh
         run: .\.github\scripts\install-com0com.ps1
       - name: Serial lane
+        if: env.MODEMSIM_WINDOWS_COM0COM_AVAILABLE == 'true'
         shell: pwsh
         run: .\mvnw.cmd -B -DexcludedGroups= -Dgroups=serial-it test

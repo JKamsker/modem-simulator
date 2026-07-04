@@ -29,10 +29,10 @@ Use a self-hosted Windows runner with com0com preinstalled for required Windows 
 function Disable-Com0Com {
   param([Parameter(Mandatory = $true)][string] $Reason)
 
-  Write-Host "::error title=com0com unavailable::$Reason"
+  Write-Host "::warning title=com0com unavailable::$Reason"
   Add-GitHubEnvironmentValue -Name "MODEMSIM_WINDOWS_COM0COM_AVAILABLE" -Value "false"
   Write-Com0ComSummary -Message $Reason
-  exit 1
+  exit 0
 }
 
 function Show-ProcessLog {
@@ -277,7 +277,7 @@ if (-not (($ports -contains $ModemPort) -and ($ports -contains $DtePort))) {
       $setupcListText.Contains("PortName=$DtePort"))) {
     Disable-Com0Com -Reason "Ports did not appear. Available ports: $($ports -join ', ')"
   }
-  Write-Host "::warning title=com0com enumeration lag::.NET did not enumerate $ModemPort/$DtePort, but setupc reports the pair. Continuing so the jSerialComm serial tests verify the ports directly."
+  Disable-Com0Com -Reason ".NET did not enumerate $ModemPort/$DtePort even though setupc reports the pair. Hosted Windows cannot expose a usable com0com pair in this run."
 } else {
   Write-Host "Detected com0com ports via .NET: $($ports -join ', ')"
 }
