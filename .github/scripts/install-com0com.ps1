@@ -135,6 +135,21 @@ function Invoke-Setupc {
   Assert-TimedProcessSucceeded -Result $result -TimeoutSeconds $TimeoutSeconds -Description $description
 }
 
+function Get-SetupcList {
+  param([Parameter(Mandatory = $true)][System.IO.FileInfo] $Setupc)
+
+  Push-Location $Setupc.DirectoryName
+  try {
+    $output = & $Setupc.FullName list
+    if ($LASTEXITCODE -ne 0) {
+      Disable-Com0Com -Reason "setupc list failed with exit code $LASTEXITCODE."
+    }
+    return $output
+  } finally {
+    Pop-Location
+  }
+}
+
 function Invoke-OptionalProcess {
   param(
     [Parameter(Mandatory = $true)][string] $FilePath,
@@ -254,7 +269,17 @@ if (-not (($ports -contains $ModemPort) -and ($ports -contains $DtePort))) {
     Format-Table -AutoSize |
     Out-String |
     ForEach-Object { Write-Host $_ }
-  Disable-Com0Com -Reason "Ports did not appear. Available ports: $($ports -join ', ')"
+  $setupcList = Get-SetupcList -Setupc $setupc
+  Write-Host "setupc list after enumeration timeout:"
+  $setupcList | ForEach-Object { Write-Host $_ }
+  $setupcListText = $setupcList -join "`n"
+  if (-not ($setupcListText.Contains("PortName=$ModemPort") -and
+      $setupcListText.Contains("PortName=$DtePort"))) {
+    Disable-Com0Com -Reason "Ports did not appear. Available ports: $($ports -join ', ')"
+  }
+  Write-Host "::warning title=com0com enumeration lag::.NET did not enumerate $ModemPort/$DtePort, but setupc reports the pair. Continuing so the jSerialComm serial tests verify the ports directly."
+} else {
+  Write-Host "Detected com0com ports via .NET: $($ports -join ', ')"
 }
 
 Add-GitHubEnvironmentValue -Name "MODEMSIM_WINDOWS_COM0COM_AVAILABLE" -Value "true"

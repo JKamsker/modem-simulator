@@ -7,9 +7,7 @@ import com.jkamsker.modemsim.validation.ValidationReport;
 import com.jkamsker.modemsim.validation.XmlSecurity;
 import org.w3c.dom.Element;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,7 +64,8 @@ public final class MacroLoader {
                     rules.add(parseCustomResponse(child, order++));
                 }
             }
-            return new MacroSet(hash(path), randomSeed(root), rules);
+            Long randomSeed = randomSeed(root);
+            return new MacroSet(MacroSet.effectiveHash(randomSeed, rules), randomSeed, rules);
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse macro file: " + path, e);
         }
@@ -184,11 +183,6 @@ public final class MacroLoader {
 
     private MacroPhase phase(String value) {
         return MacroPhase.valueOf(value.replace('-', '_').toUpperCase());
-    }
-
-    private String hash(Path path) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return "sha256:" + java.util.HexFormat.of().formatHex(digest.digest(Files.readAllBytes(path)));
     }
 
     private Long randomSeed(Element root) {

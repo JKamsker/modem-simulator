@@ -15,7 +15,10 @@ public record MacroSet(String hash, Long randomSeed, List<MacroRule> rules) {
 
     public static String effectiveHash(Long randomSeed, List<MacroRule> rules) {
         try {
-            String canonical = "seed=" + randomSeed + ";rules=" + rules;
+            List<MacroRule> orderedRules = rules.stream()
+                    .sorted(ruleOrder())
+                    .toList();
+            String canonical = "seed=" + randomSeed + ";rules=" + orderedRules;
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical.getBytes(StandardCharsets.UTF_8));
             return "sha256:" + HexFormat.of().formatHex(digest);
         } catch (Exception e) {
@@ -24,9 +27,11 @@ public record MacroSet(String hash, Long randomSeed, List<MacroRule> rules) {
     }
 
     public MacroSet {
-        rules = rules.stream()
-                .sorted(Comparator.comparingInt(MacroRule::priority).reversed()
-                        .thenComparingInt(MacroRule::order))
-                .toList();
+        rules = rules.stream().sorted(ruleOrder()).toList();
+    }
+
+    private static Comparator<MacroRule> ruleOrder() {
+        return Comparator.comparingInt(MacroRule::priority).reversed()
+                .thenComparingInt(MacroRule::order);
     }
 }
