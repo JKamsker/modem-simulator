@@ -15,6 +15,7 @@ jobs:
   verify:
     name: Maven verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +51,7 @@ jobs:
   gui-headless:
     name: GUI headless tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,6 +67,7 @@ jobs:
   coverage-all:
     name: Full coverage gate
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,6 +83,7 @@ jobs:
   distribution:
     name: Distribution smoke (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -166,6 +170,7 @@ jobs:
   serial-it:
     name: Serial integration tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -226,3 +231,10 @@ jobs:
         if: env.MODEMSIM_WINDOWS_COM0COM_AVAILABLE == 'true'
         shell: pwsh
         run: .\mvnw.cmd -B -DexcludedGroups= -Dgroups=serial-it test
+      - name: Report skipped serial lane
+        if: env.MODEMSIM_WINDOWS_COM0COM_AVAILABLE != 'true'
+        shell: pwsh
+        run: |
+          $message = "Windows com0com serial lane skipped because MODEMSIM_WINDOWS_COM0COM_AVAILABLE=$env:MODEMSIM_WINDOWS_COM0COM_AVAILABLE."
+          Write-Host "::warning title=Windows serial lane skipped::$message"
+          $message | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append

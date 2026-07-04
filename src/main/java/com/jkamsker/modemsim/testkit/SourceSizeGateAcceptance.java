@@ -156,7 +156,7 @@ final class SourceSizeGateAcceptance {
         return "bash";
     }
 
-    private boolean windows() {
+    static boolean windows() {
         return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 

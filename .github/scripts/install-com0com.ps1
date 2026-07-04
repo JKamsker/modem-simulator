@@ -211,7 +211,7 @@ $archive = Join-Path $work "com0com.7z"
 Write-Host "Downloading com0com from $Com0ComUrl"
 & curl.exe -L --fail --retry 3 -o $archive $Com0ComUrl
 if ($LASTEXITCODE -ne 0) {
-  throw "curl failed while downloading com0com with exit code $LASTEXITCODE."
+  Disable-Com0Com -Reason "curl failed while downloading com0com with exit code $LASTEXITCODE."
 }
 Write-Host "Downloaded com0com archive bytes: $((Get-Item $archive).Length)"
 Assert-Sha256 -Path $archive -ExpectedSha256 $ExpectedCom0ComArchiveSha256 -Description "com0com archive"

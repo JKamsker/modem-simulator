@@ -3,10 +3,13 @@ package com.jkamsker.modemsim.validation;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class SchemaLocator {
     private static final Path DOC_SCHEMA_DIR = Path.of("docs", "Tasks", "Initial-Spec", "schemas");
     private static final String SCHEMA_RESOURCE_DIR = "schemas/";
+    private static final Map<String, Path> RESOURCE_CACHE = new ConcurrentHashMap<>();
 
     private SchemaLocator() {
     }
@@ -33,6 +36,10 @@ public final class SchemaLocator {
     }
 
     private static Path resourceSchemaPath(String name) {
+        return RESOURCE_CACHE.computeIfAbsent(name, SchemaLocator::extractResourceSchema);
+    }
+
+    private static Path extractResourceSchema(String name) {
         var loader = SchemaLocator.class.getClassLoader();
         var resource = loader.getResource(SCHEMA_RESOURCE_DIR + name);
         if (resource == null) {

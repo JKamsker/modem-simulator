@@ -13,12 +13,9 @@ class ForbiddenApiScannerTest {
     void detectsCurrentProcessTcpListener() throws Exception {
         try (ServerSocket ignored = new ServerSocket(0)) {
             List<String> hits = new ForbiddenApiScanner().scanCurrentProcessListeners();
-            assumeFalse(windows() && hits.isEmpty(), "Windows netstat did not report the listener");
+            assumeFalse(SourceSizeGateAcceptance.windows() && hits.isEmpty(),
+                    "Windows netstat did not report the listener");
             assertThat(hits).anySatisfy(hit -> assertThat(hit).contains("process-listener"));
         }
-    }
-
-    private boolean windows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 }
