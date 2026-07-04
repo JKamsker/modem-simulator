@@ -18,6 +18,10 @@ public final class ResponseFormatter {
                 .append(RawBytes.copyOf(new byte[] {(byte) s3, (byte) s4}));
     }
 
+    public RawBytes line(String line, LineEnding ending) {
+        return RawBytes.ascii(line).append(ending.bytes());
+    }
+
     public RawBytes result(String value, boolean verbose) {
         return verbose ? line(value)
                 : RawBytes.ascii(value).append(RawBytes.copyOf(new byte[] {(byte) s3}));

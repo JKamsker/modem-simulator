@@ -26,17 +26,25 @@ public final class ReplayStepLoader {
 
     public ReplayTranscript loadTranscript(Path path) {
         try {
-            return loadTranscript(Files.readAllLines(path));
+            return loadTranscript(path, Files.readAllLines(path));
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read replay log: " + path, e);
         }
     }
 
-    private ReplayTranscript loadTranscript(List<String> lines) {
+    private ReplayTranscript loadTranscript(Path path, List<String> lines) {
+        if (path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".trm")
+                || firstContentLine(lines).matches("^(RX|TX)\\s+.*")) {
+            return new TrmReplayParser().parse(path.getFileName().toString(), lines);
+        }
         if (lines.stream().filter(line -> !line.isBlank()).findFirst().orElse("").trim().startsWith("{")) {
             return new ReplayTranscript(null, null, Map.of(), loadJsonLines(lines));
         }
         return loadYamlLines(lines);
+    }
+
+    private String firstContentLine(List<String> lines) {
+        return lines.stream().filter(line -> !line.isBlank()).findFirst().orElse("").trim();
     }
 
     private List<ReplayStep> loadJsonLines(List<String> lines) {

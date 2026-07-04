@@ -30,6 +30,15 @@ public final class ReplayPlayback {
                 .reduce(RawBytes.empty(), RawBytes::append);
     }
 
+    public RawBytes responseFor(RawBytes command, List<ReplayStep> steps) {
+        String incoming = stripTerminator(command.ascii());
+        return steps.stream()
+                .filter(step -> matches(stripTerminator(step.input().ascii()), incoming))
+                .map(ReplayStep::expectedOutput)
+                .findFirst()
+                .orElse(RawBytes.empty());
+    }
+
     public SessionResponse playToSession(
             HeadlessSession session, List<ReplayStep> steps, boolean recordedTiming) {
         RawBytes output = RawBytes.empty();
@@ -110,6 +119,11 @@ public final class ReplayPlayback {
         if (Boolean.TRUE.equals(event.replayDivergent())) {
             report.hardFailure("step " + stepNumber + " contains replay divergent event " + event.eventType());
         }
+        if (payloadTranscript(event)) {
+            requirePresent(stepNumber, "monotonicNanos", event.monotonicNanos(), report);
+            requirePresent(stepNumber, "rawHex", event.rawHex(), report);
+            return;
+        }
         requireHash(stepNumber, "profileHash", event.profileHash(), report);
         requireHash(stepNumber, "configHash", event.configHash(), report);
         requireHash(stepNumber, "initialStateHash", event.initialStateHash(), report);
@@ -127,6 +141,23 @@ public final class ReplayPlayback {
                 .filter(event -> event.eventType() == EventType.TX_BYTES && event.direction() == Direction.DCE_TO_DTE)
                 .sorted(Comparator.comparing(event -> event.monotonicNanos() == null ? Long.MAX_VALUE : event.monotonicNanos()))
                 .toList();
+    }
+
+    private boolean matches(String recordedRx, String incoming) {
+        return !recordedRx.isBlank() && !incoming.isBlank()
+                && (recordedRx.contains(incoming) || incoming.contains(recordedRx));
+    }
+
+    private String stripTerminator(String value) {
+        return value == null ? "" : value.replaceAll("[\\r\\n]+$", "");
+    }
+
+    private boolean payloadTranscript(ReplayEventExpectation event) {
+        return event.eventType() == EventType.TX_BYTES
+                && event.sequence() == null && event.monotonicNanos() != null
+                && event.profileHash() == null && event.configHash() == null
+                && event.macroHash() == null && event.initialStateHash() == null
+                && event.sessionSeed() == null && event.clockMode() == null;
     }
 
     private void requireHash(int stepNumber, String name, String value, ReplayReport report) {

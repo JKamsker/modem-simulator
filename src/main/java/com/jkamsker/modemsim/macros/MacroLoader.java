@@ -1,6 +1,7 @@
 package com.jkamsker.modemsim.macros;
 
 import com.jkamsker.modemsim.state.FreezeMode;
+import com.jkamsker.modemsim.commands.LineEnding;
 import com.jkamsker.modemsim.validation.Dom;
 import com.jkamsker.modemsim.validation.SchemaLocator;
 import com.jkamsker.modemsim.validation.ValidationReport;
@@ -59,24 +60,25 @@ public final class MacroLoader {
             Element root = XmlSecurity.parse(path).getDocumentElement();
             List<MacroRule> rules = new ArrayList<>();
             int order = 0;
+            String defaultLineEnding = lineEnding(root);
             for (Element child : Dom.children(root, null)) {
                 if (child.getTagName().equals("macro")) {
-                    rules.add(parseMacro(child, order++));
+                    rules.add(parseMacro(child, order++, defaultLineEnding));
                 } else if (child.getTagName().equals("custom-response")) {
                     rules.add(parseCustomResponse(child, order++));
                 }
             }
-            return new MacroSet(hash(path), randomSeed(root), rules);
+            return new MacroSet(hash(path), randomSeed(root), defaultLineEnding, rules);
         } catch (Exception e) {
             throw new IllegalArgumentException("Cannot parse macro file: " + path, e);
         }
     }
 
-    private MacroRule parseMacro(Element macro, int order) {
+    private MacroRule parseMacro(Element macro, int order, String defaultLineEnding) {
         MatchSpec match = parseMatch(Dom.child(macro, "match"));
         List<MacroAction> actions = new ArrayList<>();
         for (Element action : Dom.children(Dom.child(macro, "then"), null)) {
-            actions.add(action(action));
+            actions.add(action(action, defaultLineEnding));
         }
         return new MacroRule(
                 macro.getAttribute("id"),
@@ -145,8 +147,12 @@ public final class MacroLoader {
                 Dom.attr(match, "timerId", null));
     }
 
-    private MacroAction action(Element action) {
-        return new MacroAction(action.getTagName(), attributes(action), action.getTextContent().trim());
+    private MacroAction action(Element action, String defaultLineEnding) {
+        Map<String, String> attributes = attributes(action);
+        if (action.getTagName().equals("emit") && !attributes.containsKey("lineEnding")) {
+            attributes.put("lineEnding", defaultLineEnding);
+        }
+        return new MacroAction(action.getTagName(), attributes, action.getTextContent().trim());
     }
 
     private Map<String, String> attributes(Element element) {
@@ -194,6 +200,10 @@ public final class MacroLoader {
     private Long randomSeed(Element root) {
         String value = root.getAttribute("randomSeed");
         return value == null || value.isBlank() ? null : Long.valueOf(value);
+    }
+
+    private String lineEnding(Element root) {
+        return LineEnding.from(root.getAttribute("lineEnding")).name();
     }
 
     public static FaultAction fault(MacroAction action) {

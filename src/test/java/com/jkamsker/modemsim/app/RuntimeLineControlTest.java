@@ -54,7 +54,7 @@ class RuntimeLineControlTest {
                 List.of(new PortBinding("modem", EndpointType.HEADLESS, PortRole.MODEM_SIMULATION,
                         null, true, "sierra-hl6-hl8-v20", "tagged-text")));
 
-        RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config, List.of(), 2);
+        RuntimeResult result = new ModemRuntime(binding -> endpoint).run(config, List.of(), 3);
 
         assertThat(result.output().ascii()).contains("CONNECT");
         assertThat(endpoint.lastLines.dtr()).isFalse();

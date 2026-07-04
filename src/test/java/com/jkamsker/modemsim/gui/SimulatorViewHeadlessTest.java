@@ -40,6 +40,8 @@ class SimulatorViewHeadlessTest {
         });
 
         assertThat(find(root, "session.initialScenario")).isNotNull();
+        assertThat(find(root, "session.dataFormat")).isNotNull();
+        assertThat(find(root, "state.signalRssi")).isNotNull();
         assertThat(find(root, "macro.id")).isNotNull();
         assertThat(disabled).containsExactly(true, true, true, true, true, true, true, false, false);
     }

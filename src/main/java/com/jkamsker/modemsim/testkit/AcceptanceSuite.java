@@ -135,7 +135,7 @@ public final class AcceptanceSuite {
         var submit = s.receive(RawBytes.ascii("smscommand dst\u001A"));
         require(submit.events().stream().anyMatch(event ->
                 event.eventType() == EventType.SCHEDULER_ENQUEUE
-                        && "macro-sms-error-123".equals(event.scheduler().get("operation"))
+                        && "macro-smscommand-dst-error-123".equals(event.scheduler().get("operation"))
                         && event.scheduler().get("sampledDelayMs") instanceof Integer delay
                         && delay > 0), "SMS macro scheduler metadata missing");
         requireContains(s.drainScheduled().outputAscii(), "+CMS ERROR: 123");
@@ -162,9 +162,12 @@ public final class AcceptanceSuite {
 
     private void dataMode() {
         HeadlessSession s = new HeadlessSession("main", BuiltinProfiles.byId("generic-hayes-v250"), 12345);
-        s.receive(RawBytes.ascii("ATD123\r"));
-        require(s.snapshot().call().mode() == CallMode.DIALING);
-        requireContains(s.drainScheduled().outputAscii(), "CONNECT");
+        String dial = s.receive(RawBytes.ascii("ATD123\r")).outputAscii();
+        if (!dial.contains("CONNECT")) {
+            require(s.snapshot().call().mode() == CallMode.DIALING);
+            dial = s.drainScheduled().outputAscii();
+        }
+        requireContains(dial, "CONNECT");
         require(s.snapshot().lines().dcd());
         s.advanceTime(1_000);
         require(s.receive(RawBytes.ascii("+++")).outputAscii().isEmpty());

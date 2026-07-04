@@ -101,7 +101,15 @@ final class GuiStatePatchFactory {
 
     private static int integer(String value, int fallback) {
         try {
-            return value == null || value.isBlank() ? fallback : Integer.parseInt(value.trim());
+            if (value == null || value.isBlank()) {
+                return fallback;
+            }
+            String trimmed = value.trim();
+            int end = 0;
+            while (end < trimmed.length() && Character.isDigit(trimmed.charAt(end))) {
+                end++;
+            }
+            return Integer.parseInt(end == 0 ? trimmed : trimmed.substring(0, end));
         } catch (RuntimeException e) {
             return fallback;
         }

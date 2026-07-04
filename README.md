@@ -134,9 +134,9 @@ validate-config <config.yaml>
 coverage verify --profiles v1-targets
 test --suite acceptance --case <case-id|all>
 test --tags <tag> --case <alias>
-replay <jsonl|yaml-log> --mode validate-recompute [--profile <profile-id|profile.xml>] [--seed <long>]
-replay <jsonl> --mode drive-from-captured-input [--profile <profile-id|profile.xml>] [--seed <long>] [--confirm-divergence]
-replay <jsonl> --mode play-to-dte [--endpoint serial|headless] [--port <port>] [--baud <rate>] [--timing none|recorded] [--confirm-divergence]
+replay <jsonl|yaml-log|trm> --mode validate-recompute [--profile <profile-id|profile.xml>] [--seed <long>]
+replay <jsonl|trm> --mode drive-from-captured-input [--profile <profile-id|profile.xml>] [--seed <long>] [--confirm-divergence]
+replay <jsonl|trm> --mode play-to-dte [--endpoint serial|headless] [--port <port>] [--baud <rate>] [--timing none|recorded] [--confirm-divergence]
 list-ports
 headless --profile <profile-id|profile.xml> --script <transcript.jsonl|transcript.yaml> [--seed <long>]
 ```
@@ -157,7 +157,7 @@ Useful examples:
 
 The `test` command accepts implemented acceptance IDs (`A01` through `A32`) and spec-oriented aliases such as `creg`, `profile-macro-negatives`, `text-cmgs`, `deterministic-delays`, `live-log`, `macro-hot-reload-timers`, `audit-backpressure`, `diagnostics`, `golden-yaml-loader`, and `s-register-bounds`.
 
-`drive-from-captured-input` and `play-to-dte` validate replay metadata before continuing. Hash or metadata divergence requires `--confirm-divergence`; hard replay failures such as redacted replay bytes or captured `replayDivergent=true` events are rejected even with confirmation. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
+`drive-from-captured-input` and `play-to-dte` validate replay metadata before continuing when the transcript carries event metadata. Hash or metadata divergence requires `--confirm-divergence`; hard replay failures such as redacted replay bytes or captured `replayDivergent=true` events are rejected even with confirmation. `.trm` transcripts are payload/timing captures: each `RX ... (ms): payload` is matched to the next following `TX` line, and payloads are treated as ASCII. Without `--port`, use `--endpoint headless` for deterministic dry runs. With `--timing recorded`, the player preserves captured TX spacing.
 
 ## Implemented Acceptance Surface
 

@@ -28,6 +28,22 @@ record GuiSessionOptions(
     static GuiSessionOptions of(
             String profile, String mainPort, String snifferPort, String manualDcePort, String scenario,
             String seed, String baudRate, String dataBits, String stopBits, String parity, String flowControl) {
+        return create(profile, mainPort, snifferPort, manualDcePort, scenario, seed, baudRate,
+                integer(dataBits, 8), integer(stopBits, 1),
+                Parity.valueOf(blank(parity) ? "NONE" : parity.trim()), flowControl);
+    }
+
+    static GuiSessionOptions ofFormat(
+            String profile, String mainPort, String snifferPort, String manualDcePort, String scenario,
+            String seed, String baudRate, String dataFormat, String flowControl) {
+        return create(profile, mainPort, snifferPort, manualDcePort, scenario, seed, baudRate,
+                GuiSerialDataFormat.dataBits(dataFormat), GuiSerialDataFormat.stopBits(dataFormat),
+                GuiSerialDataFormat.parity(dataFormat), flowControl);
+    }
+
+    private static GuiSessionOptions create(
+            String profile, String mainPort, String snifferPort, String manualDcePort, String scenario,
+            String seed, String baudRate, int dataBits, int stopBits, Parity parity, String flowControl) {
         return new GuiSessionOptions(
                 blank(profile) ? "sierra-hl6-hl8-v20" : profile.trim(),
                 clean(mainPort),
@@ -37,9 +53,9 @@ record GuiSessionOptions(
                 blank(seed) ? 12345L : Long.parseLong(seed.trim()),
                 new SerialConfig(
                         integer(baudRate, 115200),
-                        integer(dataBits, 8),
-                        integer(stopBits, 1),
-                        Parity.valueOf(blank(parity) ? "NONE" : parity.trim()),
+                        dataBits,
+                        stopBits,
+                        parity,
                         FlowControl.valueOf(blank(flowControl) ? "NONE" : flowControl.trim())),
                 List.of());
     }

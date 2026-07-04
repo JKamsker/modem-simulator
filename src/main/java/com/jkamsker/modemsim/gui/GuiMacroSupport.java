@@ -15,7 +15,9 @@ final class GuiMacroSupport {
         List<MacroRule> rules = source.rules().stream()
                 .map(rule -> overrides.containsKey(rule.id()) ? withEnabled(rule, overrides.get(rule.id())) : rule)
                 .toList();
-        return new MacroSet(MacroSet.effectiveHash(source.randomSeed(), rules), source.randomSeed(), rules);
+        return new MacroSet(
+                MacroSet.effectiveHash(source.randomSeed(), source.lineEnding(), rules),
+                source.randomSeed(), source.lineEnding(), rules);
     }
 
     static String customResponses(MacroSet source) {
