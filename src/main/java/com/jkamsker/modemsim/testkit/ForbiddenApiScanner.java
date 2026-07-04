@@ -169,9 +169,10 @@ public final class ForbiddenApiScanner {
 
     private String processOutput(String... command) {
         Path outputFile = null;
+        Process process = null;
         try {
             outputFile = Files.createTempFile("modemsim-listener-scan", ".log");
-            Process process = new ProcessBuilder(command)
+            process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .redirectOutput(outputFile.toFile())
                     .start();
@@ -184,9 +185,15 @@ public final class ForbiddenApiScanner {
             // Missing OS tools cannot prove a listener, so keep the source/dependency scan authoritative.
             return "";
         } catch (InterruptedException e) {
+            if (process != null) {
+                process.destroyForcibly();
+            }
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while inspecting TCP listeners", e);
         } finally {
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
             if (outputFile != null) {
                 try {
                     Files.deleteIfExists(outputFile);
