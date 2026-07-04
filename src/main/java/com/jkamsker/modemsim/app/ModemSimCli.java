@@ -162,9 +162,10 @@ public final class ModemSimCli {
         private int test(String[] args) {
             AcceptanceSuite suite = new AcceptanceSuite();
             String suiteName = option(args, "--suite", "acceptance");
+            String suiteDefaultCase = suite.defaultCaseForSuite(suiteName);
             String tagName = option(args, "--tags", null);
             String defaultCase = tagName == null
-                    ? suite.defaultCaseForSuite(suiteName)
+                    ? suiteDefaultCase
                     : suite.defaultCaseForSuite(tagName);
             String caseId = option(args, "--case", defaultCase);
             var results = caseId.equals("all")

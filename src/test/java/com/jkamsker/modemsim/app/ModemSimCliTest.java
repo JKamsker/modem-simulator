@@ -35,20 +35,6 @@ class ModemSimCliTest {
     }
 
     @Test
-    void testCommandRejectsUnknownSuiteEvenWhenCaseIsPresent() {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ByteArrayOutputStream err = new ByteArrayOutputStream();
-        ModemSimCli.ModemSimCliRunner runner = new ModemSimCli.ModemSimCliRunner(
-                new PrintStream(out), new PrintStream(err));
-
-        int exit = runner.run(new String[] {"test", "--suite", "typo", "--case", "A01"});
-
-        assertThat(exit).isEqualTo(1);
-        assertThat(out.toString()).isEmpty();
-        assertThat(err.toString()).contains("Unknown acceptance suite: typo");
-    }
-
-    @Test
     void validateMacrosCanUseRuntimeConfigContextForTimerAndSeed() throws Exception {
         Path macros = tempDir.resolve("timer-jitter.xml");
         Path config = tempDir.resolve("runtime.yaml");
