@@ -18,14 +18,18 @@ public final class ReplayAcceptance {
     public void run() {
         try {
             Path canonical = SchemaLocator.projectPath("src/test/resources/replay/basic-at-events.jsonl");
-            require(runReplay(canonical, "--mode", "validate-recompute").exit() == 0);
-            require(runReplay(canonical, "--mode", "drive-from-captured-input").exit() == 0);
+            require(runReplay(canonical, "--mode", "validate-recompute").exit() == 0,
+                    "validate-recompute should accept canonical replay log");
+            require(runReplay(canonical, "--mode", "drive-from-captured-input").exit() == 0,
+                    "drive-from-captured-input should accept canonical replay log");
             require(runReplay(canonical, "--mode", "drive-from-captured-input",
-                    "--case", "playback-divergence", "--confirm-divergence").exit() != 0);
-            Path audit = Files.createTempFile("modemsim-acceptance-play", ".jsonl");
+                    "--case", "playback-divergence", "--confirm-divergence").exit() != 0,
+                    "confirm-divergence should not bypass a non-divergent replay");
+            Path audit = tempLog("modemsim-acceptance-play");
             CliRun play = runReplay(canonical, "--mode", "play-to-dte", "--audit-log", audit.toString());
-            require(play.exit() == 0 && Files.readString(audit).contains("play-to-dte-start"));
-            require(schedulerReplayValid());
+            require(play.exit() == 0 && Files.readString(audit).contains("play-to-dte-start"),
+                    "play-to-dte should succeed and write an audit start marker");
+            require(schedulerReplayValid(), "scheduler replay should recompute as valid");
             replayDivergenceConfirmation();
             hardFailureInAllModes(redactedLog(), "redacted");
             hardFailureInAllModes(missingBytesLog(), "missing rawHex");
@@ -37,24 +41,30 @@ public final class ReplayAcceptance {
 
     private void replayDivergenceConfirmation() throws java.io.IOException {
         Path log = divergentLog();
-        require(runReplay(log, "--mode", "drive-from-captured-input").exit() != 0);
+        require(runReplay(log, "--mode", "drive-from-captured-input").exit() != 0,
+                "drive-from-captured-input should reject divergent replay without confirmation");
         CliRun drive = runReplay(log, "--mode", "drive-from-captured-input",
                 "--case", "playback-divergence", "--confirm-divergence");
-        require(drive.exit() == 0 && drive.out().contains("DIVERGENCE CONFIRMED"));
-        Path audit = Files.createTempFile("modemsim-acceptance-divergent-play", ".jsonl");
-        require(runReplay(log, "--mode", "play-to-dte", "--audit-log", audit.toString()).exit() != 0);
+        require(drive.exit() == 0 && drive.out().contains("DIVERGENCE CONFIRMED"),
+                "drive-from-captured-input should accept confirmed divergence");
+        Path audit = tempLog("modemsim-acceptance-divergent-play");
+        require(runReplay(log, "--mode", "play-to-dte", "--audit-log", audit.toString()).exit() != 0,
+                "play-to-dte should reject divergent replay without confirmation");
         CliRun play = runReplay(log, "--mode", "play-to-dte",
                 "--case", "playback-divergence", "--confirm-divergence",
                 "--audit-log", audit.toString());
-        require(play.exit() == 0 && play.out().contains("DIVERGENCE CONFIRMED"));
+        require(play.exit() == 0 && play.out().contains("DIVERGENCE CONFIRMED"),
+                "play-to-dte should accept confirmed divergence");
     }
 
     private void hardFailureInAllModes(Path log, String expectedError) throws java.io.IOException {
-        require(failsWith(log, expectedError, "--mode", "validate-recompute"));
-        require(failsWith(log, expectedError, "--mode", "drive-from-captured-input", "--confirm-divergence"));
-        Path audit = Files.createTempFile("modemsim-acceptance-hard-play", ".jsonl");
+        require(failsWith(log, expectedError, "--mode", "validate-recompute"),
+                "validate-recompute should reject " + expectedError + " fixture");
+        require(failsWith(log, expectedError, "--mode", "drive-from-captured-input", "--confirm-divergence"),
+                "drive-from-captured-input should reject " + expectedError + " fixture");
+        Path audit = tempLog("modemsim-acceptance-hard-play");
         require(failsWith(log, expectedError, "--mode", "play-to-dte", "--confirm-divergence",
-                "--audit-log", audit.toString()));
+                "--audit-log", audit.toString()), "play-to-dte should reject " + expectedError + " fixture");
     }
 
     private boolean failsWith(Path log, String expectedError, String... args) {
@@ -67,7 +77,7 @@ public final class ReplayAcceptance {
         HeadlessSession capture = new HeadlessSession("replay", new ProfileResolver().resolve("sierra-hl6-hl8-v20"), 12345);
         var events = new ArrayList<>(capture.receive(RawBytes.ascii("ATD123\r")).events());
         events.addAll(capture.drainScheduled().events());
-        Path log = Files.createTempFile("modemsim-scheduler-replay", ".jsonl");
+        Path log = tempLog("modemsim-scheduler-replay");
         Files.writeString(log, ModemEventJson.toJsonLines(events), StandardCharsets.UTF_8);
         var steps = new ReplayStepLoader().load(log);
         var report = new ReplayValidator().validateRecompute(
@@ -112,14 +122,20 @@ public final class ReplayAcceptance {
     }
 
     private Path writeLog(String prefix, String body) throws java.io.IOException {
-        Path log = Files.createTempFile(prefix, ".jsonl");
+        Path log = tempLog(prefix);
         Files.writeString(log, body, StandardCharsets.UTF_8);
         return log;
     }
 
-    private void require(boolean condition) {
+    private Path tempLog(String prefix) throws java.io.IOException {
+        Path log = Files.createTempFile(prefix, ".jsonl");
+        log.toFile().deleteOnExit();
+        return log;
+    }
+
+    private void require(boolean condition, String message) {
         if (!condition) {
-            throw new IllegalStateException("replay acceptance check failed");
+            throw new IllegalStateException("replay acceptance check failed: " + message);
         }
     }
 

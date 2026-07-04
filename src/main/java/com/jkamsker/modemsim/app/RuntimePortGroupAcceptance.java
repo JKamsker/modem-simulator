@@ -28,17 +28,19 @@ public final class RuntimePortGroupAcceptance {
         ModemRuntime runtime = new ModemRuntime(binding -> endpoint(endpoints, binding));
         endpoints.computeIfAbsent("sniffer", key -> new HeadlessEndpoint())
                 .enqueueRead(RawBytes.ascii("AT+CSQ\r"), 0);
+        java.nio.file.Path eventLog = Files.createTempFile("modemsim-sniffer", ".jsonl");
 
-        RuntimeResult result = runtime.run(
-                config(Files.createTempFile("modemsim-sniffer", ".jsonl"), true, false),
-                List.of(RawBytes.ascii("AT\r")), 1);
-
-        require(result.output().toHex().equals("0D0A4F4B0D0A"), "sniffer changed main-port output");
-        String mirrored = endpoints.get("sniffer").written().ascii();
-        require(mirrored.contains("DTE_TO_DCE 41540D"), "sniffer did not mirror DTE bytes");
-        require(mirrored.contains("DCE_TO_DTE 0D0A4F4B0D0A"), "sniffer did not mirror DCE bytes");
-        require(Files.readString(result.eventLogPath()).contains("sniffer-input-ignored:sniffer"),
-                "sniffer input was not audited as ignored");
+        try {
+            RuntimeResult result = runtime.run(config(eventLog, true, false), List.of(RawBytes.ascii("AT\r")), 1);
+            require(result.output().toHex().equals("0D0A4F4B0D0A"), "sniffer changed main-port output");
+            String mirrored = endpoints.get("sniffer").written().ascii();
+            require(mirrored.contains("DTE_TO_DCE 41540D"), "sniffer did not mirror DTE bytes");
+            require(mirrored.contains("DCE_TO_DTE 0D0A4F4B0D0A"), "sniffer did not mirror DCE bytes");
+            require(Files.readString(result.eventLogPath()).contains("sniffer-input-ignored:sniffer"),
+                    "sniffer input was not audited as ignored");
+        } finally {
+            Files.deleteIfExists(eventLog);
+        }
     }
 
     private void requireManualDceAuditedInjection() throws IOException {
@@ -50,16 +52,18 @@ public final class RuntimePortGroupAcceptance {
             }
             return endpoint;
         });
+        java.nio.file.Path eventLog = Files.createTempFile("modemsim-manual-dce", ".jsonl");
 
-        RuntimeResult result = runtime.run(
-                config(Files.createTempFile("modemsim-manual-dce", ".jsonl"), false, true),
-                List.of(), 1);
-
-        require(endpoints.get("modem").written().ascii().equals("+CREG: 4\r\n"),
-                "manual DCE bytes were not written to the modem endpoint");
-        String log = Files.readString(result.eventLogPath());
-        require(log.contains("\"eventType\":\"INJECTION\""), "manual DCE injection was not audited");
-        require(log.contains("\"injectionType\":\"raw-dce-to-dte\""), "manual DCE injection type missing");
+        try {
+            RuntimeResult result = runtime.run(config(eventLog, false, true), List.of(), 1);
+            require(endpoints.get("modem").written().ascii().equals("+CREG: 4\r\n"),
+                    "manual DCE bytes were not written to the modem endpoint");
+            String log = Files.readString(result.eventLogPath());
+            require(log.contains("\"eventType\":\"INJECTION\""), "manual DCE injection was not audited");
+            require(log.contains("\"injectionType\":\"raw-dce-to-dte\""), "manual DCE injection type missing");
+        } finally {
+            Files.deleteIfExists(eventLog);
+        }
     }
 
     private RuntimeConfig config(java.nio.file.Path eventLog, boolean sniffer, boolean manualDce) {

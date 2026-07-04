@@ -71,12 +71,15 @@ public final class RuntimeDiagnosticsAcceptance {
         new ModemRuntime(binding -> switch (binding.id()) {
             case "missing" -> new OpenFailEndpoint("PORT_NOT_FOUND");
             case "busy" -> new OpenFailEndpoint("PORT_BUSY");
+            case "permission" -> new OpenFailEndpoint("PORT_PERMISSION_DENIED");
             case "unsupported" -> new OpenFailEndpoint("UNSUPPORTED_PARAMETERS");
             default -> main;
-        }).run(config(List.of(sidecar("missing"), sidecar("busy"), sidecar("unsupported"))), List.of(), 1, sink, session -> { });
+        }).run(config(List.of(sidecar("missing"), sidecar("busy"),
+                sidecar("permission"), sidecar("unsupported"))), List.of(), 1, sink, session -> { });
 
         require(hasResult(sink, EventType.PORT_OPEN_FAILED, "PORT_NOT_FOUND"));
         require(hasResult(sink, EventType.PORT_OPEN_FAILED, "PORT_BUSY"));
+        require(hasResult(sink, EventType.PORT_OPEN_FAILED, "PORT_PERMISSION_DENIED"));
         require(hasResult(sink, EventType.PORT_OPEN_FAILED, "UNSUPPORTED_PARAMETERS"));
         validateTransportEvents(sink);
     }
@@ -125,8 +128,10 @@ public final class RuntimeDiagnosticsAcceptance {
         ports.add(new PortBinding("modem", EndpointType.HEADLESS, PortRole.MODEM_SIMULATION,
                 null, true, "sierra-hl6-hl8-v20", "tagged-text"));
         ports.addAll(sidecars);
+        java.nio.file.Path eventLog = Files.createTempFile("modemsim-diagnostics", ".jsonl");
+        eventLog.toFile().deleteOnExit();
         return new RuntimeConfig(12345, ClockMode.VIRTUAL, strictOptionalPorts, true,
-                Files.createTempFile("modemsim-diagnostics", ".jsonl"),
+                eventLog,
                 new SerialConfig(115200, 8, 1, Parity.NONE, FlowControl.NONE), ports);
     }
 
@@ -147,8 +152,12 @@ public final class RuntimeDiagnosticsAcceptance {
         for (ModemEvent event : sink.events()) {
             if (transportEvent(event)) {
                 java.nio.file.Path json = Files.createTempFile("modemsim-transport-event", ".json");
-                Files.writeString(json, ModemEventJson.toJson(event));
-                require(validator.validateJson(json, SchemaLocator.schemaPath("event-log.schema.json")).valid());
+                try {
+                    Files.writeString(json, ModemEventJson.toJson(event));
+                    require(validator.validateJson(json, SchemaLocator.schemaPath("event-log.schema.json")).valid());
+                } finally {
+                    Files.deleteIfExists(json);
+                }
             }
         }
     }

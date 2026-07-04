@@ -16,9 +16,11 @@ public final class RuntimeNoControlApiAcceptance {
     public List<String> listenerHitsDuringHeadlessSmoke() {
         List<String> hits = new CopyOnWriteArrayList<>();
         try {
+            java.nio.file.Path eventLog = Files.createTempFile("modemsim-no-control-api", ".jsonl");
+            eventLog.toFile().deleteOnExit();
             RuntimeConfig config = new RuntimeConfig(
                     12345, ClockMode.VIRTUAL, false, false,
-                    Files.createTempFile("modemsim-no-control-api", ".jsonl"),
+                    eventLog,
                     new SerialConfig(115200, 8, 1, Parity.NONE, FlowControl.NONE),
                     List.of(new PortBinding("modem", EndpointType.HEADLESS, PortRole.MODEM_SIMULATION,
                             null, true, "sierra-hl6-hl8-v20", "tagged-text")));

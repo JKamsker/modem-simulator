@@ -12,7 +12,7 @@ public final class ScenarioValidator {
         try {
             XmlSecurity.validate(scenarioPath, SchemaLocator.schemaPath("scenario.schema.xsd"));
             validateSemantics(XmlSecurity.parse(scenarioPath).getDocumentElement(), report);
-        } catch (Exception e) {
+        } catch (ValidationException e) {
             report.error(e.getMessage());
         }
         return report;

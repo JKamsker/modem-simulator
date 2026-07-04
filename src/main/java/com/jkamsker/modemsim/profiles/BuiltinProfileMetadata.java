@@ -16,7 +16,10 @@ final class BuiltinProfileMetadata {
     }
 
     static List<ProfileCommand> commands(String id) {
-        JsonNode root = coverageJson(id);
+        return commands(coverageJson(id));
+    }
+
+    private static List<ProfileCommand> commands(JsonNode root) {
         List<ProfileCommand> result = new ArrayList<>();
         for (JsonNode command : root.path("commands")) {
             result.add(new ProfileCommand(
@@ -31,7 +34,7 @@ final class BuiltinProfileMetadata {
     static ProfileCoverage coverage(String id) {
         JsonNode root = coverageJson(id);
         return new ProfileCoverage(root.path("source").asText(),
-                root.path("commands_total").asInt(), root.path("unknown").asInt(), commands(id));
+                root.path("commands_total").asInt(), root.path("unknown").asInt(), commands(root));
     }
 
     static List<ProfileRegister> registers() {

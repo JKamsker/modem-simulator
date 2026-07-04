@@ -157,7 +157,8 @@ final class ProfileXmlStateParser {
             case "online-data" -> CallMode.ONLINE_DATA;
             case "online-command" -> CallMode.ONLINE_COMMAND;
             case "dialing" -> CallMode.DIALING;
-            default -> CallMode.COMMAND;
+            case "command" -> CallMode.COMMAND;
+            default -> throw new IllegalArgumentException("Unsupported call mode: " + value);
         };
     }
 }

@@ -75,7 +75,7 @@ class SimulatorViewHeadlessTest {
     }
 
     @Test
-    void realViewControlsDriveLogInjectionStateMacroAndReplayWorkflows() throws Exception {
+    void realViewLogControlsFilterAndExportEvents() throws Exception {
         startToolkit();
         SimulatorView view = new SimulatorView(true);
         Parent root = fx(view::root);
@@ -94,14 +94,44 @@ class SimulatorViewHeadlessTest {
                 assertThat(export).contains("\"eventType\":\"TX_BYTES\"")
                         .doesNotContain("\"eventType\":\"RX_BYTES\"");
                 ((TextField) find(root, "log.filter")).clear();
+                return null;
+            });
+        } finally {
+            close(view);
+        }
+    }
 
+    @Test
+    void realViewInjectionControlsRouteThroughSafety() throws Exception {
+        startToolkit();
+        SimulatorView view = new SimulatorView(true);
+        Parent root = fx(view::root);
+
+        try {
+            fx(() -> {
                 ((Button) find(root, "inject.sendDce")).fire();
                 assertThat(((TextArea) find(root, "session.output")).getText())
                         .contains("Unsafe DCE transmit");
                 ((CheckBox) find(root, "inject.safetyConfirm")).setSelected(true);
                 ((Button) find(root, "inject.sendUrc")).fire();
                 assertThat(((TextArea) find(root, "session.output")).getText()).contains("+CREG: 4");
+                return null;
+            });
+        } finally {
+            close(view);
+        }
+    }
 
+    @Test
+    void realViewStateMacroAndReplayControlsAreAvailable() throws Exception {
+        startToolkit();
+        SimulatorView view = new SimulatorView(true);
+        Parent root = fx(view::root);
+
+        try {
+            fx(() -> {
+                ((Button) find(root, "inject.sendDte")).fire();
+                TableView<?> table = (TableView<?>) find(root, "log.table");
                 ((ComboBox<?>) find(root, "state.networkStat")).getSelectionModel().select(4);
                 ((Button) find(root, "state.apply")).fire();
                 assertThat(table.getItems().stream().map(String::valueOf))

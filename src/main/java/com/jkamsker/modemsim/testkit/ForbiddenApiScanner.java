@@ -168,21 +168,32 @@ public final class ForbiddenApiScanner {
     }
 
     private String processOutput(String... command) {
+        Path outputFile = null;
         try {
+            outputFile = Files.createTempFile("modemsim-listener-scan", ".log");
             Process process = new ProcessBuilder(command)
                     .redirectErrorStream(true)
+                    .redirectOutput(outputFile.toFile())
                     .start();
             if (!process.waitFor(5, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
                 return "";
             }
-            return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            return Files.readString(outputFile, StandardCharsets.UTF_8);
         } catch (IOException e) {
             // Missing OS tools cannot prove a listener, so keep the source/dependency scan authoritative.
             return "";
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("interrupted while inspecting TCP listeners", e);
+        } finally {
+            if (outputFile != null) {
+                try {
+                    Files.deleteIfExists(outputFile);
+                } catch (IOException ignored) {
+                    // Best-effort cleanup for an advisory scanner temp file.
+                }
+            }
         }
     }
 }

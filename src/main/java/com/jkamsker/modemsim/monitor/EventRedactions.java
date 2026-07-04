@@ -1,15 +1,13 @@
-package com.jkamsker.modemsim.session;
-
-import com.jkamsker.modemsim.monitor.RedactionInfo;
+package com.jkamsker.modemsim.monitor;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class SessionEventRedactions {
-    private SessionEventRedactions() {
+public final class EventRedactions {
+    private EventRedactions() {
     }
 
-    static RedactionInfo merge(
+    public static RedactionInfo merge(
             RedactionInfo payload,
             boolean stateBeforeRedacted,
             boolean stateAfterRedacted,

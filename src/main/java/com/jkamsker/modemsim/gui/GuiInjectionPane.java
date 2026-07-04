@@ -45,11 +45,11 @@ final class GuiInjectionPane {
         Button sendParsed = ui.button("inject.sendParsed", "Send Parsed");
         Button sendUrc = ui.button("inject.sendUrc", "Send URC");
         Button applyPatch = ui.button("inject.applyPatch", "Apply Patch");
-        sendDte.setOnAction(event -> handler.accept(controller.rawDteToDce(rawDte.getText())));
-        sendParsed.setOnAction(event -> handler.accept(controller.parsedCommand(parsed.getText())));
+        sendDte.setOnAction(event -> unsafe(() -> controller.rawDteToDce(rawDte.getText())));
+        sendParsed.setOnAction(event -> unsafe(() -> controller.parsedCommand(parsed.getText())));
         sendDce.setOnAction(event -> unsafe(() -> controller.rawDceToDte(rawDce.getText(), safety.isSelected())));
         sendUrc.setOnAction(event -> unsafe(() -> controller.urc(urc.getText(), safety.isSelected())));
-        applyPatch.setOnAction(event -> handler.accept(controller.applyState(GuiStatePatchFactory.fromText(patch.getText()))));
+        applyPatch.setOnAction(event -> unsafe(() -> controller.applyState(GuiStatePatchFactory.fromText(patch.getText()))));
         return new VBox(8, ui.explainer("Injection", GuiHelpText.forLabel("Raw DCE")),
                 grid, safety, new HBox(8, sendDte, sendDce, sendParsed, sendUrc, applyPatch));
     }

@@ -81,6 +81,9 @@ public record MatchSpec(
     }
 
     private boolean stringMatches(String value, String equals, String contains, Pattern regex) {
+        if (value == null) {
+            return equals == null && contains == null && regex == null;
+        }
         if (equals != null && !equals.equals(value)) {
             return false;
         }

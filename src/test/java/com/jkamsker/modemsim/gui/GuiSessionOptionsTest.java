@@ -4,6 +4,7 @@ import com.jkamsker.modemsim.transport.Parity;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GuiSessionOptionsTest {
     @Test
@@ -25,5 +26,14 @@ class GuiSessionOptionsTest {
                 "", "", "", "", "", "", "");
 
         assertThat(patch.apply(com.jkamsker.modemsim.state.ModemState.cellularReady()).network().stat()).isEqualTo(4);
+    }
+
+    @Test
+    void invalidGuiSessionOptionsUseClearMessage() {
+        assertThatThrownBy(() -> GuiSessionOptions.of(
+                "sierra-hl6-hl8-v20", "headless", "", "", "",
+                "seed", "115200", "8", "1", "NONE", "NONE"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid GUI session option");
     }
 }

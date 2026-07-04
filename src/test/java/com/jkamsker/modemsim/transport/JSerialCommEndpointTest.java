@@ -6,9 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class JSerialCommEndpointTest {
     @Test
-    void permissionDeniedOpenFailuresAreReportedAsPortBusy() {
-        assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 5)).isEqualTo("PORT_BUSY");
-        assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 13)).isEqualTo("PORT_BUSY");
+    void permissionDeniedOpenFailuresHaveDistinctDiagnostic() {
+        assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 1)).isEqualTo("PORT_PERMISSION_DENIED");
+        assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 5)).isEqualTo("PORT_PERMISSION_DENIED");
+        assertThat(JSerialCommEndpoint.diagnosticForOpenFailure(true, 13)).isEqualTo("PORT_PERMISSION_DENIED");
     }
 
     @Test

@@ -165,7 +165,15 @@ public final class JSerialCommEndpoint implements SerialEndpoint {
     }
 
     static String diagnosticForOpenFailure(boolean portPresent, int lastErrorCode) {
-        return portPresent ? "PORT_BUSY" : "PORT_NOT_FOUND";
+        if (!portPresent) {
+            return "PORT_NOT_FOUND";
+        }
+        return permissionDenied(lastErrorCode) ? "PORT_PERMISSION_DENIED" : "PORT_BUSY";
+    }
+
+    private static boolean permissionDenied(int lastErrorCode) {
+        int code = Math.abs(lastErrorCode);
+        return code == 1 || code == 5 || code == 13;
     }
 
     static ModemLines lineSnapshot(boolean dtr, boolean dsr, boolean dcd, boolean ri, boolean rts, boolean cts) {

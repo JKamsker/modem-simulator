@@ -35,6 +35,7 @@ final class XmlHardeningAcceptance {
     private void reject(String name, String xml, String expected) {
         try {
             Path path = Files.createTempFile("modemsim-xml-" + name, ".xml");
+            path.toFile().deleteOnExit();
             Files.writeString(path, xml);
             XmlSecurity.parse(path);
             throw new IllegalStateException(name + " XML was accepted");

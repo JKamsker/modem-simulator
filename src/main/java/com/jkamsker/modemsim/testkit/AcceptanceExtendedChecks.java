@@ -151,6 +151,7 @@ final class AcceptanceExtendedChecks {
     private MacroEngine replacementMacro() {
         try {
             Path path = Files.createTempFile("modemsim-audit-macro", ".xml");
+            path.toFile().deleteOnExit();
             Files.writeString(path, """
                     <?xml version="1.0" encoding="UTF-8"?>
                     <macros version="1.0">

@@ -102,6 +102,11 @@ public final class ModemEventJson {
         if (normalized.contains("port_busy")) {
             return "PORT_BUSY";
         }
+        if (normalized.contains("port_permission_denied")
+                || normalized.contains("permission")
+                || normalized.contains("access denied")) {
+            return "PORT_PERMISSION_DENIED";
+        }
         if (normalized.contains("not") && normalized.contains("found")) {
             return "PORT_NOT_FOUND";
         }

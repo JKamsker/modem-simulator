@@ -6,6 +6,7 @@ import com.jkamsker.modemsim.parser.RawBytes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class EventRedactor {
@@ -95,11 +96,11 @@ public final class EventRedactor {
     }
 
     private boolean rawLooksLikeCpinSet(RawBytes raw) {
-        return raw.ascii().toUpperCase().contains("+CPIN=");
+        return raw.ascii().toUpperCase(Locale.ROOT).contains("+CPIN=");
     }
 
     private boolean containsSmsStorageBody(RawBytes raw) {
-        String text = raw.ascii().toUpperCase();
+        String text = raw.ascii().toUpperCase(Locale.ROOT);
         return text.contains("+CMGR") || text.contains("+CMGL");
     }
 
@@ -120,7 +121,7 @@ public final class EventRedactor {
     }
 
     private boolean containsMsisdn(String text, ParsedCommand command) {
-        String upper = text.toUpperCase();
+        String upper = text.toUpperCase(Locale.ROOT);
         if (upper.contains("+CREG:") || upper.contains("+CGREG:") || upper.contains("+CEREG:")) {
             return false;
         }

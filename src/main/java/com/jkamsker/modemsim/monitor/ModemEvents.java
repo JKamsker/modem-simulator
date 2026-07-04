@@ -7,9 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.HexFormat;
-import java.util.List;
 
 public final class ModemEvents {
     private ModemEvents() {
@@ -54,12 +52,30 @@ public final class ModemEvents {
             ModemState before,
             ModemState after,
             String clockMode) {
+        return audit(sequence, sessionId, profile, type, direction, injectionType, result, raw, before, after,
+                clockMode, null, null);
+    }
+
+    public static ModemEvent audit(
+            long sequence,
+            String sessionId,
+            String profile,
+            EventType type,
+            Direction direction,
+            String injectionType,
+            String result,
+            RawBytes raw,
+            ModemState before,
+            ModemState after,
+            String clockMode,
+            String configHash,
+            Long sessionSeed) {
         EventRedactor rawRedactor = new EventRedactor();
         RedactedPayload payload = rawRedactor.redactRaw(type, direction, raw, null, false);
         EventStateRedactor stateRedactor = new EventStateRedactor();
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
-        RedactionInfo redaction = mergeRedaction(
+        RedactionInfo redaction = EventRedactions.merge(
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
         return new ModemEvent(
                 OffsetDateTime.now(),
@@ -75,10 +91,10 @@ public final class ModemEvents {
                 null,
                 null,
                 sha256(profile),
-                sha256("gui-session:" + profile),
+                configHash == null ? sha256("headless-session:" + profile) : configHash,
                 null,
                 sha256(String.valueOf(before)),
-                12345L,
+                sessionSeed,
                 clockMode,
                 null,
                 null,
@@ -91,30 +107,6 @@ public final class ModemEvents {
                 stateBeforeRedacted ? stateRedactor.redactSensitiveData(before) : before,
                 stateAfterRedacted ? stateRedactor.redactSensitiveData(after) : after,
                 redaction);
-    }
-
-    private static RedactionInfo mergeRedaction(
-            RedactionInfo payload,
-            boolean stateBeforeRedacted,
-            boolean stateAfterRedacted,
-            List<String> stateClasses) {
-        if (!stateBeforeRedacted && !stateAfterRedacted) {
-            return payload;
-        }
-        List<String> fields = new ArrayList<>(payload.fields());
-        List<String> classes = new ArrayList<>(payload.classes());
-        if (stateBeforeRedacted) {
-            fields.add("stateBefore");
-        }
-        if (stateAfterRedacted) {
-            fields.add("stateAfter");
-        }
-        for (String stateClass : stateClasses) {
-            if (!classes.contains(stateClass)) {
-                classes.add(stateClass);
-            }
-        }
-        return RedactionInfo.applied(fields, classes);
     }
 
     private static String sha256(String value) {

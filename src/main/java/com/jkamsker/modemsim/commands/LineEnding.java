@@ -2,6 +2,8 @@ package com.jkamsker.modemsim.commands;
 
 import com.jkamsker.modemsim.parser.RawBytes;
 
+import java.util.Locale;
+
 public enum LineEnding {
     CR("\r"),
     CRLF("\r\n"),
@@ -18,6 +20,6 @@ public enum LineEnding {
     }
 
     public static LineEnding from(String value) {
-        return value == null || value.isBlank() ? CR : LineEnding.valueOf(value.trim());
+        return value == null || value.isBlank() ? CR : LineEnding.valueOf(value.trim().toUpperCase(Locale.ROOT));
     }
 }

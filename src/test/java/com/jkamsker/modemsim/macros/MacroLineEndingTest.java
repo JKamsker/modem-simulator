@@ -53,6 +53,20 @@ class MacroLineEndingTest {
     }
 
     @Test
+    void lineEndingValuesAreCaseInsensitive() throws Exception {
+        HeadlessSession session = session("""
+                <macros version="1.0" lineEnding="crlf">
+                  <macro id="ping" phase="replace">
+                    <match command="AT"/>
+                    <then><emit line="+PING" lineEnding="lf"/></then>
+                  </macro>
+                </macros>
+                """);
+
+        assertThat(session.receive(RawBytes.ascii("AT\r")).outputAscii()).isEqualTo("+PING\n");
+    }
+
+    @Test
     void macroHashIsStableAcrossTextFileLineEndings() throws Exception {
         String xml = """
                 <?xml version="1.0" encoding="UTF-8"?>

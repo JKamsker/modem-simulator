@@ -50,24 +50,7 @@ public final class CoverageValidator {
     private final JsonSchemaValidator schemaValidator = new JsonSchemaValidator();
 
     public ValidationReport validate(Path coveragePath) {
-        ValidationReport report = schemaValidator.validateJson(
-                coveragePath, SchemaLocator.schemaPath("coverage.schema.json"));
-        if (!report.valid()) {
-            return report;
-        }
-        JsonNode root = schemaValidator.readJson(coveragePath);
-        int commandsTotal = root.path("commands_total").asInt();
-        int commandCount = root.path("commands").size();
-        if (commandsTotal != commandCount) {
-            report.error("commands_total must equal commands length");
-        }
-        validateStatusCounts(root, report);
-        validateRequiredCommands(root, report);
-        validateHandlers(root, report);
-        if (root.path("unknown").asInt(-1) != 0) {
-            report.error("coverage unknown must be zero");
-        }
-        return report;
+        return validateDocument(coveragePath).report();
     }
 
     public ValidationReport verifyV1Targets(Path directory) {
@@ -92,23 +75,50 @@ public final class CoverageValidator {
     }
 
     private void validateCoverageFile(Path path, ValidationReport report, Set<String> seen) {
-        ValidationReport fileReport;
+        CoverageDocument document;
         try {
-            fileReport = validate(path);
+            document = validateDocument(path);
         } catch (ValidationException e) {
             report.error(path.getFileName() + ": " + e.getMessage());
             return;
         }
+        ValidationReport fileReport = document.report();
         report.merge(fileReport);
         if (fileReport.valid()) {
-            JsonNode root = schemaValidator.readJson(path);
-            String profile = root.path("profile").asText();
+            String profile = document.root().path("profile").asText();
             if (!V1_TARGETS.contains(profile)) {
                 report.error("Unexpected v1 coverage report for " + profile);
             }
-            validateBuiltinCoverage(root, report);
+            validateBuiltinCoverage(document.root(), report);
             seen.add(profile);
         }
+    }
+
+    private CoverageDocument validateDocument(Path path) {
+        CoverageDocument document = readAndValidate(path);
+        ValidationReport report = document.report();
+        if (report.valid()) {
+            int commandsTotal = document.root().path("commands_total").asInt();
+            if (commandsTotal != document.root().path("commands").size()) {
+                report.error("commands_total must equal commands length");
+            }
+            validateStatusCounts(document.root(), report);
+            validateRequiredCommands(document.root(), report);
+            validateHandlers(document.root(), report);
+            if (document.root().path("unknown").asInt(-1) != 0) {
+                report.error("coverage unknown must be zero");
+            }
+        }
+        return document;
+    }
+
+    private CoverageDocument readAndValidate(Path path) {
+        JsonSchemaValidator.JsonDocument document = schemaValidator.validateJsonDocument(
+                path, SchemaLocator.schemaPath("coverage.schema.json"));
+        return new CoverageDocument(document.root(), document.report());
+    }
+
+    private record CoverageDocument(JsonNode root, ValidationReport report) {
     }
 
     private void validateBuiltinCoverage(JsonNode root, ValidationReport report) {

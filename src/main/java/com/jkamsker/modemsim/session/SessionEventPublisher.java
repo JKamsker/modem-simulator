@@ -5,6 +5,7 @@ import com.jkamsker.modemsim.macros.MacroDecision;
 import com.jkamsker.modemsim.macros.MacroEventAction;
 import com.jkamsker.modemsim.monitor.Direction;
 import com.jkamsker.modemsim.monitor.EventRedactor;
+import com.jkamsker.modemsim.monitor.EventRedactions;
 import com.jkamsker.modemsim.monitor.EventSink;
 import com.jkamsker.modemsim.monitor.EventStateRedactor;
 import com.jkamsker.modemsim.monitor.EventType;
@@ -148,7 +149,7 @@ final class SessionEventPublisher {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, command, smsBodyEntry, redactionContext);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
-        RedactionInfo redaction = SessionEventRedactions.merge(
+        RedactionInfo redaction = EventRedactions.merge(
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
         delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
@@ -190,7 +191,7 @@ final class SessionEventPublisher {
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 macroId, null, null, 0, false, null, cancelled ? "cancelled" : null, data, null,
                 stateRedacted ? stateRedactor.redactSensitiveData(state) : state,
-                SessionEventRedactions.merge(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
+                EventRedactions.merge(RedactionInfo.none(), false, stateRedacted, stateRedactor.classes(null, state))));
     }
 
     void publishAudit(
@@ -217,7 +218,7 @@ final class SessionEventPublisher {
         RedactedPayload payload = redactor.redactRaw(type, direction, raw, null, smsBodyEntry, redactionContext);
         boolean stateBeforeRedacted = stateRedactor.containsSensitiveData(before);
         boolean stateAfterRedacted = stateRedactor.containsSensitiveData(after);
-        RedactionInfo redaction = SessionEventRedactions.merge(
+        RedactionInfo redaction = EventRedactions.merge(
                 payload.redaction(), stateBeforeRedacted, stateAfterRedacted, stateRedactor.classes(before, after));
         delivery.publish(new ModemEvent(
                 timestamp(), clock.nowNanos(), ++sequence, sessionId, type, direction,
@@ -247,7 +248,7 @@ final class SessionEventPublisher {
                 port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                 decision.macroId(), null, null, 0, false, "MacroEngine", "matched", null, visibleState,
                 visibleState,
-                SessionEventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
+                EventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
     }
 
     void publishMacroEvents(List<MacroEventAction> actions, String macroId, ModemState state) {
@@ -262,7 +263,7 @@ final class SessionEventPublisher {
                     port, portRole, profileHash, configHash, macroHash, initialStateHash, sessionSeed, clockMode,
                     macroId, null, null, 0, false, "MacroEngine", action.type(), null,
                     visibleState, visibleState,
-                    SessionEventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
+                    EventRedactions.merge(RedactionInfo.none(), stateRedacted, stateRedacted, stateRedactor.classes(state, state))));
         }
     }
 

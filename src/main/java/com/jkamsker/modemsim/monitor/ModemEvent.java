@@ -36,4 +36,12 @@ public record ModemEvent(
         ModemState stateAfter,
         RedactionInfo redaction
 ) {
+    public ModemEvent {
+        parsedCommand = copy(parsedCommand);
+        scheduler = copy(scheduler);
+    }
+
+    private static Map<String, Object> copy(Map<String, Object> value) {
+        return value == null ? null : Map.copyOf(value);
+    }
 }

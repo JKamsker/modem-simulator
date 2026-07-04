@@ -69,19 +69,17 @@ public final class CellularHandler implements CommandHandler {
         if (state.sim().state() != SimState.READY) {
             return simStateError(state);
         }
-        if (command.kind().name().endsWith("TEST")) {
-            return new CommandResult(state, List.of(new TextFrame("+CSQ: (0-31,99),(0-7,99)")),
+        return switch (command.kind()) {
+            case EXTENDED_TEST -> new CommandResult(state, List.of(new TextFrame("+CSQ: (0-31,99),(0-7,99)")),
                     ResultCode.OK, "CellularHandler", false);
-        }
-        if (!command.kind().name().endsWith("EXEC")) {
-            return CommandResult.invalidParameter(state, "CellularHandler");
-        }
-        return new CommandResult(
-                state,
-                List.of(new TextFrame("+CSQ: " + state.signal().rssi() + "," + state.signal().ber())),
-                ResultCode.OK,
-                "CellularHandler",
-                false);
+            case EXTENDED_EXEC -> new CommandResult(
+                    state,
+                    List.of(new TextFrame("+CSQ: " + state.signal().rssi() + "," + state.signal().ber())),
+                    ResultCode.OK,
+                    "CellularHandler",
+                    false);
+            default -> CommandResult.invalidParameter(state, "CellularHandler");
+        };
     }
 
     private CommandResult cpin(ModemState state, ParsedCommand command) {
@@ -174,16 +172,16 @@ public final class CellularHandler implements CommandHandler {
         if (state.sim().state() != SimState.READY) {
             return simStateError(state);
         }
-        if (command.kind().name().endsWith("READ")) {
-            var operator = state.network().operator();
-            String line = "+COPS: " + operator.selectionModeCode() + ","
-                    + operator.formatCode() + ",\"" + operator.displayName() + "\"," + state.network().act();
-            return line(state, line);
-        }
-        if (command.kind().name().endsWith("TEST")) {
-            return line(state, "+COPS: (0,1,2,3,4),(0,1,2)");
-        }
-        return CommandResult.ok(state, "CellularHandler");
+        return switch (command.kind()) {
+            case EXTENDED_READ -> {
+                var operator = state.network().operator();
+                String line = "+COPS: " + operator.selectionModeCode() + ","
+                        + operator.formatCode() + ",\"" + operator.displayName() + "\"," + state.network().act();
+                yield line(state, line);
+            }
+            case EXTENDED_TEST -> line(state, "+COPS: (0,1,2,3,4),(0,1,2)");
+            default -> CommandResult.ok(state, "CellularHandler");
+        };
     }
 
     private CommandResult cmee(ModemState state, ParsedCommand command) {

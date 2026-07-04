@@ -36,26 +36,32 @@ public final class MacroLoader {
     }
 
     public MacroSet load(Path path) {
-        ValidationReport report = validate(path);
-        report.throwIfInvalid();
-        return parse(path);
+        ValidatedMacro validated = validateMacro(path);
+        validated.report().throwIfInvalid();
+        return validated.macroSet();
     }
 
     public ValidationReport validate(Path path) {
+        return validateMacro(path).report();
+    }
+
+    private ValidatedMacro validateMacro(Path path) {
         ValidationReport report = ValidationReport.ok();
+        MacroSet macroSet = null;
         try {
             XmlSecurity.validate(path, SchemaLocator.schemaPath("macro-schema-draft.xsd"));
-            xmlSemanticValidator.validate(XmlSecurity.parse(path).getDocumentElement(), report);
-            validateCompiledSemantics(parse(path), report);
+            Element root = XmlSecurity.parse(path).getDocumentElement();
+            xmlSemanticValidator.validate(root, report);
+            macroSet = parse(root);
+            validateCompiledSemantics(macroSet, report);
         } catch (Exception e) {
             report.error(e.getMessage());
         }
-        return report;
+        return new ValidatedMacro(macroSet, report);
     }
 
-    private MacroSet parse(Path path) {
+    private MacroSet parse(Element root) {
         try {
-            Element root = XmlSecurity.parse(path).getDocumentElement();
             List<MacroRule> rules = new ArrayList<>();
             int order = 0;
             String defaultLineEnding = lineEnding(root);
@@ -70,8 +76,11 @@ public final class MacroLoader {
             return new MacroSet(MacroSet.effectiveHash(randomSeed, defaultLineEnding, rules),
                     randomSeed, defaultLineEnding, rules);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Cannot parse macro file: " + path, e);
+            throw new IllegalArgumentException("Cannot parse macro file", e);
         }
+    }
+
+    private record ValidatedMacro(MacroSet macroSet, ValidationReport report) {
     }
 
     private MacroRule parseMacro(Element macro, int order, String defaultLineEnding) {

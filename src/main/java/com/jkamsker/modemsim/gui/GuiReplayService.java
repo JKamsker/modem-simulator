@@ -54,7 +54,7 @@ final class GuiReplayService {
             HeadlessSession session, List<ReplayStep> steps, boolean unsafeAllowed, boolean confirmed, boolean divergenceConfirmed,
             boolean virtualClock, Profile profile, long seed, String port, MacroEngine macros) {
         if (!unsafeAllowed || !confirmed) {
-            throw new IllegalStateException("Unsafe DCE transmit is disabled");
+            return new ReplaySummary("unsafe transmit disabled", "Unsafe DCE transmit is disabled", emptyResponse());
         }
         ReplayReport hashReport = metadataReport(steps, virtualClock, profile, seed, port, macros);
         if (!hashReport.valid() && (hashReport.hasHardFailures() || !divergenceConfirmed)) {

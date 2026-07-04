@@ -52,6 +52,10 @@ class StateUtilityCoverageTest {
         assertThat(first.compareTo(second)).isNegative();
         assertThat(first.compareTo(third)).isNegative();
         assertThat(second.compareTo(first)).isPositive();
+    }
+
+    @Test
+    void resultCodeShortTextUsesNumericCode() {
         assertThat(ResultCode.OK.text(false)).isEqualTo("0");
     }
 }

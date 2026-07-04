@@ -32,7 +32,12 @@ final class ProfileXmlSemanticValidator {
     void validateRoot(Element root, ValidationReport report) {
         Map<String, Element> profiles = new LinkedHashMap<>();
         for (Element profile : Dom.children(root, "profile")) {
-            profiles.put(profile.getAttribute("id"), profile);
+            String id = profile.getAttribute("id");
+            if (profiles.containsKey(id)) {
+                report.error(id + ": duplicate profile id");
+            } else {
+                profiles.put(id, profile);
+            }
         }
         localProfiles = Map.copyOf(profiles);
         for (String id : profiles.keySet()) {

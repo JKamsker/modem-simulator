@@ -1,5 +1,6 @@
 package com.jkamsker.modemsim.commands;
 
+import com.jkamsker.modemsim.parser.CommandKind;
 import com.jkamsker.modemsim.parser.ParsedCommand;
 import com.jkamsker.modemsim.profiles.Profile;
 import com.jkamsker.modemsim.state.CallMode;
@@ -45,20 +46,24 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cmgs(ModemState state, ParsedCommand command) {
-        if (command.kind().name().endsWith("SET")) {
-            if (!validCmgsArguments(state, command.arguments())) {
-                return CommandResult.invalidParameter(state, "SmsHandler");
-            }
-            CallMode mode = state.sms().textMode() ? CallMode.SMS_TEXT_ENTRY : CallMode.SMS_PDU_ENTRY;
-            ModemState entry = state.withCall(state.call().withMode(mode));
-            return new CommandResult(
-                    entry,
-                    List.of(new PromptFrame(new ResponseFormatter(state).prompt())),
-                    null,
-                    "SmsHandler",
-                    true);
+        return switch (command.kind()) {
+            case EXTENDED_SET -> cmgsSet(state, command.arguments());
+            default -> CommandResult.invalidParameter(state, "SmsHandler");
+        };
+    }
+
+    private CommandResult cmgsSet(ModemState state, String arguments) {
+        if (!validCmgsArguments(state, arguments)) {
+            return CommandResult.invalidParameter(state, "SmsHandler");
         }
-        return CommandResult.invalidParameter(state, "SmsHandler");
+        CallMode mode = state.sms().textMode() ? CallMode.SMS_TEXT_ENTRY : CallMode.SMS_PDU_ENTRY;
+        ModemState entry = state.withCall(state.call().withMode(mode));
+        return new CommandResult(
+                entry,
+                List.of(new PromptFrame(new ResponseFormatter(state).prompt())),
+                null,
+                "SmsHandler",
+                true);
     }
 
     private CommandResult cmgr(ModemState state, ParsedCommand command) {
@@ -74,7 +79,7 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cmgl(ModemState state, ParsedCommand command) {
-        if (command.kind().name().endsWith("TEST")) {
+        if (command.kind() == CommandKind.EXTENDED_TEST) {
             return line(state, "+CMGL: (\"REC UNREAD\",\"REC READ\",\"STO UNSENT\",\"STO SENT\",\"ALL\")");
         }
         List<ResponseFrame> frames = new ArrayList<>();
@@ -116,29 +121,32 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult cpms(ModemState state, ParsedCommand command) {
-        if (command.kind().name().endsWith("READ")) {
-            return line(state, "+CPMS: " + memoryTuple(state, state.sms().storage().name()) + ","
+        return switch (command.kind()) {
+            case EXTENDED_READ -> line(state, "+CPMS: " + memoryTuple(state, state.sms().storage().name()) + ","
                     + memoryTuple(state, state.sms().writeStorage().name()) + ","
                     + memoryTuple(state, state.sms().receiveStorage().name()));
-        }
-        if (command.kind().name().endsWith("SET")) {
-            String[] stores = command.arguments().split(",", -1);
-            SmsStorage[] selected = new SmsStorage[3];
-            for (String store : stores) {
-                if (!validStorage(unquote(store))) {
-                    return CommandResult.invalidParameter(state, "SmsHandler");
-                }
-            }
-            try {
-                selected[0] = SmsStorage.valueOf(unquote(stores[0]));
-                selected[1] = stores.length > 1 ? SmsStorage.valueOf(unquote(stores[1])) : selected[0];
-                selected[2] = stores.length > 2 ? SmsStorage.valueOf(unquote(stores[2])) : selected[1];
-                return CommandResult.ok(state.withSms(state.sms().withStorages(selected[0], selected[1], selected[2])), "SmsHandler");
-            } catch (IllegalArgumentException e) {
+            case EXTENDED_SET -> cpmsSet(state, command.arguments());
+            default -> line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
+        };
+    }
+
+    private CommandResult cpmsSet(ModemState state, String arguments) {
+        String[] stores = arguments.split(",", -1);
+        SmsStorage[] selected = new SmsStorage[3];
+        for (String store : stores) {
+            if (!validStorage(unquote(store))) {
                 return CommandResult.invalidParameter(state, "SmsHandler");
             }
         }
-        return line(state, "+CPMS: (\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\"),(\"ME\",\"SM\",\"MT\")");
+        try {
+            selected[0] = SmsStorage.valueOf(unquote(stores[0]));
+            selected[1] = stores.length > 1 ? SmsStorage.valueOf(unquote(stores[1])) : selected[0];
+            selected[2] = stores.length > 2 ? SmsStorage.valueOf(unquote(stores[2])) : selected[1];
+            return CommandResult.ok(state.withSms(state.sms().withStorages(selected[0], selected[1], selected[2])),
+                    "SmsHandler");
+        } catch (IllegalArgumentException e) {
+            return CommandResult.invalidParameter(state, "SmsHandler");
+        }
     }
 
     private String memoryTuple(ModemState state, String store) {
@@ -147,15 +155,15 @@ public final class SmsHandler implements CommandHandler {
     }
 
     private CommandResult csca(ModemState state, ParsedCommand command) {
-        if (command.kind().name().endsWith("READ")) {
-            return line(state, "+CSCA: \"" + state.sms().smsc() + "\",145");
-        }
-        if (command.kind().name().endsWith("SET")) {
-            String smsc = validSmsc(command.arguments());
-            return smsc == null ? CommandResult.invalidParameter(state, "SmsHandler")
-                    : CommandResult.ok(state.withSms(state.sms().withSmsc(smsc)), "SmsHandler");
-        }
-        return CommandResult.invalidParameter(state, "SmsHandler");
+        return switch (command.kind()) {
+            case EXTENDED_READ -> line(state, "+CSCA: \"" + state.sms().smsc() + "\",145");
+            case EXTENDED_SET -> {
+                String smsc = validSmsc(command.arguments());
+                yield smsc == null ? CommandResult.invalidParameter(state, "SmsHandler")
+                        : CommandResult.ok(state.withSms(state.sms().withSmsc(smsc)), "SmsHandler");
+            }
+            default -> CommandResult.invalidParameter(state, "SmsHandler");
+        };
     }
 
     private CommandResult cscs(ModemState state, ParsedCommand command) {

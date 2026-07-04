@@ -150,9 +150,7 @@
 
   <xs:simpleType name="LineEndingType">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="CR"/>
-      <xs:enumeration value="CRLF"/>
-      <xs:enumeration value="LF"/>
+      <xs:pattern value="[cC][rR]([lL][fF])?|[lL][fF]"/>
     </xs:restriction>
   </xs:simpleType>
 

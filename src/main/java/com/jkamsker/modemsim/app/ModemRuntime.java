@@ -52,7 +52,9 @@ final class ModemRuntime {
         Path scenario = modemPort.initialScenario() == null ? config.initialScenario() : modemPort.initialScenario();
         InitialScenarioLoader scenarios = new InitialScenarioLoader();
         profile = profile.withInitialState(scenarios.apply(scenario, profile.initialState()));
-        List<InitialScenarioStep> scenarioSteps = scenarios.delayedSteps(scenario);
+        List<InitialScenarioStep> scenarioSteps = scenarios.delayedSteps(scenario).stream()
+                .sorted(java.util.Comparator.comparingLong(InitialScenarioStep::atMs))
+                .toList();
         MacroEngine macros = config.macros() == null ? MacroEngine.empty()
                 : new MacroEngine(new MacroLoader(timerIds(config.macroTimers()), true).load(config.macros()));
         SerialEndpoint modemEndpoint = endpointFactory.create(modemPort);
@@ -272,6 +274,9 @@ final class ModemRuntime {
                 if (config.strictOptionalPorts()) {
                     throw e;
                 }
+            } catch (RuntimeException e) {
+                endpoint.close();
+                throw e;
             }
         }
     }

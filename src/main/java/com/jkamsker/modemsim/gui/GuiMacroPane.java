@@ -41,7 +41,13 @@ final class GuiMacroPane {
     }
 
     private void reload(TextField file, Label hash, Label errors, Label customResponses, Label enabled) {
-        MacroSummary summary = controller.reloadMacros(Path.of(file.getText()));
+        MacroSummary summary;
+        try {
+            summary = controller.reloadMacros(Path.of(file.getText()));
+        } catch (RuntimeException e) {
+            errors.setText(e.getMessage());
+            return;
+        }
         hash.setText(summary.hash().isBlank() ? "sha256:" : summary.hash());
         errors.setText(summary.errors());
         customResponses.setText(summary.customResponses());

@@ -11,6 +11,9 @@ import java.util.List;
 
 @FunctionalInterface
 public interface SessionCommand {
+    MacroStateMutator MACRO_STATE_MUTATOR = new MacroStateMutator();
+    FaultService FAULT_SERVICE = new FaultService();
+
     SessionResponse execute(HeadlessSession session);
 
     static SessionCommand receive(RawBytes bytes) {
@@ -22,11 +25,11 @@ public interface SessionCommand {
     }
 
     static MacroStateCommand macroSet(MacroStatePatch patch) {
-        return state -> new MacroStateMutator().apply(state, List.of(patch));
+        return state -> MACRO_STATE_MUTATOR.apply(state, List.of(patch));
     }
 
     static MacroStateCommand macroFault(FaultAction action) {
-        return state -> new FaultService().apply(state, action);
+        return state -> FAULT_SERVICE.apply(state, action);
     }
 
     @FunctionalInterface

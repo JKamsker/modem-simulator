@@ -166,7 +166,7 @@ public final class HeadlessSession implements SessionActor {
     public synchronized SessionResponse injectDce(RawBytes bytes, String injectionType) {
         int start = eventCount(); long startedNanos = clock.nowNanos(); ModemState before = state;
         events.publishAudit(EventType.INJECTION, Direction.DCE_TO_DTE, injectionType, null, bytes, before, before);
-        events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null);
+        if (!bytes.isEmpty()) { events.publish(EventType.TX_BYTES, Direction.DCE_TO_DTE, bytes, null, null, state, null); }
         publishInjectionResult(Direction.DCE_TO_DTE, injectionType, bytes, before, startedNanos, start, false, bytes);
         return response(bytes, start);
     }

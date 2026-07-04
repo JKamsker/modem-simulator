@@ -98,11 +98,10 @@ public final class AcceptanceSuite {
     }
 
     private void cpin() {
-        Profile profile = BuiltinProfiles.acceptanceSierra().withInitialState(
-                BuiltinProfiles.acceptanceSierra().initialState()
-                        .withSim(BuiltinProfiles.acceptanceSierra().initialState().sim()
-                                .withState(SimState.SIM_PIN_REQUIRED))
-                        .withNetwork(BuiltinProfiles.acceptanceSierra().initialState().network().withRegistration(0)));
+        Profile base = BuiltinProfiles.acceptanceSierra();
+        Profile profile = base.withInitialState(base.initialState()
+                .withSim(base.initialState().sim().withState(SimState.SIM_PIN_REQUIRED))
+                .withNetwork(base.initialState().network().withRegistration(0)));
         HeadlessSession s = new HeadlessSession("main", profile, 12345);
         requireContains(s.receive(RawBytes.ascii("AT+CPIN?\r")).outputAscii(), "SIM PIN");
         requireContains(s.receive(RawBytes.ascii("AT+CPIN=\"0000\"\r")).outputAscii(), "ERROR");

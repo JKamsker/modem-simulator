@@ -17,16 +17,16 @@ public final class ProfileXmlLoader {
     private final ProfileXmlStateParser stateParser = new ProfileXmlStateParser();
 
     public Profile load(Path xmlPath) {
-        ValidationReport report = validate(xmlPath);
-        report.throwIfInvalid();
-        Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+        ValidatedRoot validated = validateRoot(xmlPath);
+        validated.report().throwIfInvalid();
+        Element root = validated.root();
         return new ProfileXmlInheritanceResolver(this, root).resolve(ProfileXmlSelector.single(root));
     }
 
     public Profile load(Path xmlPath, String profileId) {
-        ValidationReport report = validate(xmlPath);
-        report.throwIfInvalid();
-        Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+        ValidatedRoot validated = validateRoot(xmlPath);
+        validated.report().throwIfInvalid();
+        Element root = validated.root();
         return new ProfileXmlInheritanceResolver(this, root).resolve(ProfileXmlSelector.byId(root, profileId));
     }
 
@@ -35,10 +35,15 @@ public final class ProfileXmlLoader {
     }
 
     public ValidationReport validate(Path xmlPath) {
+        return validateRoot(xmlPath).report();
+    }
+
+    private ValidatedRoot validateRoot(Path xmlPath) {
         ValidationReport report = ValidationReport.ok();
+        Element root = null;
         try {
             XmlSecurity.validate(xmlPath, SchemaLocator.schemaPath("modem-profile.schema.xsd"));
-            Element root = XmlSecurity.parse(xmlPath).getDocumentElement();
+            root = XmlSecurity.parse(xmlPath).getDocumentElement();
             Set<String> profileIds = xmlSemanticValidator.profileIds(root);
             ProfileXmlInheritanceResolver resolver = new ProfileXmlInheritanceResolver(this, root);
             xmlSemanticValidator.validateRoot(root, report);
@@ -49,8 +54,12 @@ public final class ProfileXmlLoader {
         } catch (Exception e) {
             report.error(e.getMessage());
         }
-        return report;
+        return new ValidatedRoot(root, report);
     }
+
+    private record ValidatedRoot(Element root, ValidationReport report) {
+    }
+
     Profile parseProfile(Element profile) {
         Dialect dialect = parseDialect(Dom.child(profile, "dialect"));
         ProfileXmlMetadata metadata = new ProfileXmlMetadataParser().parse(profile);

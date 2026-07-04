@@ -210,6 +210,7 @@ public final class GuiAcceptanceHarness {
 
     private Path timerMacro(String timerId) throws java.io.IOException {
         Path path = Files.createTempFile("modemsim-timer-macro", ".xml");
+        path.toFile().deleteOnExit();
         Files.writeString(path, """
                 <?xml version="1.0" encoding="UTF-8"?>
                 <macros version="1.0">

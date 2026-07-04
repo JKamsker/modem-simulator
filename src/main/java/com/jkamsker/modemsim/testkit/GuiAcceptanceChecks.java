@@ -70,9 +70,7 @@ final class GuiAcceptanceChecks {
         NetworkRuntime network = base.initialState().network();
         var delays = new LinkedHashMap<>(network.delays());
         delays.put("sms-submit", new NetworkDelay("sms-submit", delayMs, delayMs));
-        return base.withInitialState(base.initialState().withNetwork(new NetworkRuntime(
-                network.cregN(), network.stat(), network.lac(), network.ci(), network.act(),
-                network.rejectCauseType(), network.rejectCause(), network.operator(), network.smsRateLimit(), delays)));
+        return base.withInitialState(base.initialState().withNetwork(network.withDelays(delays)));
     }
 
     private void require(boolean condition) {

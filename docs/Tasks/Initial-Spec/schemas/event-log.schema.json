@@ -91,6 +91,7 @@
       "enum": [
         "PORT_NOT_FOUND",
         "PORT_BUSY",
+        "PORT_PERMISSION_DENIED",
         "UNSUPPORTED_PARAMETERS",
         "PORT_LOST",
         "RX_OVERFLOW",
@@ -571,6 +572,7 @@
             "enum": [
               "PORT_NOT_FOUND",
               "PORT_BUSY",
+              "PORT_PERMISSION_DENIED",
               "UNSUPPORTED_PARAMETERS"
             ]
           }

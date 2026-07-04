@@ -45,6 +45,7 @@ final class AcceptanceCellularChecks {
     private void requireInvalidRssiProfileRejected() {
         try {
             var path = Files.createTempFile("modemsim-invalid-rssi-profile", ".xml");
+            path.toFile().deleteOnExit();
             Files.writeString(path, """
                     <?xml version="1.0" encoding="UTF-8"?>
                     <modem-simulator version="1.0">

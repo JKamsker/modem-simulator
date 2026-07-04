@@ -165,9 +165,10 @@ class GuiSessionControllerTest {
         Path log = matchingReplayLog(tempDir.resolve("session.jsonl"));
 
         assertThat(controller().replayValidate(log)).contains("OK steps=1");
-        assertThatThrownBy(() -> controller().replay(log, "play-to-dte", true, false))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Unsafe DCE transmit");
+        ReplaySummary blocked = controller().replay(log, "play-to-dte", true, false);
+        assertThat(blocked.hashStatus()).isEqualTo("unsafe transmit disabled");
+        assertThat(blocked.message()).contains("Unsafe DCE transmit");
+        assertThat(blocked.response().outputHex()).isEmpty();
         ReplaySummary play = controller(true).replay(log, "play-to-dte", true, true);
         assertThat(play.message()).contains("PLAY_TO_DTE");
         assertThat(play.response().outputAscii()).isEqualTo("\r\nOK\r\n");

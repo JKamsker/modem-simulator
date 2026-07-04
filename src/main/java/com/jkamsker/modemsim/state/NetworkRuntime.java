@@ -36,6 +36,11 @@ public record NetworkRuntime(
                 operator, smsRateLimit, delays);
     }
 
+    public NetworkRuntime withDelays(Map<String, NetworkDelay> value) {
+        return new NetworkRuntime(cregN, stat, lac, ci, act, rejectCauseType, rejectCause,
+                operator, smsRateLimit, value);
+    }
+
     public NetworkRuntime withRegistration(int value) {
         if (value == 1 || value == 5) {
             NetworkRuntime fallback = registered();

@@ -263,31 +263,4 @@ class EventLogTest {
                 String.valueOf(event.stateAfter())).map(String::valueOf).toList());
     }
 
-    private static final class DropOnceSink implements com.jkamsker.modemsim.monitor.DropAwareEventSink {
-        private final java.util.List<ModemEvent> events = new java.util.ArrayList<>();
-        private boolean dropNext;
-
-        @Override
-        public void publish(ModemEvent event) {
-            events.add(event);
-        }
-
-        @Override
-        public boolean publishDroppable(ModemEvent event) {
-            if (dropNext) {
-                dropNext = false;
-                return false;
-            }
-            events.add(event);
-            return true;
-        }
-
-        void dropNextDroppable() {
-            dropNext = true;
-        }
-
-        java.util.List<ModemEvent> events() {
-            return java.util.List.copyOf(events);
-        }
-    }
 }

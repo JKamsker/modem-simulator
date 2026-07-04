@@ -19,7 +19,7 @@ final class SessionRebootTimer {
     }
 
     void arm(ModemState state) {
-        readyAtNanos = state.modem().lifecycle() == ModemLifecycle.REBOOTING && state.modem().bootDelayMs() > 0
+        readyAtNanos = state.modem().lifecycle() == ModemLifecycle.REBOOTING && state.modem().bootDelayMs() >= 0
                 ? clock.nowNanos() + state.modem().bootDelayMs() * 1_000_000L
                 : -1;
     }
