@@ -54,7 +54,7 @@ Da keine belastbare offizielle TD-20/TD20-Quelle gefunden wurde, wird `westermo-
 
 - `A/` muss ohne CR als Repeat-Last-Command unterstuetzt werden, wenn das Profil dies vorsieht.
 - `+++` muss als Escape-Sequenz aus dem Online/Data Mode erkannt werden.
-- S-Register muessen pro Profil mit Default, Min/Max und Schreibbarkeit definiert werden.
+- S-Register muessen pro Profil mit Default, Min/Max und Schreibbarkeit definiert und zur Laufzeit durchgesetzt werden. Eine globale, fuer alle Westermo-/Hayes-Profile identische Min/Max-Tabelle reicht nicht, wenn ein Zielprofil abweichende Grenzen dokumentiert.
 - `AT&W` speichert profilabhaengige Settings persistent.
 - `AT&V` oder herstellerspezifische Anzeigecommands geben Profilkonfiguration aus.
 - Remote-Konfigurations-Escape-Sequenzen muessen als optionaler Profilblock modellierbar sein.
@@ -97,4 +97,4 @@ coverage:
 
 - Offizielles TD20-Manual oder Geraetedump beschaffen.
 - Pruefen, ob "TD20" eventuell eine interne Bezeichnung, Schreibvariante oder Verwechslung mit TD-22/TD-23/TD-32/TD-33/TD-36 ist.
-- Fuer jedes TD-Profil S-Registertabellen aus dem jeweiligen Manual in eine maschinenlesbare Coverage-Datei ueberfuehren.
+- Fuer post-v1 TD-Candidates S-Registertabellen aus dem jeweiligen Manual in eine maschinenlesbare Coverage-Datei ueberfuehren; v1-Targets muessen bereits eine effektive Registertabelle besitzen.

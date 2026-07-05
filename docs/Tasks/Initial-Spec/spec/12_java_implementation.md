@@ -3,7 +3,7 @@
 ## Paketstruktur
 
 ```text
-com.alegs3.modemsim
+com.jkamsker.modemsim
   app
   transport
   parser
@@ -35,7 +35,9 @@ public interface CommandHandler {
 public interface Profile {
     String id();
     Dialect dialect();
+    ErrorPolicy errorPolicy();
     InitialState initialState();
+    RegisterCatalog registers();
     Optional<CommandHandler> resolve(ParsedCommand command);
 }
 
@@ -54,6 +56,8 @@ public interface EventSink {
 ```
 
 Es gibt kein oeffentliches `StateStore.update(...)` fuer beliebige Threads. State-Aenderungen laufen als `SessionCommand` ueber den `SessionActor`.
+
+Der effektive `RegisterCatalog` entsteht aus der Profilvererbung. Jeder Eintrag enthaelt Name, Default, Min, Max, Schreibbarkeit und Persistenz. Semantic-Validation lehnt Default-Werte ausserhalb Min/Max, `min > max`, doppelte Register nach Linearisierung ohne klare Ueberschreibung und Schreibversuche auf nicht schreibbare Register ab. Handler duerfen keine globale S-Register-Min/Max-Tabelle verwenden, wenn das aktive Profil eine abweichende Grenze definiert.
 
 ## Parser-Objekte
 
@@ -167,6 +171,14 @@ enum PortRole {
 
 Bytes vom `MANUAL_DCE_INJECTION`-Port werden als `raw-dce-to-dte` Injection an den Hauptport gesendet. Der `SNIFFER`-Port ist read-only gegenueber der Session: Eingaben werden ignoriert und als Diagnose geloggt, aber nicht an Parser, State oder Hauptport weitergegeben.
 
+Open-Time-Fehler des Transport-Layers tragen eine maschinenlesbare Kategorie (`PORT_NOT_FOUND`, `PORT_BUSY`, `PORT_PERMISSION_DENIED`, `UNSUPPORTED_PARAMETERS`). Laufzeitfehler tragen getrennte Kategorien (`PORT_LOST`, `RX_OVERFLOW`, `TX_OVERFLOW`). Die Runtime mappt diese Kategorien in Eventlog-Diagnosen, Start-/Sidecar-Fehler und Fail-Closed-Verhalten statt nur eine generische Exception-Message zu zeigen.
+
+## Event-Publisher
+
+Der Event-Publisher misst `latencyMs` fuer Handler-, Macro- und Injection-Ergebnisse aus der Session-Clock. `0.0` ist nur gueltig, wenn die gemessene Dauer wirklich null ist; ein hart codierter Platzhalter ist ungueltig.
+
+Der Publisher darf eine bounded Queue fuer nicht audit-kritische Telemetrie verwenden. Wird dabei gedroppt, muss er `droppedEventCount` akkumulieren und ein `DROPPED_EVENTS`-Event erzeugen. Audit-kritische Events aus Kapitel 14 werden synchron oder mit garantiertem Durable-Ack persistiert.
+
 ## Faults und Custom Responses
 
 Makros und Szenarien koennen Faults als `SessionCommand` erzeugen:
@@ -237,7 +249,9 @@ Verbindliche v1-Entscheidungen:
 | Packaging | OS-spezifische App-Images oder ZIP mit Launcher-Skripten |
 | CI OS | Windows 11 und Linux LTS |
 
-Der Build darf keine dynamischen Dependency-Versionen verwenden. Launcher, Tests und Packaging muessen die fuer native Bibliotheken notwendigen Java-24-Flags setzen, insbesondere `--enable-native-access` fuer Module/Classpath, die `jSerialComm` laden. Die konkrete Modulbezeichnung muss aus dem Build-Artefakt kommen und in CI geloggt werden.
+Der Build darf keine dynamischen Dependency-Versionen verwenden. Launcher, Tests und Packaging muessen die fuer native Bibliotheken notwendigen Java-24-Flags setzen, insbesondere `--enable-native-access` fuer Module/Classpath, die `jSerialComm` laden. Bei Classpath-Distributionen ist `--enable-native-access=ALL-UNNAMED` zulaessig und muss in Launcher-Skripten sowie Test-`argLine` stehen; bei modularer Distribution muss die konkrete Modulbezeichnung aus dem Build-Artefakt kommen und in CI geloggt werden.
+
+Der Source-Size-Guard ist Teil von `mvn verify` und muss auf Linux und Windows build-brechend sein. Maven muss eine plattformneutrale Fehlerweitergabe verwenden, damit der Guard nicht von WSL, Git-Bash-Aufloesung oder Windows-Backslash-Escaping abhaengt.
 
 ## XML-Profilladen
 
@@ -250,12 +264,15 @@ Mapping:
 | `profile/@id` | `Profile.id` | XSD-`ProfileIdType`, Ziffer am Anfang erlaubt. |
 | `profile/@extends` | `Profile.parents` | Geordnete Liste. |
 | `profile/@vendor`, `@status`, `@profileKind` | `ProfileMetadata` | Pflicht fuer Runtime-Profile. |
+| `profile/error-policy` | `Profile.errorPolicy` | Effektive Fehlerpolicy; bei Basisprofilen ggf. Loader-Default. |
 | `initial-state/sim/@state` | `SimState.state` | Expliziter Startzustand. |
 | `initial-state/sim/@pinRef` | `SimState.pinRef` | Secret-Name, Wert nie loggen. |
+| `initial-state/sim/@pukRef` | `SimState.pukRef` | Secret-Name, Wert nie loggen. |
 | `initial-state/network/operator` | `NetworkState.operator` | Quelle fuer `AT+COPS?`. |
 | `initial-state/network/sms-rate-limit` | `NetworkState.smsRateLimit` | Netzseitige SMS-Annahmerate. |
 | `initial-state/network/delays/delay` | `NetworkState.delays` | Min-/Max-Delay pro Operation fuer den Response-Scheduler. |
 | `initial-state/network/@cregN` und `@stat` | `NetworkState.registration` | Quelle fuer `AT+CREG?`. |
+| `initial-state/call/@mode`, `@carrier`, `@incomingNumber` | `CallState` | Quelle fuer `ATA`, `ATD`, `ATH`, `ATO`. |
 | `initial-state/modem-lines` | `ModemLines` | DTR/DSR/DCD/RI/RTS/CTS Startwerte. |
 
 ## XML-Hardening
@@ -273,4 +290,4 @@ modemsim validate-scenario examples/scenario.no-network.xml
 modemsim replay logs/session.jsonl --mode validate-recompute --profile westermo-td22-6177-2203
 ```
 
-Die CLI dient v1 fuer Start, Validierung, Headless-Tests und Replay-Automatisierung. Interaktive Control-Pane-Funktionen wie State-Editor, Injection, Live-Logs und Macro-Control sind GUI-Funktionen.
+Die CLI dient v1 fuer Start, Validierung, Headless-Tests und Replay-Automatisierung. Interaktive Control-Pane-Funktionen wie State-Editor, Injection, Live-Logs und Macro-Control sind GUI-Funktionen. Fuer Replay-Playback muss die CLI eine explizite Divergenzbestaetigung anbieten; `validate-recompute` bleibt fail-closed.

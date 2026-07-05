@@ -45,5 +45,6 @@ mandatory_smoke_tests == passed
 identity_commands == deterministic
 error_policy == documented
 line_endings == documented
+effective_register_catalog == valid
 coverage_schema == passed
 ```

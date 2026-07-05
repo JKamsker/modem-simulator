@@ -51,7 +51,7 @@ Redaction gilt fuer:
 
 Jedes Event enthaelt ein `redaction`-Objekt mit `applied`, `policy`, `fields` und `classes`. Wenn Redaction eine bytegenaue Wiedergabe verhindert, muss Replay im Playback-Modus ablehnen und eine Diagnose ausgeben.
 
-Profile verwenden fuer echte Geheimnisse Referenzen wie `pinRef`; Klartext-`pin` ist nur fuer explizite Testfixtures erlaubt und wird nie in Logs geschrieben.
+Profile verwenden fuer echte Geheimnisse Referenzen wie `pinRef` und `pukRef`; Klartext-`pin`/`puk` ist nur fuer explizite Testfixtures erlaubt und wird nie in Logs geschrieben.
 
 ## XML-Sicherheit
 
@@ -83,7 +83,7 @@ CI muss negative Fixtures fuer XXE, externe Schema-URLs, XInclude, Entity Expans
 
 ## Event-Queue und Audit-Vollstaendigkeit
 
-Der Event-Publisher darf normale Telemetrie bei Backpressure gemaess Policy droppen, muss dann aber ein `droppedEventCount`-Event erzeugen. Audit-kritische Events duerfen nicht gedroppt werden:
+Der Event-Publisher darf normale Telemetrie bei Backpressure gemaess Policy droppen, muss dann aber ein `DROPPED_EVENTS`-Event erzeugen und den kumulierten Zaehler in `droppedEventCount` auf dem naechsten persistierten Event fortschreiben. Audit-kritische Events duerfen nicht gedroppt werden:
 
 - Injection,
 - State-Change,
@@ -92,9 +92,10 @@ Der Event-Publisher darf normale Telemetrie bei Backpressure gemaess Policy drop
 - Replay-Start/Stop,
 - Redaction-Fehler,
 - XML-Validation-Fehler,
-- `PORT_LOST`.
+- `PORT_LOST`,
+- `RX_OVERFLOW` und `TX_OVERFLOW`, wenn Datenverlust gemeldet wird.
 
-Falls Audit-kritische Events nicht persistiert werden koennen, stoppt die mutierende Aktion vor der Ausfuehrung.
+Falls Audit-kritische Events nicht persistiert werden koennen, stoppt die mutierende Aktion vor der Ausfuehrung. Bei intern erkannten Zustandswechseln wie `PORT_LOST` wird zuerst ein Audit-Failure/Port-Diagnose-Event durable akzeptiert; wenn das nicht gelingt, stoppt die Session kontrolliert und darf keinen stillen State-Wechsel ohne Audit-Spur fortsetzen.
 
 ## Betrieb in CI
 

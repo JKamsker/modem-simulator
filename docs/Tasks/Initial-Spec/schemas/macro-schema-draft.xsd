@@ -8,6 +8,7 @@
       </xs:choice>
       <xs:attribute name="version" type="xs:string" use="required"/>
       <xs:attribute name="randomSeed" type="xs:long" use="optional"/>
+      <xs:attribute name="lineEnding" type="LineEndingType" use="optional" default="CR"/>
     </xs:complexType>
   </xs:element>
 
@@ -56,6 +57,7 @@
     <xs:attribute name="rawGlob" type="xs:string" use="optional"/>
     <xs:attribute name="rawRegex" type="xs:string" use="optional"/>
     <xs:attribute name="type" type="MatchInputType" use="optional"/>
+    <xs:attribute name="timerId" type="xs:string" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="StringPredicateType">
@@ -102,6 +104,7 @@
     <xs:attribute name="line" type="xs:string" use="optional"/>
     <xs:attribute name="raw" type="xs:string" use="optional"/>
     <xs:attribute name="rawHex" type="HexBytesType" use="optional"/>
+    <xs:attribute name="lineEnding" type="LineEndingType" use="optional"/>
   </xs:complexType>
 
   <xs:complexType name="SetActionType">
@@ -142,6 +145,12 @@
       <xs:enumeration value="basic"/>
       <xs:enumeration value="sms-entry"/>
       <xs:enumeration value="data"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="LineEndingType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[cC][rR]([lL][fF])?|[lL][fF]"/>
     </xs:restriction>
   </xs:simpleType>
 

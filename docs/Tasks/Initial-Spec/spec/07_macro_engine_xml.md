@@ -129,6 +129,8 @@ XML-Dateien muessen beim Laden validiert werden:
 5. Bei Erfolg atomar aktivieren.
 6. Bei Fehler alte Konfiguration weiterverwenden und Event erzeugen.
 
+Semantic-Validation nutzt denselben Runtime-Kontext wie die spaetere Aktivierung. Insbesondere muessen GUI-Reload, CLI-Validierung innerhalb einer laufenden Session und Runtime-Start dieselbe Liste der konfigurierten Timer-IDs, denselben `sessionSeed`-Status und dieselben erlaubten State-Pfade sehen. Ein gueltiges `on-timer`-Makro darf beim GUI-Reload nicht durch einen frischen Loader ohne Runtime-Timer-Kontext abgelehnt werden.
+
 Semantic-Validation muss mindestens ablehnen:
 
 - mehrdeutige String-Predicates, z. B. `equals` und `contains` gleichzeitig,
@@ -152,7 +154,7 @@ Hot Reload ist transaktional:
 2. Schema und Semantic-Validation ausfuehren.
 3. Makros kompilieren.
 4. Neue Macro-Version mit Hash erzeugen.
-5. In-flight `on-timer`-Eintraege der alten Version stornieren und als `cancelled=true` loggen.
+5. In-flight `on-timer`-Eintraege der alten Version stornieren und als `cancelled=true` loggen, bevor Eintraege der neuen Version geplant werden.
 6. Neue Version atomar aktivieren.
 7. Bei Fehler alte Version, Timer und enabled/disabled-Zustaende unveraendert weiterverwenden.
 

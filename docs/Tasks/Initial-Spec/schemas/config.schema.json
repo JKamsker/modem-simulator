@@ -7,7 +7,6 @@
   "required": [
     "ports",
     "serialLine",
-    "sessionSeed",
     "redaction"
   ],
   "allOf": [
@@ -85,6 +84,34 @@
       ],
       "default": "monotonic"
     },
+    "initialScenario": {
+      "type": "string"
+    },
+    "macros": {
+      "type": "string"
+    },
+    "macroTimers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "atMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "atMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "default": []
+    },
     "strictOptionalPorts": {
       "type": "boolean",
       "default": false
@@ -101,8 +128,20 @@
       ],
       "properties": {
         "baudRate": {
-          "type": "integer",
-          "minimum": 1
+          "enum": [
+            300,
+            1200,
+            2400,
+            4800,
+            9600,
+            19200,
+            38400,
+            57600,
+            115200,
+            230400,
+            460800,
+            921600
+          ]
         },
         "dataBits": {
           "enum": [
@@ -169,6 +208,27 @@
                   "const": true
                 }
               }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "serial"
+                },
+                "enabled": {
+                  "const": true
+                }
+              },
+              "required": [
+                "type",
+                "enabled"
+              ]
+            },
+            "then": {
+              "required": [
+                "name"
+              ]
             }
           }
         ],

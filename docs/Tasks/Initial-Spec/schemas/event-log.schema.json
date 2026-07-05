@@ -9,9 +9,16 @@
     "sequence",
     "sessionId",
     "eventType",
+    "source",
     "direction",
     "rawHex",
-    "redaction"
+    "redaction",
+    "profileHash",
+    "configHash",
+    "macroHash",
+    "initialStateHash",
+    "sessionSeed",
+    "clockMode"
   ],
   "properties": {
     "timestamp": {
@@ -48,6 +55,7 @@
         "RX_BYTES",
         "TX_BYTES",
         "PARSED_COMMAND",
+        "PARSE_ERROR",
         "HANDLER_RESULT",
         "SCHEDULER_ENQUEUE",
         "SCHEDULER_EMIT",
@@ -55,9 +63,42 @@
         "FAULT_TRIGGERED",
         "INJECTION",
         "MACRO_DECISION",
+        "MACRO_EVENT",
+        "POLICY_DENIED",
+        "VALIDATION_ERROR",
         "REPLAY_MARKER",
+        "PORT_OPEN_FAILED",
         "PORT_LOST",
+        "RX_OVERFLOW",
+        "TX_OVERFLOW",
+        "DROPPED_EVENTS",
         "AUDIT_FAILURE"
+      ]
+    },
+    "source": {
+      "enum": [
+        "rx",
+        "tx",
+        "gui",
+        "macro",
+        "replay",
+        "scheduler",
+        "transport",
+        "internal"
+      ]
+    },
+    "diagnosticCode": {
+      "enum": [
+        "PORT_NOT_FOUND",
+        "PORT_BUSY",
+        "PORT_PERMISSION_DENIED",
+        "UNSUPPORTED_PARAMETERS",
+        "PORT_LOST",
+        "RX_OVERFLOW",
+        "TX_OVERFLOW",
+        "AUDIT_WRITE_FAILED",
+        "POLICY_DENIED",
+        "VALIDATION_ERROR"
       ]
     },
     "direction": {
@@ -74,6 +115,11 @@
         "raw-dce-to-dte",
         "parsed-command",
         "state-change",
+        "dtr-drop",
+        "line-change",
+        "scenario-step",
+        "unknown-at-command-policy",
+        "modem-reboot-complete",
         "macro-control",
         "replay"
       ]
@@ -98,19 +144,20 @@
       "type": "string"
     },
     "profileHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "configHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "macroHash": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "initialStateHash": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
     },
     "sessionSeed": {
       "type": "integer"
@@ -133,6 +180,12 @@
         "null"
       ]
     },
+    "handler": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "latencyMs": {
       "type": [
         "number",
@@ -143,6 +196,16 @@
     "scheduler": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "dueMonotonicNanos",
+        "sourceSequence",
+        "sourcePriority",
+        "stateVersion",
+        "cancelOnStateChange",
+        "operation",
+        "sampledDelayMs",
+        "cancelled"
+      ],
       "properties": {
         "dueMonotonicNanos": {
           "type": "integer",
@@ -154,16 +217,26 @@
         },
         "sourcePriority": {
           "enum": [
+            "internal",
+            "replay",
             "rx",
             "gui",
-            "macro",
-            "replay",
-            "internal"
+            "macro"
           ]
+        },
+        "stateVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancelOnStateChange": {
+          "type": "boolean"
         },
         "sampledDelayMs": {
           "type": "integer",
           "minimum": 0
+        },
+        "operation": {
+          "type": "string"
         },
         "cancelled": {
           "type": "boolean"
@@ -223,6 +296,427 @@
     "droppedEventCount": {
       "type": "integer",
       "minimum": 0
+    },
+    "replayDivergent": {
+      "type": "boolean"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "SCHEDULER_ENQUEUE",
+              "SCHEDULER_EMIT"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "scheduler"
+        ],
+        "properties": {
+          "source": {
+            "const": "scheduler"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "SESSION_START",
+              "SESSION_STOP",
+              "STATE_CHANGE",
+              "FAULT_TRIGGERED"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "internal"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          },
+          "rawHex": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "INJECTION"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "enum": [
+              "gui",
+              "replay",
+              "internal"
+            ]
+          },
+          "direction": {
+            "enum": [
+              "DTE_TO_DCE",
+              "DCE_TO_DTE",
+              "INTERNAL"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "MACRO_DECISION",
+              "MACRO_EVENT"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "macro"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          },
+          "rawHex": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "REPLAY_MARKER"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "replay"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          },
+          "rawHex": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "POLICY_DENIED",
+              "VALIDATION_ERROR"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "internal"
+          },
+          "direction": {
+            "const": "INTERNAL"
+          },
+          "rawHex": {
+            "const": ""
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "RX_BYTES"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "rx"
+          },
+          "direction": {
+            "const": "DTE_TO_DCE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TX_BYTES"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "tx"
+          },
+          "direction": {
+            "const": "DCE_TO_DTE"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "enum": [
+              "PARSED_COMMAND",
+              "PARSE_ERROR",
+              "HANDLER_RESULT"
+            ]
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source": {
+            "const": "internal"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PORT_OPEN_FAILED"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "diagnosticCode",
+          "port",
+          "portRole"
+        ],
+        "properties": {
+          "source": {
+            "const": "transport"
+          },
+          "direction": {
+            "enum": [
+              "INTERNAL",
+              "NONE"
+            ]
+          },
+          "rawHex": {
+            "const": ""
+          },
+          "diagnosticCode": {
+            "enum": [
+              "PORT_NOT_FOUND",
+              "PORT_BUSY",
+              "PORT_PERMISSION_DENIED",
+              "UNSUPPORTED_PARAMETERS"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PORT_LOST"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "diagnosticCode"
+        ],
+        "properties": {
+          "source": {
+            "const": "transport"
+          },
+          "diagnosticCode": {
+            "const": "PORT_LOST"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "RX_OVERFLOW"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "diagnosticCode",
+          "replayDivergent"
+        ],
+        "properties": {
+          "source": {
+            "const": "transport"
+          },
+          "diagnosticCode": {
+            "const": "RX_OVERFLOW"
+          },
+          "replayDivergent": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TX_OVERFLOW"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "diagnosticCode",
+          "replayDivergent"
+        ],
+        "properties": {
+          "source": {
+            "const": "transport"
+          },
+          "diagnosticCode": {
+            "const": "TX_OVERFLOW"
+          },
+          "replayDivergent": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "DROPPED_EVENTS"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "droppedEventCount"
+        ],
+        "properties": {
+          "source": {
+            "const": "internal"
+          },
+          "direction": {
+            "const": "NONE"
+          },
+          "rawHex": {
+            "const": ""
+          },
+          "droppedEventCount": {
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "AUDIT_FAILURE"
+          }
+        },
+        "required": [
+          "eventType"
+        ]
+      },
+      "then": {
+        "required": [
+          "diagnosticCode"
+        ],
+        "properties": {
+          "source": {
+            "const": "internal"
+          },
+          "diagnosticCode": {
+            "const": "AUDIT_WRITE_FAILED"
+          }
+        }
+      }
+    }
+  ]
 }

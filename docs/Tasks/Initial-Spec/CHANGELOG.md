@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5 - 2026-07-03
+
+- Issue #2 gegen die aktuelle Spec abgeglichen: PDU-Laenge als Oktettzahl, PUK-Unlock, `ATA`, Parser-Fehler, Port-Diagnosen, Replay-Divergenzbestaetigung, Event-Backpressure, Handler-Latenz und Macro-Hot-Reload nachgeschaerft.
+- GUI-Live-Log-Filter, dropped-event-Zaehler, Audit-Failure-Hard-Stop und Build-Source-Size-Gate als explizite Abnahmefaelle ergaenzt.
+- XSD um PUK-Secret-Referenzen und `ringing`-Call-State erweitert; Eventlog-Schema um `DROPPED_EVENTS`, normalisierte Source und Diagnosecodes vorbereitet.
+- Java-24-Native-Access-Regel fuer Classpath-Launcher auf `--enable-native-access=ALL-UNNAMED` konkretisiert.
+
 ## v0.4 - 2026-07-03
 
 - Portgruppen fuer v1 spezifiziert: ein immer aktiver Hauptport fuer die Modem-Simulation, ein optionaler Sniffer-Port und ein optionaler Manual-DCE-Port fuer manuelle Antworten z. B. per PuTTY.
@@ -12,7 +19,7 @@
 
 ## v0.3 - 2026-07-02
 
-- Alegs3-Spec als Source of Record markiert.
+- JKamsker-Spec als Source of Record markiert.
 - XSD als autoritatives Runtime-Profilformat festgelegt; JSON-Profil-Schema zu Catalog/Coverage-Helper demotiert.
 - SessionActor, deterministischen Scheduler, `sessionSeed`, virtuelle Clock und Replay-Modi spezifiziert.
 - v1-Zielprofile, JavaFX-GUI, Ziel-OS, Virtual-COM-Tools und TCP-Bridge-Out-of-Scope festgelegt.

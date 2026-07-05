@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modem-simulator version="1.0">
+  <profile id="negative-sim-puk-required-without-puk"
+           vendor="Spec Fixture"
+           status="stub"
+           profileKind="cellular">
+    <identity manufacturer="Fixture" model="PUK-MISSING" revision="1" imei="359762080000001"/>
+    <dialect commandTerminator="CR"
+             responseTerminator="CRLF"
+             smsPromptBytes="0D0A3E20"
+             defaultEcho="true"
+             defaultVerbose="true"
+             defaultQuiet="false"
+             resetPolicy="nvram-on-atz"
+             lineModel="minimal-v250"
+             unknownAtCommand="ERROR"/>
+    <error-policy invalidParameter="CME_OR_ERROR"
+                  stateFailure="CME"
+                  smsFailure="CMS"
+                  timeout="NO_RESPONSE"/>
+    <initial-state>
+      <sim state="SIM_PUK_REQUIRED"
+           pinQueryEnabled="true"
+           pinRef="TEST_SIM_PIN"
+           pukRetries="10"/>
+      <network cregN="0" stat="0">
+        <operator selectionMode="automatic"
+                  format="long"
+                  longName="Telekom.de"
+                  shortName="TDG"
+                  numeric="26201"
+                  mcc="262"
+                  mnc="01"/>
+      </network>
+      <signal rssi="99" ber="99"/>
+      <sms textMode="true"/>
+      <call mode="command" carrier="false"/>
+      <modem lifecycle="READY" freezeMode="NONE" bootDelayMs="0"/>
+      <modem-lines dtr="true" dsr="true" dcd="false" ri="false" rts="true" cts="true"/>
+    </initial-state>
+    <coverage source="negative" commandsTotal="0" unknown="0"/>
+  </profile>
+</modem-simulator>

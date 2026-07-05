@@ -84,6 +84,8 @@
     <xs:attribute name="dsr" type="xs:boolean" use="optional"/>
     <xs:attribute name="dcd" type="xs:boolean" use="optional"/>
     <xs:attribute name="ri" type="xs:boolean" use="optional"/>
+    <xs:attribute name="rts" type="xs:boolean" use="optional"/>
+    <xs:attribute name="cts" type="xs:boolean" use="optional"/>
   </xs:complexType>
 
   <xs:simpleType name="StatePathType">

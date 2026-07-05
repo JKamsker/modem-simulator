@@ -10,6 +10,7 @@ state:
     state: READY
     pinQueryEnabled: true
     pinRef: TEST_SIM_PIN
+    pukRef: TEST_SIM_PUK
     pinRetries: 3
     pukRetries: 10
     imsi: "262010123456789"
@@ -52,6 +53,7 @@ state:
   call:
     mode: command
     carrier: false
+    incomingNumber: null
   modem:
     lifecycle: READY
     freezeMode: NONE
@@ -85,8 +87,9 @@ Diese Pfade sind fuer `state-change`, Makro-`<when>`, Makro-`<set>`, Szenarien u
 | `state.signal.ber` | 0..7 oder 99 |
 | `state.sms.textMode` | boolean |
 | `state.sms.storage` | `ME`, `SM`, `MT` |
-| `state.call.mode` | `command`, `dialing`, `online-data`, `online-command` |
+| `state.call.mode` | `command`, `ringing`, `dialing`, `online-data`, `online-command` |
 | `state.call.carrier` | boolean |
+| `state.call.incomingNumber` | string oder null |
 | `state.modem.lifecycle` | `READY`, `REBOOTING`, `FROZEN` |
 | `state.modem.freezeMode` | `NONE`, `NO_RESPONSE`, `HOLD_TX`, `HOLD_RX_TX` |
 | `state.modem.bootDelayMs` | non-negative integer |
@@ -101,6 +104,7 @@ SIM- und Netzbetreiber-Eigenschaften sind Teil des initialen Profilzustands und 
   <sim state="READY"
        pinQueryEnabled="true"
        pinRef="TEST_SIM_PIN"
+       pukRef="TEST_SIM_PUK"
        pinRetries="3"
        pukRetries="10"
        imsi="262010123456789"
@@ -131,6 +135,7 @@ Semantik:
 
 - `sim.pinQueryEnabled` legt fest, ob die SIM-PIN-Abfrage modelliert wird.
 - `sim.pinRef` referenziert einen Test-Secret-Namen aus Test-/Runtime-Konfiguration. Produktive SIM-PINs duerfen nicht als Klartext im Profil stehen.
+- `sim.pukRef` referenziert den PUK-Secret-Namen. Wie bei `pinRef` ist Klartext-`puk` nur fuer explizit markierte Testfixtures erlaubt.
 - `sim.pin` ist nur fuer explizit als Testfixture markierte Profile erlaubt; normale Profile verwenden `pinRef`.
 - Wenn `pinQueryEnabled=true` und kein expliziter `sim.state` gesetzt ist, startet die Session in `SIM_PIN_REQUIRED`.
 - Wenn `pinQueryEnabled=false`, muss `AT+CPIN?` bei eingelegter SIM `READY` liefern.
@@ -148,6 +153,8 @@ Eine PIN-gesperrte SIM darf nicht gleichzeitig als aktuell registriert modellier
 - Ein Profil darf einen latenten Zielzustand fuer nach dem Unlock speichern, aber nicht als aktuelle Registrierung ausgeben.
 
 Nach erfolgreichem `AT+CPIN=<pin>` wechselt `state.sim.state` nach `READY`. Erst danach darf ein Szenario oder Makro die Registrierung auf `1` oder `5` setzen oder ein latenter Zielzustand aktiviert werden.
+
+Falsche PIN-Eingaben reduzieren `state.sim.pinRetries` genau einmal pro Versuch. Wenn der Zaehler dadurch `0` erreicht, wechselt `state.sim.state` nach `SIM_PUK_REQUIRED`. In diesem Zustand akzeptiert `AT+CPIN="<puk>","<newPin>"` den korrekten PUK und eine neue 4- bis 8-stellige PIN; danach gelten `state.sim.state=READY`, `pinRetries=3` und der neue PIN-Wert bzw. Test-Secret-Wert. Falsche PUK-Eingaben reduzieren `state.sim.pukRetries`; bei `0` wechselt die SIM in einen nicht entsperrbaren Fehlerzustand (`SIM_FAILURE` oder profilierte Deviation).
 
 ## SIM-Zustaende
 

@@ -38,6 +38,7 @@ Unterstuetzte Formen:
 AT
 A/
 +++
+ATA
 ATZ
 ATE0
 ATQ1
@@ -98,6 +99,8 @@ Regeln fuer v1:
 
 Der `ParsedCommand` muss Rohspanne, normalisierten Namen, Kind, Parameter, Quote/PDU-Kontext und Position in der Ursprungszeile enthalten. Ein einzelner String plus flache Argumentliste reicht nicht.
 
+Malformed AT darf nicht still als gueltiges Kommando weiterlaufen. Unterminierte Quotes, ungueltige S-Register-Syntax, Parameter ausserhalb der vom Handler deklarierten Form, stray Separatoren und nicht parsebare numerische Werte erzeugen ein Parse-/Validation-Ergebnis, das als `PARSE_ERROR` geloggt wird und nach Profil-Fehlerpolicy `ERROR`, `+CME ERROR` oder `+CMS ERROR` liefert.
+
 ## Command Router
 
 Der `SessionActor` ruft den Router in dieser Reihenfolge auf:
@@ -117,6 +120,7 @@ Zustaende:
 
 ```text
 COMMAND_MODE
+RINGING
 DIALING
 ONLINE_DATA_MODE
 ONLINE_COMMAND_MODE
@@ -127,6 +131,7 @@ SMS_PDU_ENTRY_MODE
 Uebergaenge:
 
 - `ATD...` kann nach `CONNECT` in `ONLINE_DATA_MODE` wechseln.
+- `ATA` beantwortet nur einen modellierten eingehenden Ruf (`state.call.mode=ringing`): bei Erfolg `CONNECT`, `state.call.mode=online-data`, `state.call.carrier=true`, DCD true und RI false; ohne eingehenden Ruf liefert es profilabhaengig `NO CARRIER` oder `ERROR`.
 - `+++` kann nur nach Guard-Time in `ONLINE_COMMAND_MODE` wechseln.
 - `ATO` kehrt aus `ONLINE_COMMAND_MODE` in `ONLINE_DATA_MODE` zurueck.
 - `ATH` trennt, setzt DCD false und kehrt nach `COMMAND_MODE` zurueck; der finale Result Code ist `OK`.
@@ -137,7 +142,7 @@ Uebergaenge:
 
 ## Fehler-Policy
 
-Jedes Profil definiert:
+Jedes Runtime-Profil definiert eine Fehler-Policy. Fehlt `<error-policy>` in einem geerbten Basisprofil, verwendet der Loader die v1-Defaults `invalidParameter=CME_OR_ERROR`, `stateFailure=CME`, `smsFailure=CMS`, `timeout=NO_RESPONSE`; Runtime-Zielprofile muessen die effektive Policy im geladenen Profilmodell tragen.
 
 ```yaml
 dialect:

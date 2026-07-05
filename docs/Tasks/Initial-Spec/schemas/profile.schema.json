@@ -26,6 +26,7 @@
         "candidate",
         "out-of-scope",
         "stub",
+        "test-fixture",
         "verified"
       ]
     },

@@ -1,0 +1,154 @@
+package com.jkamsker.modemsim.parser;
+
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class AtCommandParserTest {
+    private final AtCommandParser parser = new AtCommandParser(8);
+
+    @Test
+    void parsesBasicCommandChain() {
+        var commands = parser.parse(RawBytes.ascii("ATE0V1Q0\r"), EntryMode.COMMAND);
+
+        assertThat(commands)
+                .extracting(ParsedCommand::normalizedName)
+                .containsExactly("ATE", "ATV", "ATQ");
+        assertThat(commands).extracting(ParsedCommand::arguments).containsExactly("0", "1", "0");
+    }
+
+    @Test
+    void parsesExtendedChainWithoutSplittingQuotedSemicolon() {
+        var commands = parser.parse(RawBytes.ascii("AT+CMEE=2;+X=\"a;b\";+CSQ\r"), EntryMode.COMMAND);
+
+        assertThat(commands)
+                .extracting(ParsedCommand::normalizedName)
+                .containsExactly("+CMEE", "+X", "+CSQ");
+        assertThat(commands.get(1).arguments()).isEqualTo("\"a;b\"");
+        assertThat(commands.get(2).kind()).isEqualTo(CommandKind.EXTENDED_EXEC);
+        assertThat(commands).extracting(ParsedCommand::rawText).containsExactly("AT+CMEE=2", "+X=\"a;b\"", "+CSQ");
+        assertThat(commands.get(1).rawStartOffset()).isEqualTo(10);
+        assertThat(commands.get(1).rawEndOffset()).isEqualTo(18);
+        assertThat(commands.get(1).sourceLine().ascii()).isEqualTo("AT+CMEE=2;+X=\"a;b\";+CSQ");
+        assertThat(commands.get(1).span()).isEqualTo(new CommandSpan(10, 18));
+        assertThat(commands.get(1).typedTokens()).isNotEmpty();
+        assertThat(commands.get(1).quoted()).isTrue();
+        assertThat(commands.get(2).quoted()).isFalse();
+    }
+
+    @Test
+    void chainedCommandSpansIndexIntoFullSourceLine() {
+        var commands = parser.parse(RawBytes.ascii("AT+CMEE=2;+CREG=2;+CSQ\r"), EntryMode.COMMAND);
+
+        assertThat(commands).hasSize(3);
+        assertThat(commands).allSatisfy(command ->
+                assertThat(command.sourceLine().ascii()).isEqualTo("AT+CMEE=2;+CREG=2;+CSQ"));
+        assertThat(commands.get(1).rawText()).isEqualTo("+CREG=2");
+        assertThat(commands.get(1).span()).isEqualTo(new CommandSpan(10, 17));
+        assertThat(commands.get(1).sourceLine().ascii()
+                .substring(commands.get(1).span().startOffset(), commands.get(1).span().endOffset()))
+                .isEqualTo("+CREG=2");
+    }
+
+    @Test
+    void preservesEntryContextForPduModeCommands() {
+        var commands = parser.parse(RawBytes.ascii("AT+CMGS=4\r"), EntryMode.SMS_PDU_ENTRY);
+
+        assertThat(commands).singleElement().satisfies(command -> {
+            assertThat(command.pduContext()).isTrue();
+            assertThat(command.entryMode()).isEqualTo(EntryMode.SMS_PDU_ENTRY);
+            assertThat(command.rawStartOffset()).isEqualTo(2);
+            assertThat(command.rawEndOffset()).isEqualTo(9);
+        });
+    }
+
+    @Test
+    void parsesSRegisterForms() {
+        var commands = parser.parse(RawBytes.ascii("ATS7=60S12?\r"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("S7", "S12");
+        assertThat(commands).extracting(ParsedCommand::kind)
+                .containsExactly(CommandKind.S_REGISTER_WRITE, CommandKind.S_REGISTER_READ);
+    }
+
+    @Test
+    void commandKindPredicatesDoNotMatchTheWrongFamily() {
+        ParsedCommand basic = parser.parse(RawBytes.ascii("ATD123\r"), EntryMode.COMMAND).getFirst();
+        ParsedCommand extended = parser.parse(RawBytes.ascii("AT+CMGS=\"+491701234567\"\r"), EntryMode.COMMAND)
+                .getFirst();
+        ParsedCommand register = parser.parse(RawBytes.ascii("ATS7?\r"), EntryMode.COMMAND).getFirst();
+
+        assertThat(basic.isBasic("ATD")).isTrue();
+        assertThat(basic.isExtended("ATD")).isFalse();
+        assertThat(extended.isExtended("+CMGS")).isTrue();
+        assertThat(extended.isBasic("+CMGS")).isFalse();
+        assertThat(register.isBasic("S7")).isFalse();
+        assertThat(register.isExtended("S7")).isFalse();
+    }
+
+    @Test
+    void appliesBackspaceBeforeTokenizing() {
+        var commands = parser.parse(RawBytes.copyOf(new byte[] {'A', 'T', 'X', 8, 'I', '\r'}), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("ATI");
+    }
+
+    @Test
+    void honorsConfiguredCommandTerminator() {
+        var commands = new AtCommandParser(8, ';').parse(RawBytes.ascii("AT;"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT");
+    }
+
+    @Test
+    void ignoresUnterminatedCommandLineAndDoesNotTreatLfAsDefaultTerminator() {
+        assertThat(parser.parse(RawBytes.ascii("AT"), EntryMode.COMMAND)).isEmpty();
+        assertThat(parser.parse(RawBytes.ascii("AT\n"), EntryMode.COMMAND)).isEmpty();
+        assertThat(parser.parse(RawBytes.ascii("AT\r\n"), EntryMode.COMMAND))
+                .extracting(ParsedCommand::normalizedName)
+                .containsExactly("AT");
+    }
+
+    @Test
+    void parsesAmpersandCommandsWithNumericArguments() {
+        var commands = parser.parse(RawBytes.ascii("AT&D2&C1\r"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName).containsExactly("AT&D", "AT&C");
+        assertThat(commands).extracting(ParsedCommand::arguments).containsExactly("2", "1");
+    }
+
+    @Test
+    void preservesValidPrefixBeforeLaterParseError() {
+        var commands = parser.parse(RawBytes.ascii("ATQ1;+CPIN??\r"), EntryMode.COMMAND);
+
+        assertThat(commands).extracting(ParsedCommand::normalizedName)
+                .containsExactly("ATQ", "PARSE_ERROR");
+        assertThat(commands).extracting(ParsedCommand::commandIndexInLine).containsExactly(0, 1);
+        assertThat(commands.get(1).rawText()).isEqualTo("+CPIN??");
+    }
+
+    @Test
+    void rejectsMalformedLines() {
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("BOGUS\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+CPIN=\"1234\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT;+CSQ\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7=\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7?=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("ATS7=42?\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+=1\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+CPIN??\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+        assertThatThrownBy(() -> parser.parse(RawBytes.ascii("AT+CMEE?=2\r"), EntryMode.COMMAND))
+                .isInstanceOf(AtParseException.class);
+    }
+}

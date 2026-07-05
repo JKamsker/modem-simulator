@@ -126,10 +126,14 @@ Primaere Bibliothek: `com.fazecast:jSerialComm`. Die konkrete Version wird im Bu
 
 | Fehler | Erwartetes Verhalten |
 |---|---|
-| Port nicht vorhanden | Startfehler mit klarer Diagnose. |
-| Port belegt | Startfehler, kein stiller Retry ohne Konfiguration. |
+| Port nicht vorhanden | Startfehler mit klarer Diagnose und Diagnosecode `PORT_NOT_FOUND`. |
+| Port belegt | Startfehler mit klarer Diagnose und Diagnosecode `PORT_BUSY`; kein stiller Retry ohne Konfiguration. |
+| Zugriff verweigert | Startfehler mit klarer Diagnose und Diagnosecode `PORT_PERMISSION_DENIED`; kein stiller Retry ohne Konfiguration. |
 | Device verschwindet | Session auf `PORT_LOST`, DSR/DCD false, Scheduler-Cancel, Eventlog-Eintrag, optional Auto-Reconnect nur nach Konfiguration. |
-| Baudrate nicht unterstuetzt | Validierungsfehler. |
+| Serielle Parameter ausserhalb Config-Schema | Validierungsfehler vor Open-Versuch. |
+| Endpoint lehnt schema-gueltige serielle Parameter ab | Startfehler mit Diagnosecode `UNSUPPORTED_PARAMETERS`. |
 | Pufferueberlauf | Event `RX_OVERFLOW` oder `TX_OVERFLOW`; bei Datenverlust muss die Session fuer Replay als divergent markiert werden. |
+
+Open-Time-Fehler muessen `not present`, `busy`, `permission denied` und `unsupported parameters` unterscheiden. Optional aktivierte Sidecar-Ports verwenden dieselben Diagnosecodes und erzeugen `PORT_OPEN_FAILED`-Events mit `source=transport`, `port`, `portRole`, `direction=INTERNAL|NONE` und leerem `rawHex`; bei `strictOptionalPorts=false` bleibt die Hauptsession danach aktiv.
 
 `PORT_LOST` darf nicht allein aus einem leeren oder timeoutenden `read()` abgeleitet werden. Die Implementierung muss Bibliotheksereignisse, IOException-Klassen und Port-Reenumeration kombinieren und die Diagnose loggen.

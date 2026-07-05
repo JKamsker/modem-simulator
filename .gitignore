@@ -1,0 +1,9 @@
+target/
+.idea/
+.vscode/
+*.iml
+runtime/
+logs/*
+!logs/fixture.jsonl
+!logs/playback-divergence.jsonl
+*.log
